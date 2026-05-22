@@ -1,0 +1,30 @@
+{% comment %}
+DaisyUI paginator. Preserves query string (e.g. `?q=…`) across pages
+via Django 5.1+ {% querystring %}.
+
+Usage:
+    {% include "_pagination.html" with page_obj=page_obj %}
+{% endcomment %}
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-between mt-6">
+  <p class="text-sm opacity-70">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} · {{ page_obj.paginator.count }} total
+  </p>
+
+  <div class="join">
+    {% if page_obj.has_previous %}
+      <a class="join-item btn btn-sm" href="{% querystring page=page_obj.previous_page_number %}">«</a>
+    {% else %}
+      <button class="join-item btn btn-sm btn-disabled">«</button>
+    {% endif %}
+
+    <button class="join-item btn btn-sm">{{ page_obj.number }}</button>
+
+    {% if page_obj.has_next %}
+      <a class="join-item btn btn-sm" href="{% querystring page=page_obj.next_page_number %}">»</a>
+    {% else %}
+      <button class="join-item btn btn-sm btn-disabled">»</button>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

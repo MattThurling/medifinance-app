@@ -1,0 +1,53 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}{% if object %}Edit quote{% else %}New quote{% endif %} · {{ parent_deal.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
+    <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
+  </p>
+  <h1 class="text-2xl font-semibold mb-6">
+    {% if object %}Edit quote{% else %}New quote{% endif %}
+  </h1>
+
+  <form method="post" class="card bg-base-100 shadow">
+    <div class="card-body">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% if parent_deal.funded_amount %}
+        <div class="alert alert-info mb-4 text-sm">
+          Monthly payment is auto-calculated from this deal's funded amount
+          (<strong>£{{ parent_deal.funded_amount }}</strong>) plus the APR + term below.
+        </div>
+      {% else %}
+        <div class="alert alert-warning mb-4 text-sm">
+          This deal has no funded amount set, so we can't calculate the monthly payment.
+          <a href="{% url 'crm:deal_update' parent_deal.pk %}" class="link">Edit the deal</a> first.
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.term %}
+        {% include "_field.html" with field=form.apr %}
+      </div>
+
+      {% if object and object.monthly_payment %}
+        <p class="text-sm opacity-70 mb-2">
+          Current monthly payment: <strong>£{{ object.monthly_payment }}</strong>
+          <span class="opacity-60">(will be recalculated on save)</span>
+        </p>
+      {% endif %}
+
+      <div class="card-actions justify-end mt-2">
+        <a href="{{ parent_deal.get_absolute_url }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

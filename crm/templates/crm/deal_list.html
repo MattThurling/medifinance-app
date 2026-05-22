@@ -1,0 +1,74 @@
+{% extends "_app_layout.html" %}
+{% load icons crm_extras %}
+
+{% block title %}Deals · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between gap-4 mb-4">
+  <form method="get" class="flex-1">
+    <div class="join w-full max-w-md">
+      <input
+        type="search"
+        name="q"
+        value="{{ q }}"
+        placeholder="Search deal, customer, organisation…"
+        class="input input-bordered input-sm join-item w-full"
+      />
+      <button class="btn btn-sm join-item">Search</button>
+    </div>
+  </form>
+  <a href="{% url 'crm:deal_create' %}" class="btn btn-primary btn-sm">
+    {% icon "plus" class="h-4 w-4" %}
+    New deal
+  </a>
+</div>
+
+<div class="card bg-base-100 shadow">
+  <div class="overflow-x-auto">
+    <table class="table table-xs">
+      <thead>
+        <tr>
+          <th>Deal</th>
+          <th>Stage</th>
+          <th>Customer</th>
+          <th>Organisation</th>
+          <th>Owner</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in object_list %}
+          <tr>
+            <td>
+              <a href="{{ d.get_absolute_url }}" class="link link-hover font-medium">{{ d.name }}</a>
+            </td>
+            <td>
+              {% if d.current_stage_name %}
+                <span class="badge badge-ghost">{{ d.current_stage_name|stage_display }}</span>
+              {% else %}<span class="opacity-60">—</span>{% endif %}
+            </td>
+            <td>
+              <a href="{{ d.customer.get_absolute_url }}" class="link link-hover">{{ d.customer }}</a>
+            </td>
+            <td>
+              <a href="{{ d.customer.organisation.get_absolute_url }}" class="link link-hover">{{ d.customer.organisation.name }}</a>
+            </td>
+            <td class="opacity-80">{{ d.owner.full_name }}</td>
+            <td>
+              <a href="{% url 'crm:deal_update' d.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center opacity-60 py-8">
+              {% if q %}No deals match “{{ q }}”.{% else %}No deals yet.{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "_pagination.html" with page_obj=page_obj %}
+{% endblock %}

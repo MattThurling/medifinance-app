@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Link expired · Medifinance{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex items-center justify-center px-4">
+  <div class="card w-full max-w-md bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title text-xl">This link can no longer be used</h1>
+      <p class="text-sm opacity-70 mt-2">
+        {% if link.is_consumed %}
+          It's already been opened once. Magic links are single-use for security.
+        {% else %}
+          It's expired.
+        {% endif %}
+      </p>
+      <p class="text-sm opacity-70 mt-2">
+        Please ask your Medifinance contact to send you a new link.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

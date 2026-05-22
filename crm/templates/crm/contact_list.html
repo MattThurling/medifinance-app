@@ -1,0 +1,66 @@
+{% extends "_app_layout.html" %}
+{% load icons %}
+
+{% block title %}Contacts · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between gap-4 mb-4">
+  <form method="get" class="flex-1">
+    <div class="join w-full max-w-md">
+      <input
+        type="search"
+        name="q"
+        value="{{ q }}"
+        placeholder="Search name, email, organisation…"
+        class="input input-bordered input-sm join-item w-full"
+      />
+      <button class="btn btn-sm join-item">Search</button>
+    </div>
+  </form>
+  <a href="{% url 'crm:contact_create' %}" class="btn btn-primary btn-sm">
+    {% icon "plus" class="h-4 w-4" %}
+    New contact
+  </a>
+</div>
+
+<div class="card bg-base-100 shadow">
+  <div class="overflow-x-auto">
+    <table class="table table-xs">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Organisation</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in object_list %}
+          <tr>
+            <td>
+              <a href="{{ c.get_absolute_url }}" class="link link-hover font-medium">{{ c }}</a>
+            </td>
+            <td class="opacity-80">{{ c.email|default:"—" }}</td>
+            <td class="opacity-60 text-sm">{{ c.phone|default:"—" }}</td>
+            <td>
+              <a href="{{ c.organisation.get_absolute_url }}" class="link link-hover">{{ c.organisation.name }}</a>
+            </td>
+            <td>
+              <a href="{% url 'crm:contact_update' c.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center opacity-60 py-8">
+              {% if q %}No contacts match “{{ q }}”.{% else %}No contacts yet.{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "_pagination.html" with page_obj=page_obj %}
+{% endblock %}

@@ -1,0 +1,26 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# VCS / CI
+.git/
+.github/
+
+# Local DB + secrets
+db.sqlite3
+db.sqlite3-journal
+.env
+
+# Build outputs (regenerated inside the image)
+node_modules/
+/static/dist/
+/staticfiles/
+
+# Customer data + docs
+import/
+docs/
+
+# OS
+.DS_Store

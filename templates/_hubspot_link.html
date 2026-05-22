@@ -1,0 +1,19 @@
+{% comment %}
+Render a record's hubspot_id as a deep-link into HubSpot, or — if blank.
+
+Usage:
+    {% include "_hubspot_link.html" with obj=organisation %}
+
+`obj` must have `.hubspot_id` and `.hubspot_url` (the latter resolves via
+`_hubspot_url` in crm/models.py).
+{% endcomment %}
+{% load icons %}
+{% if obj.hubspot_id %}
+  <a href="{{ obj.hubspot_url }}" target="_blank" rel="noopener noreferrer"
+     class="link link-hover font-mono text-xs inline-flex items-center gap-1">
+    {{ obj.hubspot_id }}
+    {% icon "external-link" class="h-3 w-3" %}
+  </a>
+{% else %}
+  <span class="opacity-60">—</span>
+{% endif %}

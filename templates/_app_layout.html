@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load icons static %}
+
+{% block body %}
+<div class="drawer lg:drawer-open">
+  <input id="app-drawer" type="checkbox" class="drawer-toggle" />
+
+  <div class="drawer-content flex flex-col min-h-screen bg-gray-50">
+    {# Mobile top bar — visible only when sidebar is collapsed (below lg) #}
+    <div class="navbar bg-gray-100 lg:hidden">
+      <div class="flex-none">
+        <label for="app-drawer" aria-label="Open sidebar" class="btn btn-square btn-ghost">
+          {% icon "menu" class="h-5 w-5" %}
+        </label>
+      </div>
+      <div class="flex-1">
+        <span class="text-lg font-semibold">Medifinance CRM</span>
+      </div>
+    </div>
+
+    <main class="flex-1 p-6 lg:p-8">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }} mb-4">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <div class="drawer-side z-20">
+    <label for="app-drawer" aria-label="Close sidebar" class="drawer-overlay"></label>
+    <aside class="bg-gray-100 min-h-screen w-64 flex flex-col">
+
+      <div class="px-5 py-5">
+        <a href="{% url 'dashboard' %}" class="block">
+          <img src="{% static 'img/MedifinanceLogo.webp' %}" alt="Medifinance" class="h-9 w-auto" />
+        </a>
+      </div>
+
+      <nav class="flex-1 px-3 py-4">
+        <ul class="menu menu-md w-full gap-1 p-0">
+          <li>
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}menu-active{% endif %}">
+              {% icon "layout-dashboard" %}
+              Dashboard
+            </a>
+          </li>
+
+          {% if user.is_admin or user.is_associate %}
+            <li class="menu-title pt-4">
+              <span>CRM</span>
+            </li>
+            <li>
+              <a href="{% url 'crm:contact_list' %}" class="{% if 'contact' in request.resolver_match.url_name %}menu-active{% endif %}">
+                {% icon "contact" %}
+                Contacts
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'crm:organisation_list' %}" class="{% if 'organisation' in request.resolver_match.url_name %}menu-active{% endif %}">
+                {% icon "building" %}
+                Organisations
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'crm:deal_list' %}" class="{% if 'deal' in request.resolver_match.url_name %}menu-active{% endif %}">
+                {% icon "handshake" %}
+                Deals
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+
+      <div class="p-3">
+        <div class="dropdown dropdown-top w-full">
+          <div tabindex="0" role="button" class="btn btn-ghost w-full justify-start normal-case">
+            <div class="avatar avatar-placeholder">
+              <div class="bg-neutral text-neutral-content w-8 rounded-full">
+                <span class="text-xs">{{ user.email|slice:":1"|upper }}</span>
+              </div>
+            </div>
+            <div class="flex flex-col items-start flex-1 min-w-0">
+              <span class="text-sm truncate w-full">{{ user.full_name }}</span>
+              <span class="text-xs opacity-60">{{ user.get_role_display }}</span>
+            </div>
+          </div>
+          <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-10 w-56 p-2 shadow mb-2">
+            <li>
+              <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="flex items-center gap-2 w-full text-left">
+                  {% icon "log-out" %}
+                  Log out
+                </button>
+              </form>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+</div>
+{% endblock %}

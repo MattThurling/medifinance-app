@@ -1,0 +1,43 @@
+{% comment %}
+One co-applicant card. Used both:
+  - as a normal rendered form (inside `{% for form in co_formset %}`)
+  - inside a <template> tag, where field names contain `__prefix__` which JS swaps
+    for the real index when adding new applicants.
+
+The `DELETE` field is rendered as a plain hidden input. The "Remove" button
+sets its value to 'on' via JS — Django's BooleanField treats that as True.
+{% endcomment %}
+<div class="applicant-card card bg-base-200/40 border border-base-300">
+  <div class="card-body relative">
+    {{ form.id }}
+    <input type="hidden" name="{{ form.DELETE.html_name }}" value="" data-delete-flag>
+
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-medium applicant-heading">
+        {% if is_template %}Co-applicant{% else %}Co-applicant {{ index }}{% endif %}
+      </h3>
+      <button type="button" class="applicant-remove btn btn-ghost btn-xs text-error">Remove</button>
+    </div>
+
+    {{ form.non_field_errors }}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.first_name %}
+      {% include "_field.html" with field=form.last_name %}
+      {% include "_field.html" with field=form.email %}
+      {% include "_field.html" with field=form.phone %}
+      {% include "_field.html" with field=form.date_of_birth %}
+    </div>
+
+    <div class="divider text-xs opacity-60 my-2">Home address</div>
+    {% include "_field.html" with field=form.home_address_line1 %}
+    {% include "_field.html" with field=form.home_address_line2 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.home_address_city %}
+      {% include "_field.html" with field=form.home_address_county %}
+    </div>
+    <div class="max-w-xs">
+      {% include "_field.html" with field=form.home_address_postcode %}
+    </div>
+  </div>
+</div>

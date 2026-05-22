@@ -1,0 +1,13 @@
+Hello,
+
+{{ owner_name }} at Medifinance has shared your application "{{ deal_name }}" with you.
+
+Open the secure link below to review your quote and complete your details:
+
+{{ link_url }}
+
+For your security this link can only be used once, and expires on {{ expires_at|date:"j M Y, H:i" }}.
+If it stops working, just ask your Medifinance contact to send you a new one.
+
+Thanks,
+Medifinance

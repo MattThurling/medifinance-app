@@ -1,0 +1,59 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Dashboard · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  {% if user.is_admin or user.is_associate %}
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h2 class="card-title">Contacts</h2>
+        <p class="opacity-70 text-sm">People linked to an organisation.</p>
+        <div class="card-actions justify-end">
+          <a href="{% url 'crm:contact_list' %}" class="btn btn-sm">Open</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h2 class="card-title">Organisations</h2>
+        <p class="opacity-70 text-sm">Companies ported from HubSpot.</p>
+        <div class="card-actions justify-end">
+          <a href="{% url 'crm:organisation_list' %}" class="btn btn-sm">Open</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h2 class="card-title">Deals</h2>
+        <p class="opacity-70 text-sm">Pipeline — each deal has an owner and a customer contact.</p>
+        <div class="card-actions justify-end">
+          <a href="{% url 'crm:deal_list' %}" class="btn btn-sm">Open</a>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card bg-base-100 shadow md:col-span-3">
+      <div class="card-body">
+        <h2 class="card-title">Your deals</h2>
+        {% if customer_deals %}
+          <ul class="divide-y mt-2">
+            {% for d in customer_deals %}
+              <li class="py-2 flex items-center justify-between">
+                <a href="{% url 'crm:portal_quote_select' d.pk %}" class="link link-hover">{{ d.name }}</a>
+                {% if d.current_stage %}
+                  <span class="badge badge-ghost">{{ d.current_stage.get_name_display }}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="opacity-70 text-sm">Nothing here yet — your Medifinance contact will share details with you when they're ready.</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

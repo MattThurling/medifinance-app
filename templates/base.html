@@ -1,0 +1,13 @@
+{% load static %}<!doctype html>
+<html lang="en" data-theme="corporate">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Medifinance CRM{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'dist/output.css' %}" />
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen bg-base-200 text-base-content">
+  {% block body %}{% endblock %}
+</body>
+</html>

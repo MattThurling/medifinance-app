@@ -1,0 +1,118 @@
+{% extends "_app_layout.html" %}
+{% load icons %}
+
+{% block title %}{{ deal.name }} · Deals{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+  {# ---- Main column ---- #}
+  <div class="lg:col-span-2 max-w-xl">
+    <p class="text-xs uppercase tracking-widest opacity-50">Deal</p>
+    <div class="flex items-center gap-2 mt-1">
+      <h1 class="text-3xl font-semibold">{{ deal.name }}</h1>
+      <a href="{% url 'crm:deal_update' deal.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit deal" aria-label="Edit deal">
+        {% icon "pencil" class="h-4 w-4" %}
+      </a>
+      <a href="{% url 'crm:deal_delete' deal.pk %}" class="btn btn-ghost btn-xs btn-square text-error" title="Delete deal" aria-label="Delete deal">
+        {% icon "trash-2" class="h-4 w-4" %}
+      </a>
+    </div>
+
+    <p class="flex items-center gap-2 mt-3 text-lg">
+      {% icon "building" class="h-5 w-5 opacity-70" %}
+      <a href="{{ deal.customer.organisation.get_absolute_url }}" class="link link-hover">{{ deal.customer.organisation.name }}</a>
+    </p>
+
+    <div class="mt-5 text-sm space-y-1">
+      <p>Lead: <a href="{{ deal.customer.get_absolute_url }}" class="link link-hover">{{ deal.customer }}</a></p>
+      <p>Owner: {{ deal.owner.full_name }}</p>
+      {% if deal.introducer %}
+        <p>Introducer: {{ deal.introducer }}{% if deal.introducer.organisation %}, {{ deal.introducer.organisation.name }}{% endif %}</p>
+      {% endif %}
+      {% if deal.equipment_supplier %}
+        <p>Supplier: {{ deal.equipment_supplier.name }}</p>
+      {% endif %}
+    </div>
+
+    {# ---- Quotes ---- #}
+    <h2 class="font-semibold mt-8 mb-2">Quotes</h2>
+    {% for q in deal.quotes.all %}
+      <div class="flex items-center gap-4 py-1 text-sm">
+        <span class="w-14">{{ q.term }} m</span>
+        <span class="w-14 text-center opacity-70">{{ q.apr }}%</span>
+        <span class="w-24 text-right font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment }}{% else %}—{% endif %}</span>
+        <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
+          {% csrf_token %}
+          <button type="submit" class="text-error font-semibold" title="Delete quote">✕</button>
+        </form>
+      </div>
+    {% empty %}
+      <p class="text-sm opacity-60">No quotes yet.</p>
+    {% endfor %}
+    {% if deal.funded_amount %}
+      <a href="{% url 'crm:quote_create' %}?deal={{ deal.pk }}"
+         class="btn btn-circle btn-xs btn-outline mt-3" title="Add quote" aria-label="Add quote">
+        {% icon "plus" class="h-3.5 w-3.5" %}
+      </a>
+    {% else %}
+      <p class="text-xs opacity-50 mt-2">Set a funded amount (Edit) to add quotes.</p>
+    {% endif %}
+
+    {# ---- Applicants ---- #}
+    <h2 class="font-semibold mt-8 mb-2">Applicants</h2>
+    {% for a in applicants %}
+      <p class="text-sm">
+        <a href="{{ a.get_absolute_url }}" class="link link-hover">{{ a }}</a>
+      </p>
+    {% endfor %}
+    {# Placeholder — staff add-applicant flow comes with its own view later #}
+    <button type="button" class="btn btn-circle btn-xs btn-outline mt-3" title="Add applicant (coming soon)" aria-label="Add applicant">
+      {% icon "plus" class="h-3.5 w-3.5" %}
+    </button>
+
+    {# ---- Documents (placeholder — no Document model yet) ---- #}
+    <h2 class="font-semibold mt-8 mb-2">Documents</h2>
+    <p class="text-sm opacity-60">No documents yet.</p>
+    <button type="button" class="btn btn-circle btn-xs btn-outline mt-3" title="Add document (coming soon)" aria-label="Add document">
+      {% icon "plus" class="h-3.5 w-3.5" %}
+    </button>
+
+    {# ---- Primary CTA ---- #}
+    <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}" class="mt-8">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-block">
+        Send application to {{ deal.customer.first_name|default:"customer" }}
+      </button>
+    </form>
+    <form method="post" action="{% url 'crm:deal_issue_portal_link' deal.pk %}" class="mt-2 text-center">
+      {% csrf_token %}
+      <button type="submit" class="link link-hover text-xs opacity-60">or generate a link to send manually</button>
+    </form>
+  </div>
+
+  {# ---- Right column ---- #}
+  <div class="lg:col-span-1">
+    <div class="flex justify-end mb-10">
+      <div class="stats shadow">
+        <div class="stat">
+          <div class="stat-title">Asset Finance</div>
+          <div class="stat-value">{% if amount_pounds %}£{{ amount_pounds }}<span class="text-xl align-baseline">.{{ amount_pence }}</span>{% else %}—{% endif %}</div>
+          <div class="stat-desc">£2,500.00 commission</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="steps steps-vertical">
+      {% for s in stages_chrono %}
+        <li class="step step-secondary" data-content=" ">
+          <span class="ml-2 text-left">{{ s.get_name_display }} - {{ s.occurred_at|timesince }} ago</span>
+        </li>
+      {% endfor %}
+      <li class="step relative" data-content="+">
+        <a href="{% url 'crm:stage_create' %}?deal={{ deal.pk }}"
+           class="absolute inset-0 z-10" title="Add stage" aria-label="Add another stage"></a>
+      </li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

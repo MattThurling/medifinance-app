@@ -1,0 +1,70 @@
+name: Deploy
+
+# develop -> medifinance-dev, main -> medifinance-prod
+on:
+  push:
+    branches: [main, develop]
+
+env:
+  REGION: europe-west2
+  AR_REPO: app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write          # required for Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target environment
+        id: target
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "service=medifinance-prod" >> "$GITHUB_OUTPUT"
+            echo "suffix=prod"             >> "$GITHUB_OUTPUT"
+          else
+            echo "service=medifinance-dev"  >> "$GITHUB_OUTPUT"
+            echo "suffix=dev"              >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build & push image
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${AR_REPO}/medifinance:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Run migrations (Cloud Run Job)
+        run: |
+          SUFFIX="${{ steps.target.outputs.suffix }}"
+          gcloud run jobs deploy "migrate-${SUFFIX}" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --add-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
+            --set-secrets "DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest" \
+            --set-env-vars "DJANGO_DEBUG=0" \
+            --command python \
+            --args manage.py,migrate
+          gcloud run jobs execute "migrate-${SUFFIX}" --region "$REGION" --wait
+
+      - name: Deploy service (Cloud Run)
+        run: |
+          SUFFIX="${{ steps.target.outputs.suffix }}"
+          gcloud run deploy "${{ steps.target.outputs.service }}" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --allow-unauthenticated \
+            --add-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
+            --set-secrets "DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest,MAILGUN_API_KEY=mailgun-key-${SUFFIX}:latest" \
+            --set-env-vars "^|^DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=.run.app|DJANGO_CSRF_TRUSTED_ORIGINS=https://*.run.app|MAILGUN_SENDER_DOMAIN=mg.medifinance.co.uk|MAILGUN_API_URL=https://api.eu.mailgun.net/v3|DEFAULT_FROM_EMAIL=Medifinance <noreply@mg.medifinance.co.uk>|HUBSPOT_PORTAL_ID=3378161"

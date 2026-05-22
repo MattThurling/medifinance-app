@@ -1,0 +1,61 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Choose a quote · {{ deal.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <p class="text-sm opacity-60 mb-1">Application</p>
+  <h1 class="text-2xl font-semibold mb-6">Choose your quote</h1>
+
+  <div class="card bg-base-100 shadow mb-4">
+    <div class="card-body">
+      <h2 class="card-title text-base">Application details</h2>
+      <dl class="grid grid-cols-3 gap-y-2 text-sm mt-2">
+        <dt class="opacity-60">Deal name</dt>
+        <dd class="col-span-2">{{ deal.name }}</dd>
+        <dt class="opacity-60">Amount</dt>
+        <dd class="col-span-2">
+          {% if deal.funded_amount %}£{{ deal.funded_amount }}{% else %}<span class="opacity-60">—</span>{% endif %}
+        </dd>
+      </dl>
+    </div>
+  </div>
+
+  <form method="post" class="card bg-base-100 shadow">
+    <div class="card-body">
+      {% csrf_token %}
+      <h2 class="card-title text-base mb-2">Available quotes</h2>
+
+      {% if form.fields.quote.queryset.exists %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-error mb-3">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% if form.quote.errors %}
+          <div class="alert alert-error mb-3">{{ form.quote.errors|join:", " }}</div>
+        {% endif %}
+
+        <div class="space-y-2">
+          {% for choice in form.quote %}
+            {% with q=choice.choice_value|stringformat:"s" %}
+              <label class="cursor-pointer flex items-start gap-3 rounded-lg border p-3 hover:bg-base-200">
+                {{ choice.tag }}
+                <div class="flex-1">
+                  <div class="font-medium">{{ choice.choice_label }}</div>
+                </div>
+              </label>
+            {% endwith %}
+          {% endfor %}
+        </div>
+
+        <div class="card-actions justify-end mt-6">
+          <button type="submit" class="btn btn-primary">Continue →</button>
+        </div>
+      {% else %}
+        <p class="opacity-70 text-sm">
+          No quotes have been prepared yet. Your Medifinance contact will be in touch.
+        </p>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

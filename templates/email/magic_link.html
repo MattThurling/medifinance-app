@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
+<body style="margin:0; padding:0; background:#f3f4f6; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6; padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px; background:#ffffff; border-radius:12px; overflow:hidden;">
+          <tr>
+            <td style="padding:24px 32px; border-bottom:1px solid #e5e7eb;">
+              <strong style="font-size:18px;">Medifinance</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;">Hello,</p>
+              <p style="margin:0 0 16px;">
+                {{ owner_name }} at Medifinance has shared your application
+                <strong>{{ deal_name }}</strong> with you.
+              </p>
+              <p style="margin:0 0 24px;">
+                Use the secure link below to review your quote and complete your details.
+              </p>
+              <p style="margin:0 0 24px;">
+                <a href="{{ link_url }}"
+                   style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600;">
+                  Open my application
+                </a>
+              </p>
+              <p style="margin:0 0 8px; font-size:13px; color:#6b7280;">
+                Or paste this link into your browser:
+              </p>
+              <p style="margin:0 0 24px; font-size:13px; word-break:break-all;">
+                <a href="{{ link_url }}" style="color:#2563eb;">{{ link_url }}</a>
+              </p>
+              <p style="margin:0; font-size:13px; color:#6b7280;">
+                For your security this link can only be used once and expires on
+                {{ expires_at|date:"j M Y, H:i" }}. If it stops working, ask your
+                Medifinance contact to send a new one.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

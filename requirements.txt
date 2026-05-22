@@ -1,0 +1,10 @@
+Django>=5.1,<6.0
+django-guardian
+python-dotenv
+django-anymail[mailgun]
+
+# Production
+psycopg[binary]
+dj-database-url
+gunicorn
+whitenoise

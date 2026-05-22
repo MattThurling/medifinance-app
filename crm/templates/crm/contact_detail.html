@@ -1,0 +1,72 @@
+{% extends "_app_layout.html" %}
+{% load icons %}
+
+{% block title %}{{ contact }} · Contacts{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <p class="text-sm opacity-60"><a href="{% url 'crm:contact_list' %}" class="link link-hover">Contacts</a></p>
+    <h1 class="text-2xl font-semibold mt-1">{{ contact }}</h1>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'crm:contact_update' contact.pk %}" class="btn btn-sm">Edit</a>
+    <a href="{% url 'crm:contact_delete' contact.pk %}" class="btn btn-sm btn-error btn-outline">Delete</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title text-base">Details</h2>
+      <dl class="grid grid-cols-3 gap-y-2 text-sm mt-2">
+        <dt class="opacity-60">Email</dt>
+        <dd class="col-span-2">{{ contact.email|default:"—" }}</dd>
+        <dt class="opacity-60">Phone</dt>
+        <dd class="col-span-2">{{ contact.phone|default:"—" }}</dd>
+        <dt class="opacity-60">Organisation</dt>
+        <dd class="col-span-2">
+          <a href="{{ contact.organisation.get_absolute_url }}" class="link link-hover">{{ contact.organisation.name }}</a>
+        </dd>
+        <dt class="opacity-60">User account</dt>
+        <dd class="col-span-2">{{ contact.user.email|default:"—" }}</dd>
+        <dt class="opacity-60">HubSpot</dt>
+        <dd class="col-span-2">{% include "_hubspot_link.html" with obj=contact %}</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title text-base">Timestamps</h2>
+      <dl class="grid grid-cols-3 gap-y-2 text-sm mt-2">
+        <dt class="opacity-60">Created</dt>
+        <dd class="col-span-2">{{ contact.created_at|date:"j M Y, H:i" }}</dd>
+        <dt class="opacity-60">Updated</dt>
+        <dd class="col-span-2">{{ contact.updated_at|date:"j M Y, H:i" }}</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="card-title flex items-center gap-2">{% icon "handshake" %} Deals</h2>
+      <a href="{% url 'crm:deal_create' %}?customer={{ contact.pk }}" class="btn btn-ghost btn-xs">New deal</a>
+    </div>
+    {% if deals %}
+      <ul class="divide-y">
+        {% for d in deals %}
+          <li class="py-2 flex items-center justify-between">
+            <a href="{{ d.get_absolute_url }}" class="link link-hover">{{ d.name }}</a>
+            <span class="text-sm opacity-60">Owner: {{ d.owner.full_name }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="opacity-60 text-sm">No deals yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

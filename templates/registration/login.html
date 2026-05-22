@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in · Medifinance CRM{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex items-center justify-center px-4">
+  <div class="card w-full max-w-md bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title text-2xl">Sign in</h1>
+      <p class="text-sm opacity-70 mb-4">Log in with your email to continue.</p>
+
+      <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-error mb-4">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <div class="form-control mb-3">
+          <label class="label" for="id_username">
+            <span class="label-text">Email</span>
+          </label>
+          <input
+            type="email"
+            name="username"
+            id="id_username"
+            autocomplete="email"
+            required
+            class="input input-bordered w-full"
+            value="{{ form.username.value|default_if_none:'' }}"
+          />
+          {% if form.username.errors %}<p class="text-error text-sm mt-1">{{ form.username.errors|join:', ' }}</p>{% endif %}
+        </div>
+
+        <div class="form-control mb-4">
+          <label class="label" for="id_password">
+            <span class="label-text">Password</span>
+          </label>
+          <input
+            type="password"
+            name="password"
+            id="id_password"
+            autocomplete="current-password"
+            required
+            class="input input-bordered w-full"
+          />
+          {% if form.password.errors %}<p class="text-error text-sm mt-1">{{ form.password.errors|join:', ' }}</p>{% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full">Sign in</button>
+        <input type="hidden" name="next" value="{{ next }}" />
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

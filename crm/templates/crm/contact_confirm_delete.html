@@ -1,0 +1,31 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Delete {{ object }}?{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    <a href="{% url 'crm:contact_list' %}" class="link link-hover">Contacts</a> /
+    <a href="{{ object.get_absolute_url }}" class="link link-hover">{{ object }}</a>
+  </p>
+  <h1 class="text-2xl font-semibold mb-6">Delete contact</h1>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <p>Are you sure you want to delete <strong>{{ object }}</strong>? This cannot be undone.</p>
+      {% if object.deals.exists %}
+        <div class="alert alert-warning mt-3">
+          This contact is the customer on {{ object.deals.count }} deal{{ object.deals.count|pluralize }}.
+          You'll need to reassign or delete those deals first.
+        </div>
+      {% endif %}
+
+      <form method="post" class="card-actions justify-end mt-2">
+        {% csrf_token %}
+        <a href="{{ object.get_absolute_url }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-error">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

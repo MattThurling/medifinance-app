@@ -1,0 +1,26 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Application received · {{ deal.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h1 class="card-title text-2xl">Thanks — we've received your application</h1>
+      <p class="opacity-80">
+        Your information has been sent to <strong>{{ deal.owner.full_name }}</strong>,
+        your Medifinance contact. They'll be in touch with next steps shortly.
+      </p>
+      <div class="mt-4 text-sm opacity-70">
+        <p><strong>Deal:</strong> {{ deal.name }}</p>
+        {% if deal.selected_quote %}
+          <p>
+            <strong>Selected quote:</strong>
+            {{ deal.selected_quote.term }} months @ {{ deal.selected_quote.apr }}% — £{{ deal.selected_quote.monthly_payment }}/mo
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

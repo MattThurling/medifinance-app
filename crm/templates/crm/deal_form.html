@@ -1,0 +1,63 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}{% if object %}Edit {{ object.name }}{% else %}New deal{% endif %} · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    {% if parent_contact %}
+      <a href="{% url 'crm:contact_list' %}" class="link link-hover">Contacts</a> /
+      <a href="{{ parent_contact.get_absolute_url }}" class="link link-hover">{{ parent_contact }}</a>
+    {% else %}
+      <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a>
+      {% if object %} / <a href="{{ object.get_absolute_url }}" class="link link-hover">{{ object.name }}</a>{% endif %}
+    {% endif %}
+  </p>
+  <h1 class="text-2xl font-semibold mb-6">
+    {% if object %}Edit deal{% else %}New deal{% endif %}
+  </h1>
+
+  <form method="post" class="card bg-base-100 shadow">
+    <div class="card-body">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% include "_field.html" with field=form.name %}
+
+      {% if parent_contact %}
+        <div class="form-control mb-4">
+          <label class="label"><span class="label-text">Customer</span></label>
+          <div class="input input-bordered w-full bg-base-200 flex items-center opacity-70 cursor-not-allowed">
+            {{ parent_contact }}
+          </div>
+          <input type="hidden" name="customer" value="{{ parent_contact.pk }}" />
+        </div>
+      {% else %}
+        {% include "_field.html" with field=form.customer %}
+      {% endif %}
+
+      {% include "_field.html" with field=form.owner %}
+
+      <div class="divider text-xs opacity-60 mt-2 mb-2">Associations</div>
+      {% include "_field.html" with field=form.introducer %}
+      {% include "_field.html" with field=form.equipment_supplier %}
+
+      <div class="divider text-xs opacity-60 mt-2 mb-2">Financials</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.funded_amount %}
+        {% include "_field.html" with field=form.earnings %}
+        {% include "_field.html" with field=form.flat_fee %}
+        {% include "_field.html" with field=form.commission %}
+        {% include "_field.html" with field=form.document_fee %}
+      </div>
+
+      <div class="card-actions justify-end mt-2">
+        <a href="{% if parent_contact %}{{ parent_contact.get_absolute_url }}{% elif object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:deal_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

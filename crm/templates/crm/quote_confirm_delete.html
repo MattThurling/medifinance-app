@@ -1,0 +1,29 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Delete quote? · {{ parent_deal.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
+    <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
+  </p>
+  <h1 class="text-2xl font-semibold mb-6">Delete quote</h1>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <p>
+        Delete the quote of
+        <strong>£{{ object.monthly_payment }}/mo over {{ object.term }} months at {{ object.apr }}%</strong>?
+        This cannot be undone.
+      </p>
+
+      <form method="post" class="card-actions justify-end mt-2">
+        {% csrf_token %}
+        <a href="{{ parent_deal.get_absolute_url }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-error">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
