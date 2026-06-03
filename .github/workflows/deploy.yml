@@ -51,7 +51,7 @@ jobs:
           gcloud run jobs deploy "migrate-${SUFFIX}" \
             --image "$IMAGE" \
             --region "$REGION" \
-            --add-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
+            --set-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
             --set-secrets "DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest" \
             --set-env-vars "DJANGO_DEBUG=0" \
             --command python \
