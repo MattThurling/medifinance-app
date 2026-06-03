@@ -170,6 +170,34 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
 
+# Logging — Django's default LOGGING filters the console handler to DEBUG=True
+# only, so production tracebacks go nowhere. Override with an unconditional
+# stderr handler so unhandled exceptions reach Cloud Run logs.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO"},
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        # Surface the actual exceptions from our own modules too.
+        "crm": {"handlers": ["console"], "level": "INFO"},
+        "accounts": {"handlers": ["console"], "level": "INFO"},
+    },
+}
+
+
 # HubSpot — used to build deep-links from records to their HubSpot equivalents.
 HUBSPOT_PORTAL_ID = os.getenv("HUBSPOT_PORTAL_ID", "3378161")
 

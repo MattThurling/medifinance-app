@@ -223,7 +223,7 @@ IMAGE="$(gcloud run services describe medifinance-dev --region "$REGION" --forma
 
 gcloud run jobs deploy createsuperuser-dev \
   --image "$IMAGE" --region "$REGION" \
-  --add-cloudsql-instances "$SQL_CONN" \
+  --set-cloudsql-instances "$SQL_CONN" \
   --set-secrets "DJANGO_SECRET_KEY=django-secret-dev:latest,DATABASE_URL=database-url-dev:latest" \
   --set-env-vars "DJANGO_DEBUG=0,DJANGO_SUPERUSER_EMAIL=you@medifinance.co.uk,DJANGO_SUPERUSER_PASSWORD=CHANGE_ME" \
   --command python --args manage.py,createsuperuser,--noinput
