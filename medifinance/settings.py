@@ -211,7 +211,9 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "1") == "1"   # port 465 = implicit SSL/SMTPS
 EMAIL_USE_TLS = False                                    # mutually exclusive with USE_SSL
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "info@medi-finance.co.uk")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+# .strip() guards against the common gotcha of a trailing newline arriving via
+# Secret Manager / pasted-in env values — SMTP servers will reject the auth.
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "").strip()
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))    # seconds
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Medifinance <{EMAIL_HOST_USER}>")
