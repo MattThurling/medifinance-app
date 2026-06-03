@@ -26,7 +26,23 @@ class TimestampedModel(models.Model):
 
 
 class Organisation(TimestampedModel):
-    name = models.CharField(max_length=255)
+    name = models.CharField(
+        max_length=255,
+        help_text="The everyday name staff use to find this org.",
+    )
+    legal_name = models.CharField(
+        max_length=255, blank=True,
+        help_text="Registered Companies House name (used on contracts and credit checks).",
+    )
+    trading_name = models.CharField(
+        max_length=255, blank=True,
+        help_text="“Trading as” name, when different from the legal name.",
+    )
+    companies_house_number = models.CharField(
+        "Companies House number",
+        max_length=10, blank=True, db_index=True,
+        help_text="UK CH number — 8 digits, or NI/SC/OC + 6 digits (LLPs).",
+    )
 
     # UK structured address. All blank-allowed — fill in as you go.
     address_line1 = models.CharField("Line 1", max_length=255, blank=True, help_text="House number and street")
@@ -50,6 +66,16 @@ class Organisation(TimestampedModel):
     def hubspot_url(self) -> str | None:
         return _hubspot_url("0-2", self.hubspot_id)
 
+    @property
+    def companies_house_url(self) -> str | None:
+        """Deep-link to this org's Companies House record, or None if no CH number."""
+        if not self.companies_house_number:
+            return None
+        return (
+            "https://find-and-update.company-information.service.gov.uk/company/"
+            + self.companies_house_number.strip().upper()
+        )
+
 
 class Contact(TimestampedModel):
     first_name = models.CharField(max_length=150, blank=True)
@@ -65,10 +91,11 @@ class Contact(TimestampedModel):
     home_address_county = models.CharField("County", max_length=100, blank=True, help_text="Optional")
     home_address_postcode = models.CharField("Postcode", max_length=10, blank=True)
 
-    organisation = models.ForeignKey(
+    organisations = models.ManyToManyField(
         Organisation,
-        on_delete=models.PROTECT,
         related_name="contacts",
+        blank=True,
+        help_text="A contact can belong to more than one organisation.",
     )
 
     # Optional link back to a User account, only set if this contact has a customer login.
@@ -114,6 +141,15 @@ class Deal(TimestampedModel):
         on_delete=models.PROTECT,
         related_name="deals",
     )
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.PROTECT,
+        related_name="deals",
+        null=True,
+        blank=True,
+        help_text="The organisation this deal is for. May be different from any "
+                  "of the customer's organisations; can be set later.",
+    )
 
     # Optional associations
     introducer = models.ForeignKey(
@@ -123,16 +159,8 @@ class Deal(TimestampedModel):
         null=True,
         blank=True,
     )
-    equipment_supplier = models.ForeignKey(
-        Organisation,
-        on_delete=models.SET_NULL,
-        related_name="supplied_deals",
-        null=True,
-        blank=True,
-    )
-
-    # Financials (all nullable — fill in as the deal progresses)
-    funded_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Other financials (all nullable). `funded_amount` is derived as the sum of
+    # this deal's Participations — see the property below.
     earnings = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     flat_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -161,11 +189,6 @@ class Deal(TimestampedModel):
     def __str__(self) -> str:
         return self.name
 
-    @property
-    def organisation(self) -> Organisation:
-        """Organisation is reached through the customer contact — data consistency by design."""
-        return self.customer.organisation
-
     def get_absolute_url(self) -> str:
         return reverse("crm:deal_detail", args=[self.pk])
 
@@ -174,9 +197,46 @@ class Deal(TimestampedModel):
         return _hubspot_url("0-3", self.hubspot_id)
 
     @property
+    def funded_amount(self) -> "Decimal | None":
+        """Sum of all participation amounts. Returns None when no participations
+        exist yet (preserves the pre-Participation `funded_amount is None`
+        semantic). Uses `participations.all()` so a prefetched queryset is cheap."""
+        ps = list(self.participations.all())
+        if not ps:
+            return None
+        return sum((p.amount for p in ps), Decimal("0"))
+
+    @property
     def current_stage(self) -> "Stage | None":
         """Latest stage event for this deal (None if there are no events yet)."""
         return self.stage_events.first()
+
+
+class Participation(TimestampedModel):
+    """One contribution to a deal's funded amount. Many participations per deal;
+    the sum of their `amount` is the deal's funded amount.
+
+    `organisation` (the supplier) is optional — staff may not know it when the
+    participation is first entered, and can fill it in later.
+    """
+
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="participations")
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.PROTECT,
+        related_name="participations",
+        null=True,
+        blank=True,
+        help_text="The supplier this amount goes to. Optional — may be added later.",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        ordering = ["pk"]
+
+    def __str__(self) -> str:
+        org = self.organisation.name if self.organisation else "TBD"
+        return f"{org} — £{self.amount:,.2f}"
 
 
 class Stage(TimestampedModel):
@@ -264,3 +324,49 @@ class Quote(TimestampedModel):
         if computed is not None:
             self.monthly_payment = computed
         super().save(*args, **kwargs)
+
+
+def document_upload_path(instance: "Document", filename: str) -> str:
+    return f"deals/{instance.deal_id}/documents/{filename}"
+
+
+class Document(TimestampedModel):
+    """A document the deal needs. Staff create the request (name + required);
+    the customer (or staff) uploads a file, flipping status to 'provided'."""
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Requested"
+        PROVIDED = "provided", "Provided"
+
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="documents")
+    name = models.CharField(max_length=255, help_text="e.g. Bank statements, Photo ID, Accounts")
+    required = models.BooleanField(default=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.REQUESTED)
+
+    file = models.FileField(upload_to=document_upload_path, null=True, blank=True)
+    uploaded_at = models.DateTimeField(null=True, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_documents",
+    )
+
+    class Meta:
+        ordering = ["-required", "name"]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.get_status_display()})"
+
+    @property
+    def is_provided(self) -> bool:
+        return self.status == self.Status.PROVIDED
+
+    def attach(self, uploaded_file, *, by=None) -> None:
+        """Attach an uploaded file and mark the document provided."""
+        self.file = uploaded_file
+        self.status = self.Status.PROVIDED
+        self.uploaded_at = timezone.now()
+        self.uploaded_by = by
+        self.save()

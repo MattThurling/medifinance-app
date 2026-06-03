@@ -61,10 +61,28 @@ jobs:
       - name: Deploy service (Cloud Run)
         run: |
           SUFFIX="${{ steps.target.outputs.suffix }}"
+
+          SECRETS="DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest"
+          ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=.run.app|DJANGO_CSRF_TRUSTED_ORIGINS=https://*.run.app|HUBSPOT_PORTAL_ID=3378161"
+
+          # Email via the medi-finance.co.uk SMTP server when EMAIL_ENABLED=true.
+          # Settings already encodes EMAIL_HOST / PORT / USE_SSL / USER as defaults,
+          # so only the password (from Secret Manager) is required here. Without it,
+          # the app falls back to the console backend (emails -> Cloud Run logs).
+          if [ "${{ vars.EMAIL_ENABLED }}" = "true" ]; then
+            SECRETS="${SECRETS},EMAIL_HOST_PASSWORD=email-host-password:latest"
+          fi
+
+          # Uploaded documents go to a private GCS bucket when GS_BUCKET_NAME is set;
+          # otherwise they'd land on the container filesystem and vanish on restart.
+          if [ -n "${{ vars.GS_BUCKET_NAME }}" ]; then
+            ENVVARS="${ENVVARS}|GS_BUCKET_NAME=${{ vars.GS_BUCKET_NAME }}"
+          fi
+
           gcloud run deploy "${{ steps.target.outputs.service }}" \
             --image "$IMAGE" \
             --region "$REGION" \
             --allow-unauthenticated \
             --add-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
-            --set-secrets "DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest,MAILGUN_API_KEY=mailgun-key-${SUFFIX}:latest" \
-            --set-env-vars "^|^DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=.run.app|DJANGO_CSRF_TRUSTED_ORIGINS=https://*.run.app|MAILGUN_SENDER_DOMAIN=mg.medifinance.co.uk|MAILGUN_API_URL=https://api.eu.mailgun.net/v3|DEFAULT_FROM_EMAIL=Medifinance <noreply@mg.medifinance.co.uk>|HUBSPOT_PORTAL_ID=3378161"
+            --set-secrets "$SECRETS" \
+            --set-env-vars "^|^${ENVVARS}"

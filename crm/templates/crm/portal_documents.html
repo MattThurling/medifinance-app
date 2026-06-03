@@ -1,0 +1,40 @@
+{% extends "_portal_layout.html" %}
+
+{% block title %}Documents · {{ deal.name }}{% endblock %}
+
+{% block content %}
+{% include "crm/_portal_steps.html" %}
+
+<h1 class="text-2xl font-semibold mb-1">Your documents</h1>
+<p class="text-sm opacity-70 mb-6">Please upload the documents requested below.</p>
+
+<div class="divide-y divide-base-200">
+  {% for d in documents %}
+    <div class="flex items-center gap-3 py-3">
+      <div class="flex-1 font-medium">{{ d.name }}</div>
+      {% if d.is_provided %}
+        <span class="text-sm opacity-70">Uploaded</span>
+        <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <label class="link link-hover text-sm cursor-pointer">
+            replace
+            <input type="file" name="file" class="hidden" onchange="this.form.submit()" />
+          </label>
+        </form>
+      {% else %}
+        <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="file" name="file" required class="file-input file-input-bordered file-input-sm" onchange="this.form.submit()" />
+        </form>
+      {% endif %}
+    </div>
+  {% empty %}
+    <p class="opacity-70 text-sm py-3">No documents have been requested yet.</p>
+  {% endfor %}
+</div>
+
+<div class="flex justify-between mt-8">
+  <a href="{% url 'crm:portal_applicants' deal.pk %}" class="btn btn-ghost">Back</a>
+  <a href="{% url 'crm:portal_application_complete' deal.pk %}" class="btn btn-primary">Finish →</a>
+</div>
+{% endblock %}

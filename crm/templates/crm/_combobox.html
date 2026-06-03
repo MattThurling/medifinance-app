@@ -1,0 +1,38 @@
+{% comment %}
+Searchable FK field (HTMX). Params:
+  name           form field name (submits the chosen pk)
+  search_url     endpoint that returns option fragments
+  label          field label (optional)
+  placeholder    search box placeholder (optional)
+  selected_id    current pk (optional, for edit forms)
+  selected_label current display text (optional, for edit forms)
+  errors         bound field errors (optional)
+
+The visible search box is name="q" (used only for the AJAX query; the form
+reads the hidden input). Typing clears the hidden value until a result is
+clicked — see static/js/combobox.js.
+{% endcomment %}
+<div class="form-control mb-4 combobox relative">
+  {% if label %}
+    <label class="label"><span class="label-text">{{ label }}</span></label>
+  {% endif %}
+
+  <input type="hidden" name="{{ name }}" value="{{ selected_id|default:'' }}" />
+
+  <input type="text"
+         name="q"
+         autocomplete="off"
+         class="input input-bordered w-full combobox-search"
+         placeholder="{{ placeholder|default:'Search…' }}"
+         value="{{ selected_label|default:'' }}"
+         hx-get="{{ search_url }}"
+         hx-trigger="keyup changed delay:200ms"
+         hx-target="next .combobox-results"
+         hx-swap="innerHTML" />
+
+  <ul class="combobox-results menu bg-base-100 rounded-box shadow absolute z-20 w-full mt-1 max-h-60 overflow-auto flex-nowrap empty:hidden"></ul>
+
+  {% if errors %}
+    <p class="text-error text-sm mt-1">{{ errors|join:", " }}</p>
+  {% endif %}
+</div>

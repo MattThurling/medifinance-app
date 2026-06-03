@@ -1,9 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import ProtectedError, Q
-from django.http import Http404
-from django.shortcuts import get_object_or_404, redirect
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -17,12 +19,15 @@ from .forms import (
     ContactForm,
     CustomerInfoForm,
     DealForm,
+    DocumentRequestForm,
+    DocumentUploadForm,
     OrganisationForm,
+    ParticipationFormSet,
     QuoteForm,
     QuoteSelectionForm,
     StageForm,
 )
-from .models import Contact, Deal, Organisation, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Quote, Stage
 
 
 class SearchableListView(ListView):
@@ -65,7 +70,13 @@ class ProtectedDeleteMixin:
 
 class OrganisationListView(StaffRequiredMixin, SearchableListView):
     model = Organisation
-    search_fields = ["name", "hubspot_id"]
+    search_fields = [
+        "name",
+        "legal_name",
+        "trading_name",
+        "companies_house_number",
+        "hubspot_id",
+    ]
 
 
 class OrganisationDetailView(StaffRequiredMixin, DetailView):
@@ -74,7 +85,7 @@ class OrganisationDetailView(StaffRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["contacts"] = self.object.contacts.all()
-        ctx["deals"] = Deal.objects.filter(customer__organisation=self.object).select_related("owner", "customer")
+        ctx["deals"] = Deal.objects.filter(organisation=self.object).select_related("owner", "customer")
         return ctx
 
 
@@ -108,17 +119,17 @@ class OrganisationDeleteView(StaffRequiredMixin, ProtectedDeleteMixin, DeleteVie
 
 class ContactListView(StaffRequiredMixin, SearchableListView):
     model = Contact
-    search_fields = ["first_name", "last_name", "email", "hubspot_id", "organisation__name"]
+    search_fields = ["first_name", "last_name", "email", "hubspot_id", "organisations__name"]
 
     def get_queryset(self):
-        return super().get_queryset().select_related("organisation")
+        return super().get_queryset().prefetch_related("organisations")
 
 
 class ContactDetailView(StaffRequiredMixin, DetailView):
     model = Contact
 
     def get_queryset(self):
-        return super().get_queryset().select_related("organisation", "user")
+        return super().get_queryset().select_related("user").prefetch_related("organisations")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -128,7 +139,8 @@ class ContactDetailView(StaffRequiredMixin, DetailView):
 
 class ContactCreateView(StaffRequiredMixin, CreateView):
     """Create a contact. Accepts `?organisation=<pk>` to prefill + lock the org FK
-    (when launched from an organisation's detail page)."""
+    (from an organisation's detail page), or `?deal=<pk>` to attach the new contact
+    to that deal as a co-applicant (org locked to the deal's customer's org)."""
 
     model = Contact
     form_class = ContactForm
@@ -136,25 +148,50 @@ class ContactCreateView(StaffRequiredMixin, CreateView):
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
         self.parent_organisation = None
-        org_pk = request.GET.get("organisation")
-        if org_pk:
+        self.parent_deal = None
+
+        deal_pk = request.GET.get("deal")
+        if deal_pk:
             try:
-                self.parent_organisation = Organisation.objects.get(pk=org_pk)
-            except (Organisation.DoesNotExist, ValueError, TypeError):
+                self.parent_deal = Deal.objects.select_related("organisation").get(pk=deal_pk)
+                self.parent_organisation = self.parent_deal.organisation
+            except (Deal.DoesNotExist, ValueError, TypeError):
                 pass
+
+        if self.parent_organisation is None:
+            org_pk = request.GET.get("organisation")
+            if org_pk:
+                try:
+                    self.parent_organisation = Organisation.objects.get(pk=org_pk)
+                except (Organisation.DoesNotExist, ValueError, TypeError):
+                    pass
 
     def get_initial(self):
         initial = super().get_initial()
         if self.parent_organisation:
-            initial["organisation"] = self.parent_organisation
+            initial["organisations"] = [self.parent_organisation]
         return initial
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_organisation"] = self.parent_organisation
+        ctx["parent_deal"] = self.parent_deal
         return ctx
 
+    def form_valid(self, form):
+        response = super().form_valid(form)  # saves contact + organisations M2M
+        if self.parent_deal:
+            self.parent_deal.co_applicants.add(self.object)
+            if self.parent_deal.organisation_id:
+                # Idempotent; covers the locked-org case even when the M2M field
+                # wasn't submitted (e.g. if the template renders a hidden input).
+                self.object.organisations.add(self.parent_deal.organisation_id)
+            messages.success(self.request, f"Added {self.object} as an applicant.")
+        return response
+
     def get_success_url(self):
+        if self.parent_deal:
+            return self.parent_deal.get_absolute_url()
         if self.parent_organisation:
             return self.parent_organisation.get_absolute_url()
         return self.object.get_absolute_url()
@@ -184,7 +221,7 @@ class DealListView(StaffRequiredMixin, SearchableListView):
         "customer__first_name",
         "customer__last_name",
         "customer__email",
-        "customer__organisation__name",
+        "organisation__name",
     ]
 
     def get_queryset(self):
@@ -197,7 +234,7 @@ class DealListView(StaffRequiredMixin, SearchableListView):
         return (
             super()
             .get_queryset()
-            .select_related("owner", "customer", "customer__organisation")
+            .select_related("owner", "customer", "organisation")
             .annotate(current_stage_name=Subquery(latest_stage))
         )
 
@@ -209,11 +246,17 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         return super().get_queryset().select_related(
             "owner",
             "customer",
-            "customer__organisation",
+            "organisation",
             "introducer",
-            "introducer__organisation",
-            "equipment_supplier",
-        ).prefetch_related("quotes", "stage_events", "co_applicants")
+        ).prefetch_related(
+            "customer__organisations",
+            "introducer__organisations",
+            "quotes",
+            "stage_events",
+            "co_applicants",
+            "documents",
+            "participations__organisation",
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -223,7 +266,15 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         ctx["stages_chrono"] = deal.stage_events.order_by("occurred_at", "pk")
 
         # Applicants = the lead (customer) plus any co-applicants
-        ctx["applicants"] = [deal.customer, *deal.co_applicants.all()]
+        applicants = [deal.customer, *deal.co_applicants.all()]
+        ctx["applicants"] = applicants
+
+        # Other contacts in the deal's organisation that staff can attach as applicants
+        org = deal.organisation
+        ctx["available_applicants"] = (
+            org.contacts.exclude(pk__in=[a.pk for a in applicants])
+            if org else Contact.objects.none()
+        )
 
         # Split the amount so the pence can render smaller (£25,000.00)
         if deal.funded_amount is not None:
@@ -231,6 +282,9 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             pence = int((deal.funded_amount - pounds) * 100)
             ctx["amount_pounds"] = f"{pounds:,}"
             ctx["amount_pence"] = f"{pence:02d}"
+
+        if deal.commission is not None:
+            ctx["commission_display"] = f"£{deal.commission:,.2f}"
         return ctx
 
 
@@ -241,6 +295,42 @@ class _DealFormMixin:
         kwargs = super().get_form_kwargs()
         kwargs["current_user"] = self.request.user
         return kwargs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        owner_id = ctx["form"]["owner"].value()
+        ctx["owner_selected_id"] = owner_id or ""
+        ctx["owner_selected_label"] = (
+            get_user_model().objects.filter(pk=owner_id).first() if owner_id else ""
+        )
+
+        # Inline Participation formset — funded_amount is derived from the sum
+        # of its rows. On POST we validate eagerly so errors render on re-show.
+        if "participation_formset" not in ctx:
+            instance = getattr(self, "object", None)
+            if self.request.method == "POST":
+                formset = ParticipationFormSet(
+                    self.request.POST, instance=instance, prefix="participations"
+                )
+                formset.is_valid()  # populate errors for the re-render path
+            else:
+                formset = ParticipationFormSet(instance=instance, prefix="participations")
+            ctx["participation_formset"] = formset
+        return ctx
+
+    def form_valid(self, form):
+        formset = ParticipationFormSet(
+            self.request.POST, instance=form.instance, prefix="participations"
+        )
+        if not formset.is_valid():
+            return self.render_to_response(
+                self.get_context_data(form=form, participation_formset=formset)
+            )
+        with transaction.atomic():
+            self.object = form.save()
+            formset.instance = self.object
+            formset.save()
+        return redirect(self.get_success_url())
 
     def get_success_url(self):
         return self.object.get_absolute_url()
@@ -288,6 +378,24 @@ class DealDeleteView(StaffRequiredMixin, DeleteView):
     success_url = reverse_lazy("crm:deal_list")
 
 
+class DealApplicantAddView(StaffRequiredMixin, View):
+    """Attach an existing contact from the customer's organisation as a co-applicant."""
+
+    def post(self, request, pk):
+        deal = get_object_or_404(Deal.objects.select_related("organisation"), pk=pk)
+        contact = get_object_or_404(Contact, pk=request.POST.get("contact"))
+        if deal.organisation_id is None:
+            messages.error(request, "Set the deal's organisation before adding applicants.")
+        elif not contact.organisations.filter(pk=deal.organisation_id).exists():
+            messages.error(request, "You can only add applicants from the deal's organisation.")
+        elif contact.pk == deal.customer_id:
+            messages.error(request, "That contact is already the lead applicant.")
+        else:
+            deal.co_applicants.add(contact)
+            messages.success(request, f"Added {contact} as an applicant.")
+        return redirect(deal.get_absolute_url())
+
+
 # --- Quote -----------------------------------------------------------------
 # Quotes are always managed in the context of a parent Deal — no list/detail.
 
@@ -321,6 +429,8 @@ class QuoteCreateView(StaffRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.parent_deal
+        if self.parent_deal.funded_amount is not None:
+            ctx["funded_amount_display"] = f"£{self.parent_deal.funded_amount:,.2f}"
         return ctx
 
     def get_success_url(self):
@@ -438,21 +548,82 @@ class CustomerRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
+class _SearchView(StaffRequiredMixin, View):
+    """Base for HTMX combobox search endpoints. Returns an HTML fragment of
+    up to `limit` matches rendered as clickable options."""
+
+    model = None
+    search_fields: list[str] = []
+    limit = 20
+
+    def get_queryset(self):
+        return self.model.objects.all()
+
+    def get(self, request):
+        from django.shortcuts import render
+
+        q = request.GET.get("q", "").strip()
+        results = []
+        if q:
+            cond = Q()
+            for field in self.search_fields:
+                cond |= Q(**{f"{field}__icontains": q})
+            results = list(self.get_queryset().filter(cond).distinct()[: self.limit])
+        return render(request, "crm/_combobox_results.html", {"results": results})
+
+
+class ContactSearchView(_SearchView):
+    model = Contact
+    search_fields = ["first_name", "last_name", "email", "organisations__name"]
+
+    def get_queryset(self):
+        return Contact.objects.prefetch_related("organisations")
+
+
+class OrganisationSearchView(_SearchView):
+    model = Organisation
+    search_fields = ["name", "legal_name", "trading_name", "companies_house_number"]
+
+
+class UserSearchView(_SearchView):
+    """Search staff users (admins + associates) for the deal owner combobox."""
+
+    search_fields = ["first_name", "last_name", "email"]
+
+    def get_queryset(self):
+        return get_user_model().objects.filter(role__in=[Role.ADMIN, Role.ASSOCIATE])
+
+
 class _PortalDealMixin(CustomerRequiredMixin):
     """Shared queryset filter for portal views — only deals belonging to the user."""
 
     def get_deal(self, pk):
         return get_object_or_404(
             Deal.objects.filter(customer__user=self.request.user)
-            .select_related("owner", "customer", "customer__organisation")
+            .select_related("owner", "customer", "organisation")
             .prefetch_related("quotes", "stage_events"),
             pk=pk,
         )
 
 
-class PortalQuoteSelectView(_PortalDealMixin, View):
+class _PortalStepMixin(_PortalDealMixin):
+    """A step in the customer application wizard. Steps after Quotes require a
+    quote to have been selected; otherwise we bounce back to the Quotes step."""
+
+    step = 1
+
+    def dispatch(self, request, *args, **kwargs):
+        if self.step > 1 and request.user.is_authenticated and getattr(request.user, "is_customer", False):
+            deal = Deal.objects.filter(customer__user=request.user, pk=kwargs["pk"]).first()
+            if deal and not deal.selected_quote_id:
+                return redirect("crm:portal_quote_select", pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+
+class PortalQuoteSelectView(_PortalStepMixin, View):
     """Step 1: customer picks a quote."""
 
+    step = 1
     template_name = "crm/portal_quote_select.html"
 
     def get(self, request, pk):
@@ -466,26 +637,58 @@ class PortalQuoteSelectView(_PortalDealMixin, View):
         if form.is_valid():
             deal.selected_quote = form.cleaned_data["quote"]
             deal.save(update_fields=["selected_quote"])
-            return redirect("crm:portal_application", pk=deal.pk)
+            return redirect("crm:portal_company", pk=deal.pk)
         return self._render(request, deal, form)
 
     def _render(self, request, deal, form):
         from django.shortcuts import render
-        return render(request, self.template_name, {"deal": deal, "form": form})
+        amount_display = f"£{deal.funded_amount:,.2f}" if deal.funded_amount is not None else None
+        return render(
+            request,
+            self.template_name,
+            {"deal": deal, "form": form, "amount_display": amount_display, "current_step": self.step},
+        )
 
 
-class PortalApplicationView(_PortalDealMixin, View):
-    """Step 2: customer confirms their info + adds co-applicants."""
+class PortalCompanyView(_PortalStepMixin, View):
+    """Step 2: company details (organisation address)."""
 
-    template_name = "crm/portal_application.html"
+    step = 2
+    template_name = "crm/portal_company.html"
 
-    def dispatch(self, request, *args, **kwargs):
-        # Gate: must complete step 1 first
-        if request.user.is_authenticated and request.user.is_customer:
-            deal = Deal.objects.filter(customer__user=request.user, pk=kwargs["pk"]).first()
-            if deal and not deal.selected_quote_id:
-                return redirect("crm:portal_quote_select", pk=kwargs["pk"])
-        return super().dispatch(request, *args, **kwargs)
+    def get(self, request, pk):
+        deal = self.get_deal(pk)
+        form = CompanyInfoForm(instance=deal.organisation, prefix="company")
+        return self._render(request, deal, form)
+
+    def post(self, request, pk):
+        deal = self.get_deal(pk)
+        form = CompanyInfoForm(request.POST, instance=deal.organisation, prefix="company")
+        if form.is_valid():
+            org = form.save()
+            # Link the saved org to the deal (if not already) and to the customer's
+            # organisations M2M (add is idempotent).
+            if deal.organisation_id != org.pk:
+                deal.organisation = org
+                deal.save(update_fields=["organisation"])
+            deal.customer.organisations.add(org)
+            return redirect("crm:portal_applicants", pk=deal.pk)
+        return self._render(request, deal, form)
+
+    def _render(self, request, deal, form):
+        from django.shortcuts import render
+        return render(
+            request,
+            self.template_name,
+            {"deal": deal, "form": form, "current_step": self.step},
+        )
+
+
+class PortalApplicantsView(_PortalStepMixin, View):
+    """Step 3: the lead's details + any co-applicants. Records 'Info Received'."""
+
+    step = 3
+    template_name = "crm/portal_applicants.html"
 
     def get(self, request, pk):
         deal = self.get_deal(pk)
@@ -493,34 +696,29 @@ class PortalApplicationView(_PortalDealMixin, View):
 
     def post(self, request, pk):
         deal = self.get_deal(pk)
-        company_form, customer_form, co_formset = self._build_forms(deal, data=request.POST)
-        all_valid = (
-            company_form.is_valid()
-            and customer_form.is_valid()
-            and co_formset.is_valid()
-        )
-        if all_valid:
-            company_form.save()
+        customer_form, co_formset = self._build_forms(deal, data=request.POST)
+        if customer_form.is_valid() and co_formset.is_valid():
             customer_form.save()
 
-            # Save co-applicants. Forms marked DELETE get unlinked (not deleted —
-            # the underlying Contact may exist for other reasons).
-            org = deal.customer.organisation
+            # Save co-applicants. Forms marked DELETE get unlinked (not deleted).
+            # Newly-saved contacts get the deal's organisation added to their M2M
+            # so they're discoverable under that org going forward.
+            org = deal.organisation
             active_contacts = []
             for form in co_formset:
                 if form.cleaned_data.get("DELETE"):
                     continue
                 if not form.has_changed() and form.instance.pk is None:
-                    # Empty newly-added form, never touched — ignore
                     continue
                 contact = form.save(commit=False)
-                if contact.organisation_id is None:
-                    contact.organisation = org
+                is_new = contact.pk is None
                 contact.save()
+                if is_new and org is not None:
+                    contact.organisations.add(org)
                 active_contacts.append(contact)
             deal.co_applicants.set(active_contacts)
 
-            # Record an Info Received stage event automatically
+            # Record an Info Received stage event automatically (once).
             if (deal.current_stage is None) or (deal.current_stage.name != Stage.Name.INFO_RECEIVED):
                 Stage.objects.create(
                     deal=deal,
@@ -529,36 +727,32 @@ class PortalApplicationView(_PortalDealMixin, View):
                     note="Customer completed application via portal.",
                 )
 
-            return redirect("crm:portal_application_complete", pk=deal.pk)
-        return self._render(request, deal, company_form, customer_form, co_formset)
+            return redirect("crm:portal_documents", pk=deal.pk)
+        return self._render(request, deal, customer_form, co_formset)
 
     def _build_forms(self, deal, data=None):
-        company_form = CompanyInfoForm(data, instance=deal.customer.organisation, prefix="company")
         customer_form = CustomerInfoForm(data, instance=deal.customer, prefix="customer")
-        # Formset starts with whatever co-applicants are already linked.
-        co_formset = CoApplicantFormSet(
-            data,
-            queryset=deal.co_applicants.all(),
-            prefix="co",
-        )
-        return company_form, customer_form, co_formset
+        co_formset = CoApplicantFormSet(data, queryset=deal.co_applicants.all(), prefix="co")
+        return customer_form, co_formset
 
-    def _render(self, request, deal, company_form, customer_form, co_formset):
+    def _render(self, request, deal, customer_form, co_formset):
         from django.shortcuts import render
         return render(
             request,
             self.template_name,
             {
                 "deal": deal,
-                "company_form": company_form,
                 "customer_form": customer_form,
                 "co_formset": co_formset,
+                "current_step": self.step,
             },
         )
 
 
-class PortalApplicationCompleteView(_PortalDealMixin, View):
-    """Step 3: thank-you page after the application is submitted."""
+class PortalApplicationCompleteView(_PortalStepMixin, View):
+    """Final thank-you page after the wizard is complete."""
+
+    step = 4
 
     def get(self, request, pk):
         from django.shortcuts import render
@@ -586,6 +780,8 @@ class QuoteUpdateView(StaffRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.object.deal
+        if self.object.deal.funded_amount is not None:
+            ctx["funded_amount_display"] = f"£{self.object.deal.funded_amount:,.2f}"
         return ctx
 
     def get_success_url(self):
@@ -639,3 +835,110 @@ class StageCreateView(StaffRequiredMixin, CreateView):
 
     def get_success_url(self):
         return self.parent_deal.get_absolute_url()
+
+
+# --- Documents -------------------------------------------------------------
+
+def _can_access_document(user, doc: Document) -> bool:
+    """Staff see any document; a customer only their own deal's."""
+    if not user.is_authenticated:
+        return False
+    if user.is_admin or user.is_associate:
+        return True
+    return user.is_customer and doc.deal.customer.user_id == user.id
+
+
+class DocumentCreateView(StaffRequiredMixin, CreateView):
+    """Staff: add a document request to a deal (file uploaded later)."""
+
+    model = Document
+    form_class = DocumentRequestForm
+
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        deal_pk = request.GET.get("deal")
+        if not deal_pk:
+            raise Http404("?deal query parameter required")
+        try:
+            self.parent_deal = Deal.objects.get(pk=deal_pk)
+        except (Deal.DoesNotExist, ValueError, TypeError) as exc:
+            raise Http404("Deal not found") from exc
+
+    def form_valid(self, form):
+        form.instance.deal = self.parent_deal
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["parent_deal"] = self.parent_deal
+        return ctx
+
+    def get_success_url(self):
+        return self.parent_deal.get_absolute_url()
+
+
+class DocumentDeleteView(StaffRequiredMixin, DeleteView):
+    """Staff: remove a document request (POST only — inline, no confirm page)."""
+
+    model = Document
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("deal")
+
+    def get_success_url(self):
+        return self.object.deal.get_absolute_url()
+
+
+class DocumentUploadView(LoginRequiredMixin, View):
+    """Attach a file to a document request. Used by both staff (deal page) and
+    the customer (portal). Flips the document to 'provided'."""
+
+    def post(self, request, pk):
+        doc = get_object_or_404(Document.objects.select_related("deal__customer"), pk=pk)
+        if not _can_access_document(request.user, doc):
+            raise PermissionDenied
+
+        form = DocumentUploadForm(request.POST, request.FILES, instance=doc)
+        if form.is_valid():
+            doc.attach(form.cleaned_data["file"], by=request.user)
+            messages.success(request, f"“{doc.name}” uploaded.")
+        else:
+            messages.error(request, f"Couldn't upload “{doc.name}”. Please choose a file.")
+
+        if request.user.is_customer:
+            return redirect("crm:portal_documents", pk=doc.deal_id)
+        return redirect(doc.deal.get_absolute_url())
+
+
+class DocumentDownloadView(LoginRequiredMixin, View):
+    """Stream a document's file through Django so access is permission-checked
+    (the storage bucket itself stays private)."""
+
+    def get(self, request, pk):
+        doc = get_object_or_404(Document.objects.select_related("deal__customer"), pk=pk)
+        if not _can_access_document(request.user, doc):
+            raise PermissionDenied
+        if not doc.file:
+            raise Http404("No file has been uploaded for this document yet.")
+        filename = doc.file.name.rsplit("/", 1)[-1]
+        return FileResponse(doc.file.open("rb"), as_attachment=True, filename=filename)
+
+
+class PortalDocumentsView(_PortalStepMixin, View):
+    """Step 4: customer sees required documents for their deal and uploads them."""
+
+    step = 4
+    template_name = "crm/portal_documents.html"
+
+    def get(self, request, pk):
+        deal = self.get_deal(pk)
+        return render(
+            request,
+            self.template_name,
+            {
+                "deal": deal,
+                "documents": deal.documents.all(),
+                "upload_form": DocumentUploadForm(),
+                "current_step": self.step,
+            },
+        )

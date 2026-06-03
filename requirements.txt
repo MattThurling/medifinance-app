@@ -8,3 +8,4 @@ psycopg[binary]
 dj-database-url
 gunicorn
 whitenoise
+django-storages[google]

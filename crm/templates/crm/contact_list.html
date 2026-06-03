@@ -44,7 +44,7 @@
             <td class="opacity-80">{{ c.email|default:"—" }}</td>
             <td class="opacity-60 text-sm">{{ c.phone|default:"—" }}</td>
             <td>
-              <a href="{{ c.organisation.get_absolute_url }}" class="link link-hover">{{ c.organisation.name }}</a>
+              {% for o in c.organisations.all %}<a href="{{ o.get_absolute_url }}" class="link link-hover">{{ o.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="opacity-50">—</span>{% endfor %}
             </td>
             <td>
               <a href="{% url 'crm:contact_update' c.pk %}" class="btn btn-ghost btn-xs">Edit</a>

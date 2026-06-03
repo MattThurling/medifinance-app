@@ -4,9 +4,15 @@
 {% block title %}{{ deal.name }} · Deals{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
-  {# ---- Main column ---- #}
-  <div class="lg:col-span-2 max-w-xl">
+{% comment %}
+Source order = the small-screen stack (header, amount, quotes/applicants/docs,
+timeline, CTA). On lg+ the explicit col/row placement rebuilds the two-column
+layout (main content left, amount + timeline right).
+{% endcomment %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-8">
+
+  {# ---- Header ---- #}
+  <div class="lg:col-start-1 lg:col-span-2 lg:row-start-1 max-w-xl">
     <p class="text-xs uppercase tracking-widest opacity-50">Deal</p>
     <div class="flex items-center gap-2 mt-1">
       <h1 class="text-3xl font-semibold">{{ deal.name }}</h1>
@@ -20,35 +26,60 @@
 
     <p class="flex items-center gap-2 mt-3 text-lg">
       {% icon "building" class="h-5 w-5 opacity-70" %}
-      <a href="{{ deal.customer.organisation.get_absolute_url }}" class="link link-hover">{{ deal.customer.organisation.name }}</a>
+      {% if deal.organisation %}
+        <a href="{{ deal.organisation.get_absolute_url }}" class="link link-hover">{{ deal.organisation.name }}</a>
+      {% else %}
+        <span class="opacity-60 italic">Organisation not set</span>
+      {% endif %}
     </p>
 
     <div class="mt-5 text-sm space-y-1">
       <p>Lead: <a href="{{ deal.customer.get_absolute_url }}" class="link link-hover">{{ deal.customer }}</a></p>
       <p>Owner: {{ deal.owner.full_name }}</p>
       {% if deal.introducer %}
-        <p>Introducer: {{ deal.introducer }}{% if deal.introducer.organisation %}, {{ deal.introducer.organisation.name }}{% endif %}</p>
-      {% endif %}
-      {% if deal.equipment_supplier %}
-        <p>Supplier: {{ deal.equipment_supplier.name }}</p>
+        <p>Introducer: <a href="{{ deal.introducer.get_absolute_url }}" class="link link-hover">{{ deal.introducer }}</a>{% if deal.introducer.organisation %}, <a href="{{ deal.introducer.organisation.get_absolute_url }}" class="link link-hover">{{ deal.introducer.organisation.name }}</a>{% endif %}</p>
       {% endif %}
     </div>
+  </div>
 
-    {# ---- Quotes ---- #}
-    <h2 class="font-semibold mt-8 mb-2">Quotes</h2>
-    {% for q in deal.quotes.all %}
-      <div class="flex items-center gap-4 py-1 text-sm">
-        <span class="w-14">{{ q.term }} m</span>
-        <span class="w-14 text-center opacity-70">{{ q.apr }}%</span>
-        <span class="w-24 text-right font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment }}{% else %}—{% endif %}</span>
-        <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
-          {% csrf_token %}
-          <button type="submit" class="text-error font-semibold" title="Delete quote">✕</button>
-        </form>
+  {# ---- Amount card ---- #}
+  <div class="lg:col-start-3 lg:row-start-1">
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body items-center text-center">
+        <p class="text-sm opacity-60">Asset Finance</p>
+        <p class="text-4xl font-semibold">{% if amount_pounds %}£{{ amount_pounds }}<span class="text-xl align-baseline">.{{ amount_pence }}</span>{% else %}—{% endif %}</p>
+        {% if commission_display %}<p class="text-sm opacity-70">{{ commission_display }} commission</p>{% endif %}
       </div>
-    {% empty %}
-      <p class="text-sm opacity-60">No quotes yet.</p>
-    {% endfor %}
+    </div>
+  </div>
+
+  {# ---- Quotes / Applicants / Documents ---- #}
+  <div class="lg:col-start-1 lg:col-span-2 lg:row-start-2 max-w-xl">
+    {# Quotes #}
+    <h2 class="font-semibold mb-2">Quotes</h2>
+    <table class="table table-xs w-full">
+      <thead>
+        <tr><th>Term</th><th>APR</th><th>Monthly</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for q in deal.quotes.all %}
+          <tr>
+            <td>{{ q.term }} m</td>
+            <td class="opacity-70">{{ q.apr }}%</td>
+            <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment }}{% else %}—{% endif %}</td>
+            <td class="text-right whitespace-nowrap">
+              <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+              <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove quote">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="opacity-60">No quotes yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
     {% if deal.funded_amount %}
       <a href="{% url 'crm:quote_create' %}?deal={{ deal.pk }}"
          class="btn btn-circle btn-xs btn-outline mt-3" title="Add quote" aria-label="Add quote">
@@ -58,27 +89,111 @@
       <p class="text-xs opacity-50 mt-2">Set a funded amount (Edit) to add quotes.</p>
     {% endif %}
 
-    {# ---- Applicants ---- #}
+    {# Applicants #}
     <h2 class="font-semibold mt-8 mb-2">Applicants</h2>
-    {% for a in applicants %}
-      <p class="text-sm">
-        <a href="{{ a.get_absolute_url }}" class="link link-hover">{{ a }}</a>
-      </p>
-    {% endfor %}
-    {# Placeholder — staff add-applicant flow comes with its own view later #}
-    <button type="button" class="btn btn-circle btn-xs btn-outline mt-3" title="Add applicant (coming soon)" aria-label="Add applicant">
-      {% icon "plus" class="h-3.5 w-3.5" %}
-    </button>
+    <table class="table table-xs w-full">
+      <thead>
+        <tr><th>Name</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for a in applicants %}
+          <tr>
+            <td><a href="{{ a.get_absolute_url }}" class="link link-hover">{{ a }}</a></td>
+            <td class="text-right whitespace-nowrap">
+              <a href="{% url 'crm:contact_update' a.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit contact">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="flex flex-wrap items-center gap-2 mt-3">
+      {% if available_applicants %}
+        <form method="post" action="{% url 'crm:deal_applicant_add' deal.pk %}" class="flex items-center gap-2">
+          {% csrf_token %}
+          <select name="contact" required class="select select-bordered select-xs max-w-xs">
+            <option value="" selected disabled>Add existing contact…</option>
+            {% for c in available_applicants %}
+              <option value="{{ c.pk }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-xs btn-outline">Add</button>
+        </form>
+      {% endif %}
+      <a href="{% url 'crm:contact_create' %}?deal={{ deal.pk }}" class="btn btn-xs btn-outline">+ New contact</a>
+    </div>
 
-    {# ---- Documents (placeholder — no Document model yet) ---- #}
+    {# Documents #}
     <h2 class="font-semibold mt-8 mb-2">Documents</h2>
-    <p class="text-sm opacity-60">No documents yet.</p>
-    <button type="button" class="btn btn-circle btn-xs btn-outline mt-3" title="Add document (coming soon)" aria-label="Add document">
+    <table class="table table-xs w-full">
+      <thead>
+        <tr><th>Document</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for d in deal.documents.all %}
+          <tr>
+            <td>{{ d.name }}</td>
+            <td class="text-right whitespace-nowrap">
+              {% if d.is_provided %}
+                <a href="{% url 'crm:document_download' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="View document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
+              {% else %}
+                <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
+                <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
+                  {% csrf_token %}
+                  <input id="upload-{{ d.pk }}" type="file" name="file" onchange="this.form.submit()" />
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'crm:document_delete' d.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove document">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2" class="opacity-60">No documents requested yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <a href="{% url 'crm:document_create' %}?deal={{ deal.pk }}"
+       class="btn btn-circle btn-xs btn-outline mt-3" title="Request a document" aria-label="Request a document">
       {% icon "plus" class="h-3.5 w-3.5" %}
-    </button>
+    </a>
+  </div>
 
-    {# ---- Primary CTA ---- #}
-    <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}" class="mt-8">
+  {# ---- Timeline (stage history) ---- #}
+  <div class="lg:col-start-3 lg:row-start-2">
+    <ul class="timeline timeline-vertical">
+      {% for s in stages_chrono %}
+        <li>
+          {% if not forloop.first %}<hr class="bg-secondary" />{% endif %}
+          <div class="timeline-middle">
+            <span class="block w-3 h-3 rounded-full bg-secondary"></span>
+          </div>
+          {% if forloop.counter|divisibleby:2 %}
+            <div class="timeline-start timeline-box">
+              {{ s.get_name_display }}
+              <span class="block text-xs opacity-60">{{ s.occurred_at|timesince }} ago</span>
+            </div>
+          {% else %}
+            <div class="timeline-end timeline-box">
+              {{ s.get_name_display }}
+              <span class="block text-xs opacity-60">{{ s.occurred_at|timesince }} ago</span>
+            </div>
+          {% endif %}
+          <hr class="bg-secondary" />
+        </li>
+      {% endfor %}
+      <li>
+        {% if stages_chrono %}<hr class="bg-secondary" />{% endif %}
+        <div class="timeline-middle">
+          <a href="{% url 'crm:stage_create' %}?deal={{ deal.pk }}" class="btn btn-circle btn-xs btn-outline" title="Add stage" aria-label="Add stage">{% icon "plus" class="h-3 w-3" %}</a>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  {# ---- Primary CTA ---- #}
+  <div class="lg:col-start-1 lg:col-span-2 lg:row-start-3 max-w-xl">
+    <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-primary btn-block">
         Send application to {{ deal.customer.first_name|default:"customer" }}
@@ -90,29 +205,5 @@
     </form>
   </div>
 
-  {# ---- Right column ---- #}
-  <div class="lg:col-span-1">
-    <div class="flex justify-end mb-10">
-      <div class="stats shadow">
-        <div class="stat">
-          <div class="stat-title">Asset Finance</div>
-          <div class="stat-value">{% if amount_pounds %}£{{ amount_pounds }}<span class="text-xl align-baseline">.{{ amount_pence }}</span>{% else %}—{% endif %}</div>
-          <div class="stat-desc">£2,500.00 commission</div>
-        </div>
-      </div>
-    </div>
-
-    <ul class="steps steps-vertical">
-      {% for s in stages_chrono %}
-        <li class="step step-secondary" data-content=" ">
-          <span class="ml-2 text-left">{{ s.get_name_display }} - {{ s.occurred_at|timesince }} ago</span>
-        </li>
-      {% endfor %}
-      <li class="step relative" data-content="+">
-        <a href="{% url 'crm:stage_create' %}?deal={{ deal.pk }}"
-           class="absolute inset-0 z-10" title="Add stage" aria-label="Add another stage"></a>
-      </li>
-    </ul>
-  </div>
 </div>
 {% endblock %}

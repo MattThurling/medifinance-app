@@ -20,15 +20,15 @@
       {% endif %}
 
       {% if parent_deal.funded_amount %}
-        <div class="alert alert-info mb-4 text-sm">
-          Monthly payment is auto-calculated from this deal's funded amount
-          (<strong>£{{ parent_deal.funded_amount }}</strong>) plus the APR + term below.
-        </div>
+        <p class="text-sm opacity-70 mb-4">
+          Monthly payment is calculated automatically from the funded amount
+          (<strong>{{ funded_amount_display }}</strong>) and the term &amp; APR below.
+        </p>
       {% else %}
-        <div class="alert alert-warning mb-4 text-sm">
-          This deal has no funded amount set, so we can't calculate the monthly payment.
-          <a href="{% url 'crm:deal_update' parent_deal.pk %}" class="link">Edit the deal</a> first.
-        </div>
+        <p class="text-sm text-warning mb-4">
+          This deal has no funded amount set, so the monthly payment can't be calculated.
+          <a href="{% url 'crm:deal_update' parent_deal.pk %}" class="link">Edit the deal</a> to set one first.
+        </p>
       {% endif %}
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">

@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.sites",
 
     "guardian",
-    "anymail",
+    "storages",
 
     "accounts",
     "crm",
@@ -136,6 +136,23 @@ STORAGES = {
     },
 }
 
+# Media (uploaded documents). Local filesystem by default; private Cloud Storage
+# bucket when GS_BUCKET_NAME is set (e.g. on Cloud Run). Files are never public —
+# they're served through a permission-checked download view.
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME", "")
+if GS_BUCKET_NAME:
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "OPTIONS": {
+            "bucket_name": GS_BUCKET_NAME,
+            "default_acl": None,        # private; relies on uniform bucket-level access
+            "querystring_auth": False,  # we don't expose object URLs directly
+        },
+    }
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
@@ -157,20 +174,22 @@ if not DEBUG:
 HUBSPOT_PORTAL_ID = os.getenv("HUBSPOT_PORTAL_ID", "3378161")
 
 
-# Email — Mailgun via django-anymail when an API key is present; otherwise
-# emails print to the console (dev-friendly, no real sends, no key required).
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Medifinance <noreply@example.com>")
+# Email — SMTP over SSL to the medi-finance.co.uk mail server (used in dev too).
+# Password comes from EMAIL_HOST_PASSWORD; if it's empty we fall back to the
+# console backend so local runs without credentials still work (emails print to
+# the terminal instead of failing SMTP auth).
+EMAIL_HOST = os.getenv("EMAIL_HOST", "mail.medi-finance.co.uk")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "1") == "1"   # port 465 = implicit SSL/SMTPS
+EMAIL_USE_TLS = False                                    # mutually exclusive with USE_SSL
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "info@medi-finance.co.uk")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))    # seconds
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Medifinance <{EMAIL_HOST_USER}>")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY", "")
-
-if MAILGUN_API_KEY:
-    EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
-    ANYMAIL = {
-        "MAILGUN_API_KEY": MAILGUN_API_KEY,
-        "MAILGUN_SENDER_DOMAIN": os.getenv("MAILGUN_SENDER_DOMAIN", ""),
-        # EU region by default — override for US (https://api.mailgun.net/v3).
-        "MAILGUN_API_URL": os.getenv("MAILGUN_API_URL", "https://api.eu.mailgun.net/v3"),
-    }
+if EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

@@ -51,7 +51,7 @@
               <a href="{{ d.customer.get_absolute_url }}" class="link link-hover">{{ d.customer }}</a>
             </td>
             <td>
-              <a href="{{ d.customer.organisation.get_absolute_url }}" class="link link-hover">{{ d.customer.organisation.name }}</a>
+              {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
             </td>
             <td class="opacity-80">{{ d.owner.full_name }}</td>
             <td>

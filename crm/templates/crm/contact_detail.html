@@ -24,9 +24,9 @@
         <dd class="col-span-2">{{ contact.email|default:"—" }}</dd>
         <dt class="opacity-60">Phone</dt>
         <dd class="col-span-2">{{ contact.phone|default:"—" }}</dd>
-        <dt class="opacity-60">Organisation</dt>
+        <dt class="opacity-60">Organisations</dt>
         <dd class="col-span-2">
-          <a href="{{ contact.organisation.get_absolute_url }}" class="link link-hover">{{ contact.organisation.name }}</a>
+          {% for o in contact.organisations.all %}<a href="{{ o.get_absolute_url }}" class="link link-hover">{{ o.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="opacity-50">— not set</span>{% endfor %}
         </dd>
         <dt class="opacity-60">User account</dt>
         <dd class="col-span-2">{{ contact.user.email|default:"—" }}</dd>

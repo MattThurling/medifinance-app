@@ -3,9 +3,13 @@
 {% block title %}{% if object %}Edit {{ object }}{% else %}New contact{% endif %} · Medifinance CRM{% endblock %}
 
 {% block content %}
+{% url 'crm:organisation_search' as organisation_search_url %}
 <div class="max-w-xl">
   <p class="text-sm opacity-60 mb-1">
-    {% if parent_organisation %}
+    {% if parent_deal %}
+      <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
+      <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
+    {% elif parent_organisation %}
       <a href="{% url 'crm:organisation_list' %}" class="link link-hover">Organisations</a> /
       <a href="{{ parent_organisation.get_absolute_url }}" class="link link-hover">{{ parent_organisation.name }}</a>
     {% else %}
@@ -13,9 +17,12 @@
       {% if object %} / <a href="{{ object.get_absolute_url }}" class="link link-hover">{{ object }}</a>{% endif %}
     {% endif %}
   </p>
-  <h1 class="text-2xl font-semibold mb-6">
-    {% if object %}Edit contact{% else %}New contact{% endif %}
+  <h1 class="text-2xl font-semibold {% if parent_deal %}mb-2{% else %}mb-6{% endif %}">
+    {% if parent_deal %}New applicant{% elif object %}Edit contact{% else %}New contact{% endif %}
   </h1>
+  {% if parent_deal %}
+    <p class="text-sm opacity-70 mb-6">Will be added to <strong>{{ parent_deal.name }}</strong> as an applicant{% if parent_organisation %}, under {{ parent_organisation.name }}{% endif %}.</p>
+  {% endif %}
 
   <form method="post" class="card bg-base-100 shadow">
     <div class="card-body">
@@ -31,20 +38,34 @@
       {% include "_field.html" with field=form.email %}
       {% include "_field.html" with field=form.phone %}
 
-      {% if parent_organisation %}
-        <div class="form-control mb-4">
-          <label class="label"><span class="label-text">Organisation</span></label>
-          <div class="input input-bordered w-full bg-base-200 flex items-center opacity-70 cursor-not-allowed">
-            {{ parent_organisation.name }}
-          </div>
-          <input type="hidden" name="organisation" value="{{ parent_organisation.pk }}" />
+      <div class="form-control mb-4 m2m-combobox" data-name="organisations">
+        <label class="label"><span class="label-text">Organisations</span></label>
+        <div class="m2m-chips flex flex-wrap gap-2 mb-2">
+          {% for o in form.selected_organisations %}
+            <span class="badge badge-lg gap-1" data-id="{{ o.pk }}">
+              {{ o.name }}
+              <button type="button" class="m2m-remove ml-1" aria-label="Remove">×</button>
+              <input type="hidden" name="organisations" value="{{ o.pk }}" />
+            </span>
+          {% endfor %}
         </div>
-      {% else %}
-        {% include "_field.html" with field=form.organisation %}
-      {% endif %}
+        <div class="combobox relative">
+          <input type="text" name="q" autocomplete="off"
+                 class="input input-bordered w-full combobox-search"
+                 placeholder="Search organisations to add…"
+                 hx-get="{{ organisation_search_url }}"
+                 hx-trigger="keyup changed delay:200ms"
+                 hx-target="next .combobox-results"
+                 hx-swap="innerHTML" />
+          <ul class="combobox-results menu bg-base-100 rounded-box shadow absolute z-20 w-full mt-1 max-h-60 overflow-auto flex-nowrap empty:hidden"></ul>
+        </div>
+        {% if form.organisations.errors %}
+          <p class="text-error text-sm mt-1">{{ form.organisations.errors|join:", " }}</p>
+        {% endif %}
+      </div>
 
       <div class="card-actions justify-end mt-2">
-        <a href="{% if parent_organisation %}{{ parent_organisation.get_absolute_url }}{% elif object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
+        <a href="{% if parent_deal %}{{ parent_deal.get_absolute_url }}{% elif parent_organisation %}{{ parent_organisation.get_absolute_url }}{% elif object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
         <button type="submit" class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>
       </div>
     </div>

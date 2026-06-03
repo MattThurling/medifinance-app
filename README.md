@@ -81,3 +81,20 @@ class SomeAdminView(AdminRequiredMixin, TemplateView): ...
 ```
 
 Per-row permissions are wired through django-guardian. On `Deal` save, the owner gets `view_deal` and `change_deal` on that row (see `crm/signals.py`).
+
+## Browser extension API
+
+The **`chrome-extension`** repo (a separate folder/repo) fills partner/bank
+application forms from a deal. It talks to two read-only, staff-only JSON
+endpoints served here:
+
+- `GET /api/deals/` — recent deals + the signed-in user
+- `GET /api/deals/<id>/` — the flat fill payload for one deal
+
+Auth is the staff member's existing session cookie (the extension is granted
+host access to the CRM). See `crm/api.py`.
+
+> **Contract:** the JSON shape returned by `_deal_fill_payload()` is consumed by
+> the extension's `partners.js` field maps. The two repos are independent but
+> coupled by this payload — if you change its shape, update the extension's
+> field maps in lockstep.

@@ -3,6 +3,9 @@
 {% block title %}{% if object %}Edit {{ object.name }}{% else %}New deal{% endif %} · Medifinance CRM{% endblock %}
 
 {% block content %}
+{% url 'crm:contact_search' as contact_search_url %}
+{% url 'crm:organisation_search' as organisation_search_url %}
+{% url 'crm:user_search' as user_search_url %}
 <div class="max-w-xl">
   <p class="text-sm opacity-60 mb-1">
     {% if parent_contact %}
@@ -35,18 +38,38 @@
           <input type="hidden" name="customer" value="{{ parent_contact.pk }}" />
         </div>
       {% else %}
-        {% include "_field.html" with field=form.customer %}
+        {% include "crm/_combobox.html" with name="customer" label="Customer" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.customer.value selected_label=form.instance.customer errors=form.customer.errors %}
       {% endif %}
 
-      {% include "_field.html" with field=form.owner %}
+      {% include "crm/_combobox.html" with name="organisation" label="Organisation" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
+
+      {% include "crm/_combobox.html" with name="owner" label="Owner" search_url=user_search_url placeholder="Search staff…" selected_id=owner_selected_id selected_label=owner_selected_label errors=form.owner.errors %}
 
       <div class="divider text-xs opacity-60 mt-2 mb-2">Associations</div>
-      {% include "_field.html" with field=form.introducer %}
-      {% include "_field.html" with field=form.equipment_supplier %}
+      {% include "crm/_combobox.html" with name="introducer" label="Introducer" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.introducer.value selected_label=form.instance.introducer errors=form.introducer.errors %}
 
-      <div class="divider text-xs opacity-60 mt-2 mb-2">Financials</div>
+      <div class="divider text-xs opacity-60 mt-2 mb-2">Participations</div>
+      <p class="text-xs opacity-60 mb-3">The deal's funded amount is the sum of these rows.</p>
+
+      {{ participation_formset.management_form }}
+      {% if participation_formset.non_form_errors %}
+        <div class="alert alert-error mb-3">{{ participation_formset.non_form_errors|join:", " }}</div>
+      {% endif %}
+
+      <div id="participations" class="space-y-3">
+        {% for pform in participation_formset %}
+          {% include "crm/_participation_row.html" with form=pform organisation_search_url=organisation_search_url %}
+        {% endfor %}
+      </div>
+
+      <template id="participation-template">
+        {% include "crm/_participation_row.html" with form=participation_formset.empty_form organisation_search_url=organisation_search_url is_template=True %}
+      </template>
+
+      <button type="button" id="add-participation" class="btn btn-sm mt-3">+ Add participation</button>
+
+      <div class="divider text-xs opacity-60 mt-6 mb-2">Other financials</div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-        {% include "_field.html" with field=form.funded_amount %}
         {% include "_field.html" with field=form.earnings %}
         {% include "_field.html" with field=form.flat_fee %}
         {% include "_field.html" with field=form.commission %}
@@ -60,4 +83,36 @@
     </div>
   </form>
 </div>
+
+<script>
+(function () {
+  const addBtn = document.getElementById('add-participation');
+  if (!addBtn) return;
+  const container = document.getElementById('participations');
+  const template = document.getElementById('participation-template');
+  const totalForms = document.querySelector('input[name="participations-TOTAL_FORMS"]');
+
+  addBtn.addEventListener('click', () => {
+    const i = parseInt(totalForms.value, 10);
+    const clone = template.content.cloneNode(true);
+    clone.querySelectorAll('[name*="__prefix__"]').forEach(el => { el.name = el.name.replace(/__prefix__/g, i); });
+    clone.querySelectorAll('[id*="__prefix__"]').forEach(el => { el.id = el.id.replace(/__prefix__/g, i); });
+    clone.querySelectorAll('label[for*="__prefix__"]').forEach(el => { el.htmlFor = el.htmlFor.replace(/__prefix__/g, i); });
+    container.appendChild(clone);
+    // htmx auto-processes inserted nodes via MutationObserver, but call it
+    // explicitly so the cloned combobox's hx-* attributes wire up reliably.
+    const newRow = container.lastElementChild;
+    if (window.htmx && newRow) window.htmx.process(newRow);
+    totalForms.value = i + 1;
+  });
+
+  container.addEventListener('click', (e) => {
+    if (!e.target.matches('.participation-remove')) return;
+    const row = e.target.closest('.participation-row');
+    const deleteInput = row.querySelector('input[name$="-DELETE"]');
+    if (deleteInput) { deleteInput.value = 'on'; row.classList.add('hidden'); }
+    else { row.remove(); }
+  });
+})();
+</script>
 {% endblock %}

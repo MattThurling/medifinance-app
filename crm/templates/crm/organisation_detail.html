@@ -4,12 +4,24 @@
 {% block title %}{{ organisation.name }} · Organisations{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-start justify-between mb-6">
   <div>
     <p class="text-sm opacity-60"><a href="{% url 'crm:organisation_list' %}" class="link link-hover">Organisations</a></p>
     <h1 class="text-2xl font-semibold mt-1">{{ organisation.name }}</h1>
+    {% if organisation.trading_name %}
+      <p class="text-sm mt-1"><span class="opacity-60">t/a</span> {{ organisation.trading_name }}</p>
+    {% endif %}
+    {% if organisation.legal_name or organisation.companies_house_number %}
+      <p class="text-sm mt-1">
+        {% if organisation.legal_name %}<span class="opacity-60">Registered as</span> {{ organisation.legal_name }}{% endif %}
+        {% if organisation.legal_name and organisation.companies_house_number %} · {% endif %}
+        {% if organisation.companies_house_number %}
+          <span class="opacity-60">Company #</span><a href="{{ organisation.companies_house_url }}" target="_blank" rel="noopener" class="link link-hover">{{ organisation.companies_house_number }}</a>
+        {% endif %}
+      </p>
+    {% endif %}
   </div>
-  <div class="flex gap-2">
+  <div class="flex gap-2 shrink-0">
     <a href="{% url 'crm:organisation_update' organisation.pk %}" class="btn btn-sm">Edit</a>
     <a href="{% url 'crm:organisation_delete' organisation.pk %}" class="btn btn-sm btn-error btn-outline">Delete</a>
   </div>

@@ -1,7 +1,7 @@
 from django import forms
-from django.forms import modelformset_factory
+from django.forms import inlineformset_factory, modelformset_factory
 
-from .models import Contact, Deal, Organisation, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Participation, Quote, Stage
 
 
 class DaisyUIFormMixin:
@@ -26,13 +26,32 @@ class DaisyUIFormMixin:
 class OrganisationForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Organisation
-        fields = ["name"]
+        fields = ["name", "legal_name", "trading_name", "companies_house_number"]
 
 
 class ContactForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Contact
-        fields = ["first_name", "last_name", "email", "phone", "organisation"]
+        fields = ["first_name", "last_name", "email", "phone", "organisations"]
+
+    def selected_organisations(self):
+        """Orgs to render as chips on the form. On a bound (POSTed) form we
+        rebuild from `data` so an invalid re-post preserves the user's picks;
+        otherwise we read the saved instance's M2M, falling back to whatever
+        the view supplied as `initial['organisations']` (e.g. when creating
+        from an org or deal page)."""
+        if self.is_bound and hasattr(self.data, "getlist"):
+            ids = [pk for pk in self.data.getlist("organisations") if pk]
+            if ids:
+                return list(Organisation.objects.filter(pk__in=ids))
+            return []
+        if self.instance.pk:
+            return list(self.instance.organisations.all())
+        initial = self.initial.get("organisations") or self.fields["organisations"].initial
+        if initial:
+            pks = [o.pk if hasattr(o, "pk") else o for o in initial]
+            return list(Organisation.objects.filter(pk__in=pks))
+        return []
 
 
 class DealForm(DaisyUIFormMixin, forms.ModelForm):
@@ -41,10 +60,9 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
         fields = [
             "name",
             "customer",
+            "organisation",
             "owner",
             "introducer",
-            "equipment_supplier",
-            "funded_amount",
             "earnings",
             "flat_fee",
             "commission",
@@ -55,6 +73,23 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         if current_user is not None and not self.instance.pk:
             self.fields["owner"].initial = current_user
+
+
+class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
+    """One row in the inline Participation formset on the deal form."""
+
+    class Meta:
+        model = Participation
+        fields = ["amount", "organisation"]
+
+
+ParticipationFormSet = inlineformset_factory(
+    Deal,
+    Participation,
+    form=ParticipationForm,
+    extra=1,
+    can_delete=True,
+)
 
 
 class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
@@ -118,7 +153,7 @@ ADDRESS_FIELDS_HOME = [
 class CompanyInfoForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Organisation
-        fields = ADDRESS_FIELDS_ORG
+        fields = ["name"] + ADDRESS_FIELDS_ORG
 
 
 class CustomerInfoForm(DaisyUIFormMixin, forms.ModelForm):
@@ -148,3 +183,25 @@ CoApplicantFormSet = modelformset_factory(
     extra=0,
     can_delete=True,
 )
+
+
+class DocumentRequestForm(DaisyUIFormMixin, forms.ModelForm):
+    """Staff: request a document on a deal (the file comes later, on upload)."""
+
+    class Meta:
+        model = Document
+        fields = ["name", "required"]
+
+
+class DocumentUploadForm(forms.ModelForm):
+    """Upload a file against an existing document request."""
+
+    class Meta:
+        model = Document
+        fields = ["file"]
+
+    def clean_file(self):
+        f = self.cleaned_data.get("file")
+        if not f:
+            raise forms.ValidationError("Please choose a file to upload.")
+        return f

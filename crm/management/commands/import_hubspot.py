@@ -123,9 +123,15 @@ class Command(BaseCommand):
         created = updated = 0
         for line, row in self._read_csv(path):
             self._require(row, ["hubspot_id", "name"], path.name, line)
+            defaults = {"name": row["name"]}
+            # Optional columns — picked up only if present + non-empty in the CSV
+            # (re-imports won't blank an existing value with a missing column).
+            for col in ("legal_name", "trading_name", "companies_house_number"):
+                if row.get(col):
+                    defaults[col] = row[col].strip()
             _, was_created = Organisation.objects.update_or_create(
                 hubspot_id=row["hubspot_id"],
-                defaults={"name": row["name"]},
+                defaults=defaults,
             )
             created += int(was_created)
             updated += int(not was_created)
@@ -145,12 +151,13 @@ class Command(BaseCommand):
                 continue
 
             defaults = self._defaults_from(row, ["first_name", "last_name", "email", "phone"])
-            defaults["organisation"] = org
 
-            _, was_created = Contact.objects.update_or_create(
+            contact, was_created = Contact.objects.update_or_create(
                 hubspot_id=row["hubspot_id"],
                 defaults=defaults,
             )
+            # Contact↔Organisation is a M2M; add() is idempotent on re-imports.
+            contact.organisations.add(org)
             created += int(was_created)
             updated += int(not was_created)
         self._print_counts("contacts:     ", created, updated, skipped)
@@ -181,9 +188,17 @@ class Command(BaseCommand):
                 skipped += 1
                 continue
 
+            # Seed Deal.organisation from the customer's first known organisation,
+            # if any. Staff can change it later from the deal form.
+            customer_org = customer.organisations.first()
             _, was_created = Deal.objects.update_or_create(
                 hubspot_id=row["hubspot_id"],
-                defaults={"name": row["name"], "owner": owner, "customer": customer},
+                defaults={
+                    "name": row["name"],
+                    "owner": owner,
+                    "customer": customer,
+                    "organisation": customer_org,
+                },
             )
             created += int(was_created)
             updated += int(not was_created)

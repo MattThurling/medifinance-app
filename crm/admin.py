@@ -1,22 +1,28 @@
 from django.contrib import admin
 
-from .models import Contact, Deal, Organisation, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Participation, Quote, Stage
 
 
 @admin.register(Organisation)
 class OrganisationAdmin(admin.ModelAdmin):
-    list_display = ("name", "hubspot_id", "created_at")
-    search_fields = ("name", "hubspot_id")
+    list_display = ("name", "companies_house_number", "hubspot_id", "created_at")
+    search_fields = (
+        "name",
+        "legal_name",
+        "trading_name",
+        "companies_house_number",
+        "hubspot_id",
+    )
     readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
-    list_display = ("__str__", "email", "organisation", "user", "hubspot_id", "created_at")
-    list_select_related = ("organisation", "user")
-    list_filter = ("organisation",)
-    search_fields = ("first_name", "last_name", "email", "hubspot_id", "organisation__name")
-    autocomplete_fields = ("organisation", "user")
+    list_display = ("__str__", "email", "user", "hubspot_id", "created_at")
+    list_select_related = ("user",)
+    list_filter = ("organisations",)
+    search_fields = ("first_name", "last_name", "email", "hubspot_id", "organisations__name")
+    autocomplete_fields = ("organisations", "user")
     readonly_fields = ("created_at", "updated_at")
 
 
@@ -35,10 +41,27 @@ class StageInline(admin.TabularInline):
     ordering = ("-occurred_at",)
 
 
+class DocumentInline(admin.TabularInline):
+    model = Document
+    extra = 0
+    fields = ("name", "required", "status", "file", "uploaded_at", "uploaded_by")
+    readonly_fields = ("uploaded_at", "uploaded_by")
+    autocomplete_fields = ("uploaded_by",)
+
+
+class ParticipationInline(admin.TabularInline):
+    """Inline editor for Deal.participations — the sum of `amount` is the deal's funded amount."""
+
+    model = Participation
+    extra = 0
+    fields = ("amount", "organisation")
+    autocomplete_fields = ("organisation",)
+
+
 @admin.register(Deal)
 class DealAdmin(admin.ModelAdmin):
-    list_display = ("name", "owner", "customer", "funded_amount", "hubspot_id", "created_at")
-    list_select_related = ("owner", "customer", "customer__organisation")
+    list_display = ("name", "owner", "customer", "hubspot_id", "created_at")
+    list_select_related = ("owner", "customer", "organisation")
     list_filter = ("owner",)
     search_fields = (
         "name",
@@ -47,21 +70,24 @@ class DealAdmin(admin.ModelAdmin):
         "customer__last_name",
         "customer__email",
     )
-    autocomplete_fields = ("owner", "customer", "introducer", "equipment_supplier")
+    autocomplete_fields = ("owner", "customer", "organisation", "introducer")
     readonly_fields = ("created_at", "updated_at")
-    inlines = [StageInline, QuoteInline]
+    inlines = [ParticipationInline, StageInline, QuoteInline, DocumentInline]
     fieldsets = (
-        (None, {"fields": ("name", "owner", "customer")}),
-        ("Associations", {"fields": ("introducer", "equipment_supplier")}),
+        (None, {"fields": ("name", "owner", "customer", "organisation")}),
+        ("Associations", {"fields": ("introducer",)}),
         (
-            "Financials",
+            "Other financials",
             {
                 "fields": (
-                    "funded_amount",
                     "earnings",
                     "flat_fee",
                     "commission",
                     "document_fee",
+                ),
+                "description": (
+                    "The deal's funded amount is the sum of its Participations "
+                    "(edited inline below)."
                 ),
             },
         ),
@@ -87,3 +113,13 @@ class StageAdmin(admin.ModelAdmin):
     search_fields = ("deal__name",)
     autocomplete_fields = ("deal", "set_by")
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    list_display = ("name", "deal", "required", "status", "uploaded_at")
+    list_select_related = ("deal",)
+    list_filter = ("status", "required")
+    search_fields = ("name", "deal__name")
+    autocomplete_fields = ("deal", "uploaded_by")
+    readonly_fields = ("uploaded_at", "created_at", "updated_at")

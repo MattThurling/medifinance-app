@@ -1,0 +1,31 @@
+{% extends "_portal_layout.html" %}
+
+{% block title %}Company details · {{ deal.name }}{% endblock %}
+
+{% block content %}
+{% include "crm/_portal_steps.html" %}
+
+<h1 class="text-2xl font-semibold mb-1">Company details</h1>
+<p class="text-sm opacity-70 mb-6">Confirm your company's name and registered address.</p>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  {% include "_field.html" with field=form.name %}
+  {% include "_field.html" with field=form.address_line1 %}
+  {% include "_field.html" with field=form.address_line2 %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+    {% include "_field.html" with field=form.address_city %}
+    {% include "_field.html" with field=form.address_county %}
+  </div>
+  <div class="max-w-xs">
+    {% include "_field.html" with field=form.address_postcode %}
+  </div>
+
+  <div class="flex justify-between mt-8">
+    <a href="{% url 'crm:portal_quote_select' deal.pk %}" class="btn btn-ghost">Back</a>
+    <button type="submit" class="btn btn-primary">Continue →</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+Plain customer-facing layout — Medifinance logo at the top, centred content,
+no staff sidebar/navigation. Used by the portal pages a customer reaches via a
+magic link.
+{% endcomment %}
+
+{% block body %}
+<div class="min-h-screen bg-base-100">
+  <header class="py-6 flex justify-center">
+    <img src="{% static 'img/MedifinanceLogo.webp' %}" alt="Medifinance" class="h-10 w-auto" />
+  </header>
+  <main class="max-w-2xl mx-auto px-4 pb-12">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} mb-4"><span>{{ message }}</span></div>
+      {% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

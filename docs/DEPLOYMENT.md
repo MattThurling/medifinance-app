@@ -17,7 +17,7 @@ Static files are served in-container by WhiteNoise. Media (documents, later) wil
 - `gcloud` CLI installed and logged in (`gcloud auth login`)
 - A GCP project with billing enabled
 - The repo pushed to GitHub
-- Your Mailgun (EU) API key to hand
+- The `info@medi-finance.co.uk` SMTP password to hand (for real email; optional — without it the app falls back to the console backend)
 
 Set shell variables used throughout:
 
@@ -56,8 +56,11 @@ gcloud artifacts repositories create "$AR_REPO" \
 
 ```bash
 # Smallest/cheapest tier (~£8–12/mo). Scale up later with `gcloud sql instances patch`.
+# --edition=ENTERPRISE is required: the default ENTERPRISE_PLUS rejects shared-core
+# tiers like db-f1-micro (it only allows db-perf-optimized-* machines).
 gcloud sql instances create "$SQL_INSTANCE" \
   --database-version=POSTGRES_16 \
+  --edition=ENTERPRISE \
   --tier=db-f1-micro \
   --region="$REGION" \
   --storage-auto-increase
@@ -84,11 +87,39 @@ python3 -c 'import secrets; print(secrets.token_urlsafe(50))' | gcloud secrets c
 # DATABASE_URL (per env). The ?host= points Postgres at the Cloud SQL unix socket.
 printf 'postgres://%s:%s@/medifinance_dev?host=/cloudsql/%s'  "$DB_USER" "$DB_PASSWORD" "$SQL_CONN" | gcloud secrets create database-url-dev  --data-file=-
 printf 'postgres://%s:%s@/medifinance_prod?host=/cloudsql/%s' "$DB_USER" "$DB_PASSWORD" "$SQL_CONN" | gcloud secrets create database-url-prod --data-file=-
-
-# Mailgun API key (paste your real EU key; same key is fine for both envs)
-printf 'YOUR_MAILGUN_EU_API_KEY' | gcloud secrets create mailgun-key-dev  --data-file=-
-printf 'YOUR_MAILGUN_EU_API_KEY' | gcloud secrets create mailgun-key-prod --data-file=-
 ```
+
+### Email (optional — skip if you don't have the SMTP password yet)
+
+```bash
+# The mail.medi-finance.co.uk SMTP password for info@medi-finance.co.uk.
+# One secret shared across dev + prod (same mailbox).
+read -rsp "EMAIL_HOST_PASSWORD: " EMAIL_PW && echo
+printf '%s' "$EMAIL_PW" | gcloud secrets create email-host-password --data-file=-
+unset EMAIL_PW
+```
+
+> Without this secret the app falls back to the console backend (emails print
+> to Cloud Run logs) — useful for the very first deploy if you don't have the
+> password handy. Re-deploy after creating it to flip to real SMTP.
+
+## 4b. Cloud Storage bucket (uploaded documents)
+
+Documents (bank statements, ID, etc.) are uploaded by customers and **must** be
+stored off the container — Cloud Run's filesystem is ephemeral. The bucket is
+**private**; files are served only through the app's permission-checked download
+view.
+
+```bash
+export DOCS_BUCKET="${PROJECT_ID}-medifinance-docs"   # bucket names are globally unique
+
+gcloud storage buckets create "gs://${DOCS_BUCKET}" \
+  --location="$REGION" \
+  --uniform-bucket-level-access \
+  --public-access-prevention
+```
+
+(IAM for the runtime SA is granted in the next step.)
 
 ## 5. Service accounts & IAM
 
@@ -113,6 +144,10 @@ export PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(
 export RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${RUNTIME_SA}" --role="roles/cloudsql.client" --condition=None
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${RUNTIME_SA}" --role="roles/secretmanager.secretAccessor" --condition=None
+
+# Read/write the documents bucket (scoped to just that bucket)
+gcloud storage buckets add-iam-policy-binding "gs://${DOCS_BUCKET}" \
+  --member="serviceAccount:${RUNTIME_SA}" --role="roles/storage.objectAdmin"
 ```
 
 > Tightening later: `secretAccessor` is granted project-wide here for simplicity. For least privilege, grant it per-secret instead.
@@ -152,6 +187,8 @@ In the repo: **Settings → Secrets and variables → Actions → Variables** (n
 | `WIF_PROVIDER` | the provider resource name printed in step 6 (`projects/NUMBER/locations/global/workloadIdentityPools/github/providers/github`) |
 | `DEPLOY_SA_EMAIL` | `deployer@PROJECT_ID.iam.gserviceaccount.com` |
 | `CLOUDSQL_CONNECTION` | the `$SQL_CONN` value (`PROJECT:REGION:INSTANCE`) |
+| `EMAIL_ENABLED` | *(optional)* set to `true` after creating the `email-host-password` secret to wire real SMTP. Unset = console backend. |
+| `GS_BUCKET_NAME` | the documents bucket (`$DOCS_BUCKET`) — required for uploaded documents to persist |
 
 ## 8. First deploy
 
@@ -165,6 +202,11 @@ Watch the run in the repo's **Actions** tab. When green, get the URL:
 ```bash
 gcloud run services describe medifinance-dev --region "$REGION" --format='value(status.url)'
 ```
+
+That `https://medifinance-dev-….run.app` URL **is your test domain** — Cloud Run
+assigns it automatically with managed HTTPS. No DNS, no domain purchase, no
+verification. It's already covered by `DJANGO_ALLOWED_HOSTS=.run.app`, so it
+works on first deploy.
 
 Promote to production by merging into `main`:
 
@@ -196,7 +238,44 @@ Then log in and change the password. (The custom User model uses email as the lo
 gcloud run domain-mappings create --service medifinance-prod --domain crm.medifinance.co.uk --region "$REGION"
 ```
 
-Then add the domain to the prod service's env: append it to `DJANGO_ALLOWED_HOSTS` (e.g. `.run.app,crm.medifinance.co.uk`) and `DJANGO_CSRF_TRUSTED_ORIGINS` (`https://*.run.app,https://crm.medifinance.co.uk`) in `.github/workflows/deploy.yml`, and also point `MAILGUN_SENDER_DOMAIN` / `DEFAULT_FROM_EMAIL` at your verified Mailgun domain.
+Then add the domain to the prod service's env: append it to `DJANGO_ALLOWED_HOSTS` (e.g. `.run.app,crm.medifinance.co.uk`) and `DJANGO_CSRF_TRUSTED_ORIGINS` (`https://*.run.app,https://crm.medifinance.co.uk`) in `.github/workflows/deploy.yml`.
+
+## Email
+
+The app sends via the **medi-finance.co.uk SMTP server** over SSL on port 465
+as `info@medi-finance.co.uk`. The host / port / user are baked into
+`settings.py` as defaults; only the password is configured at deploy time.
+
+**Until you set the password**, the app uses Django's **console email backend**:
+"Email link to customer" prints the email (with the magic link) to the Cloud
+Run logs —
+
+```bash
+gcloud run services logs read medifinance-dev --region "$REGION" --limit 50
+```
+
+— and the **"Generate link"** button on a deal shows the magic-link URL directly
+in the UI, so you can test the full portal flow without sending anything.
+
+### Switching on real email
+
+1. Create the secret (one-time, shared by both envs since the mailbox is the same):
+   ```bash
+   read -rsp "EMAIL_HOST_PASSWORD: " EMAIL_PW && echo
+   printf '%s' "$EMAIL_PW" | gcloud secrets create email-host-password --data-file=-
+   unset EMAIL_PW
+   ```
+2. Grant the runtime SA read access (only needed once, and only if you skipped
+   the project-wide `secretmanager.secretAccessor` binding in step 5):
+   ```bash
+   gcloud secrets add-iam-policy-binding email-host-password \
+     --member="serviceAccount:${RUNTIME_SA}" --role=roles/secretmanager.secretAccessor
+   ```
+3. Set the GitHub **variable** `EMAIL_ENABLED = true`.
+4. Push to redeploy. The app picks up `EMAIL_HOST_PASSWORD` from Secret Manager
+   and switches to SMTP automatically; From is `Medifinance <info@medi-finance.co.uk>`.
+
+Rotating the password later: `gcloud secrets versions add email-host-password --data-file=-` and re-deploy.
 
 ## Notes & gotchas
 

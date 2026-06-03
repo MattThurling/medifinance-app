@@ -13,6 +13,9 @@ urlpatterns = [
     # Magic-link consume — short URL, easy to send in emails
     path("m/<str:token>/", ConsumeMagicLinkView.as_view(), name="consume_magic_link"),
 
+    # JSON API for the browser extension (staff session auth)
+    path("api/", include("crm.api_urls")),
+
     path("", DashboardView.as_view(), name="dashboard"),
     path("", include("crm.urls")),
 ]

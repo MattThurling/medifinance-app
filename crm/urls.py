@@ -25,6 +25,7 @@ urlpatterns = [
     path("deals/<int:pk>/", views.DealDetailView.as_view(), name="deal_detail"),
     path("deals/<int:pk>/edit/", views.DealUpdateView.as_view(), name="deal_update"),
     path("deals/<int:pk>/delete/", views.DealDeleteView.as_view(), name="deal_delete"),
+    path("deals/<int:pk>/applicants/add/", views.DealApplicantAddView.as_view(), name="deal_applicant_add"),
 
     # Quotes — created from a deal via `?deal=<pk>`; edit/delete use the quote's pk
     path("quotes/new/", views.QuoteCreateView.as_view(), name="quote_create"),
@@ -34,12 +35,25 @@ urlpatterns = [
     # Stages — append-only event log per deal
     path("stages/new/", views.StageCreateView.as_view(), name="stage_create"),
 
+    # HTMX combobox search endpoints (staff)
+    path("search/contacts/", views.ContactSearchView.as_view(), name="contact_search"),
+    path("search/organisations/", views.OrganisationSearchView.as_view(), name="organisation_search"),
+    path("search/users/", views.UserSearchView.as_view(), name="user_search"),
+
+    # Documents — staff request via `?deal=<pk>`; upload/download/delete by pk
+    path("documents/new/", views.DocumentCreateView.as_view(), name="document_create"),
+    path("documents/<int:pk>/upload/", views.DocumentUploadView.as_view(), name="document_upload"),
+    path("documents/<int:pk>/download/", views.DocumentDownloadView.as_view(), name="document_download"),
+    path("documents/<int:pk>/delete/", views.DocumentDeleteView.as_view(), name="document_delete"),
+
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/
     path("deals/<int:pk>/portal-link/", views.IssuePortalLinkView.as_view(), name="deal_issue_portal_link"),
     path("deals/<int:pk>/portal-link/email/", views.EmailPortalLinkView.as_view(), name="deal_email_portal_link"),
     # Step 1: pick a quote. URL path retained as /portal/deals/<pk>/ so existing
     # magic links keep working — only the view behind it has changed.
     path("portal/deals/<int:pk>/", views.PortalQuoteSelectView.as_view(), name="portal_quote_select"),
-    path("portal/deals/<int:pk>/application/", views.PortalApplicationView.as_view(), name="portal_application"),
+    path("portal/deals/<int:pk>/company/", views.PortalCompanyView.as_view(), name="portal_company"),
+    path("portal/deals/<int:pk>/applicants/", views.PortalApplicantsView.as_view(), name="portal_applicants"),
+    path("portal/deals/<int:pk>/documents/", views.PortalDocumentsView.as_view(), name="portal_documents"),
     path("portal/deals/<int:pk>/thanks/", views.PortalApplicationCompleteView.as_view(), name="portal_application_complete"),
 ]

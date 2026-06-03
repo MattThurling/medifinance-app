@@ -1,0 +1,20 @@
+{% comment %}
+Wizard progress indicator for the customer application.
+Pass `deal` and `current_step` (1–4). Steps up to current_step are highlighted.
+Steps after Quotes link out only once a quote is selected (the views redirect
+back to Quotes otherwise).
+{% endcomment %}
+<ul class="steps w-full mb-10">
+  <li class="step {% if current_step >= 1 %}step-primary{% endif %}">
+    <a href="{% url 'crm:portal_quote_select' deal.pk %}">Quotes</a>
+  </li>
+  <li class="step {% if current_step >= 2 %}step-primary{% endif %}">
+    <a href="{% url 'crm:portal_company' deal.pk %}">Company Details</a>
+  </li>
+  <li class="step {% if current_step >= 3 %}step-primary{% endif %}">
+    <a href="{% url 'crm:portal_applicants' deal.pk %}">Applicants</a>
+  </li>
+  <li class="step {% if current_step >= 4 %}step-primary{% endif %}">
+    <a href="{% url 'crm:portal_documents' deal.pk %}">Documents</a>
+  </li>
+</ul>

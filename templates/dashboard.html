@@ -41,8 +41,9 @@
         {% if customer_deals %}
           <ul class="divide-y mt-2">
             {% for d in customer_deals %}
-              <li class="py-2 flex items-center justify-between">
-                <a href="{% url 'crm:portal_quote_select' d.pk %}" class="link link-hover">{{ d.name }}</a>
+              <li class="py-2 flex items-center justify-between gap-3">
+                <a href="{% url 'crm:portal_quote_select' d.pk %}" class="link link-hover flex-1">{{ d.name }}</a>
+                <a href="{% url 'crm:portal_documents' d.pk %}" class="link link-hover text-sm opacity-70">Documents</a>
                 {% if d.current_stage %}
                   <span class="badge badge-ghost">{{ d.current_stage.get_name_display }}</span>
                 {% endif %}

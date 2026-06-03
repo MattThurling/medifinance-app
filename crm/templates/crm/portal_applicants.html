@@ -1,0 +1,88 @@
+{% extends "_portal_layout.html" %}
+
+{% block title %}Applicants · {{ deal.name }}{% endblock %}
+
+{% block content %}
+{% include "crm/_portal_steps.html" %}
+
+<h1 class="text-2xl font-semibold mb-1">Applicants</h1>
+<p class="text-sm opacity-70 mb-6">Your details, plus anyone applying alongside you.</p>
+
+<form method="post" id="application-form">
+  {% csrf_token %}
+
+  {# ---- The lead applicant (you) ---- #}
+  <h2 class="font-semibold mb-2">Your details</h2>
+  {{ customer_form.non_field_errors }}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+    {% include "_field.html" with field=customer_form.first_name %}
+    {% include "_field.html" with field=customer_form.last_name %}
+    {% include "_field.html" with field=customer_form.date_of_birth %}
+    {% include "_field.html" with field=customer_form.phone %}
+  </div>
+  <div class="divider text-xs opacity-60 my-2">Home address</div>
+  {% include "_field.html" with field=customer_form.home_address_line1 %}
+  {% include "_field.html" with field=customer_form.home_address_line2 %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+    {% include "_field.html" with field=customer_form.home_address_city %}
+    {% include "_field.html" with field=customer_form.home_address_county %}
+  </div>
+  <div class="max-w-xs">
+    {% include "_field.html" with field=customer_form.home_address_postcode %}
+  </div>
+
+  {# ---- Co-applicants ---- #}
+  <div class="flex items-center justify-between mt-8">
+    <h2 class="font-semibold">Co-applicants</h2>
+    <button type="button" id="add-applicant" class="btn btn-sm">+ Add applicant</button>
+  </div>
+  <p class="text-sm opacity-70 mb-2">Add any partners or directors applying alongside you.</p>
+
+  {{ co_formset.management_form }}
+  {{ co_formset.non_form_errors }}
+
+  <div id="applicants" class="space-y-3 mt-3">
+    {% for form in co_formset %}
+      {% include "crm/_applicant_card.html" with form=form index=forloop.counter %}
+    {% endfor %}
+  </div>
+
+  <template id="applicant-template">
+    {% include "crm/_applicant_card.html" with form=co_formset.empty_form is_template=True %}
+  </template>
+
+  <div class="flex justify-between mt-8">
+    <a href="{% url 'crm:portal_company' deal.pk %}" class="btn btn-ghost">Back</a>
+    <button type="submit" class="btn btn-primary">Continue →</button>
+  </div>
+</form>
+
+<script>
+(function () {
+  const addBtn = document.getElementById('add-applicant');
+  const container = document.getElementById('applicants');
+  const template = document.getElementById('applicant-template');
+  const totalForms = document.querySelector('input[name="co-TOTAL_FORMS"]');
+
+  addBtn.addEventListener('click', () => {
+    const i = parseInt(totalForms.value, 10);
+    const clone = template.content.cloneNode(true);
+    clone.querySelectorAll('[name*="__prefix__"]').forEach(el => { el.name = el.name.replace(/__prefix__/g, i); });
+    clone.querySelectorAll('[id*="__prefix__"]').forEach(el => { el.id = el.id.replace(/__prefix__/g, i); });
+    clone.querySelectorAll('label[for*="__prefix__"]').forEach(el => { el.htmlFor = el.htmlFor.replace(/__prefix__/g, i); });
+    const heading = clone.querySelector('.applicant-heading');
+    if (heading) heading.textContent = 'Co-applicant ' + (i + 1);
+    container.appendChild(clone);
+    totalForms.value = i + 1;
+  });
+
+  container.addEventListener('click', (e) => {
+    if (!e.target.matches('.applicant-remove')) return;
+    const card = e.target.closest('.applicant-card');
+    const deleteInput = card.querySelector('input[name$="-DELETE"]');
+    if (deleteInput) { deleteInput.value = 'on'; card.classList.add('hidden'); }
+    else { card.remove(); }
+  });
+})();
+</script>
+{% endblock %}

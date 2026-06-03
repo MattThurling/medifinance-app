@@ -1,0 +1,11 @@
+{% comment %}
+HTMX result fragment for a combobox. An empty result set renders nothing, so
+the parent .combobox-results (empty:hidden) collapses.
+{% endcomment %}
+{% for obj in results %}
+  <li>
+    <button type="button" class="combobox-option" data-id="{{ obj.pk }}" data-label="{{ obj }}">
+      {{ obj }}
+    </button>
+  </li>
+{% endfor %}

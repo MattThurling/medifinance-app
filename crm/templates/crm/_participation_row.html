@@ -1,0 +1,24 @@
+{% comment %}
+One row of the inline Participation formset on the deal form. Used both:
+  - as a normal rendered form (inside `{% for pform in participation_formset %}`)
+  - inside a <template>, where field names contain `__prefix__` for the JS to
+    swap with the real index when adding new participations.
+
+The `DELETE` field is a plain hidden input; the "Remove" button sets its value
+to 'on' via JS. Pass `organisation_search_url` from the parent template.
+{% endcomment %}
+<div class="participation-row card bg-base-200/40 border border-base-300">
+  <div class="card-body p-4">
+    {{ form.id }}
+    <input type="hidden" name="{{ form.DELETE.html_name }}" value="" data-delete-flag>
+
+    <div class="flex justify-end -mt-2 -mr-2">
+      <button type="button" class="participation-remove btn btn-ghost btn-xs text-error">Remove</button>
+    </div>
+
+    {{ form.non_field_errors }}
+
+    {% include "_field.html" with field=form.amount %}
+    {% include "crm/_combobox.html" with name=form.organisation.html_name label="Supplier (optional)" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
+  </div>
+</div>
