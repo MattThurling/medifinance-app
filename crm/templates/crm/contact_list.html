@@ -48,10 +48,7 @@
             </td>
             <td class="text-right whitespace-nowrap">
               <a href="{% url 'crm:contact_update' c.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit contact">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
-              <form method="post" action="{% url 'crm:contact_delete' c.pk %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete contact">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
-              </form>
+              <a href="{% url 'crm:contact_delete' c.pk %}" class="btn btn-ghost btn-xs btn-square text-error" title="Delete contact">{% icon "circle-x" class="h-3.5 w-3.5" %}</a>
             </td>
           </tr>
         {% empty %}

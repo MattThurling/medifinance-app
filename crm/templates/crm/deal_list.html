@@ -56,10 +56,7 @@
             <td class="opacity-80">{{ d.owner.full_name }}</td>
             <td class="text-right whitespace-nowrap">
               <a href="{% url 'crm:deal_update' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit deal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
-              <form method="post" action="{% url 'crm:deal_delete' d.pk %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete deal">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
-              </form>
+              <a href="{% url 'crm:deal_delete' d.pk %}" class="btn btn-ghost btn-xs btn-square text-error" title="Delete deal">{% icon "circle-x" class="h-3.5 w-3.5" %}</a>
             </td>
           </tr>
         {% empty %}
