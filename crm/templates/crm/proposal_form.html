@@ -1,0 +1,36 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}{% if object %}Edit proposal{% else %}New proposal{% endif %} · {{ parent_deal.name }}{% endblock %}
+
+{% block content %}
+{% url 'crm:organisation_search' as organisation_search_url %}
+{% url 'crm:contact_search' as contact_search_url %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
+    <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
+  </p>
+  <h1 class="text-2xl font-semibold mb-6">
+    {% if object %}Edit proposal{% else %}New proposal{% endif %}
+  </h1>
+
+  <form method="post" class="card bg-base-100 shadow">
+    <div class="card-body">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% include "crm/_combobox.html" with name="lender" label="Lender" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.lender.value selected_label=form.instance.lender errors=form.lender.errors %}
+      {% include "crm/_combobox.html" with name="contact" label="Contact (optional)" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.contact.value selected_label=form.instance.contact errors=form.contact.errors %}
+      {% include "_field.html" with field=form.proposal_number %}
+      {% include "_field.html" with field=form.status %}
+
+      <div class="card-actions justify-end mt-2">
+        <a href="{{ parent_deal.get_absolute_url }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

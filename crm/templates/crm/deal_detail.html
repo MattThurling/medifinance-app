@@ -89,6 +89,39 @@ layout (main content left, amount + timeline right).
       <p class="text-xs opacity-50 mt-2">Set a funded amount (Edit) to add quotes.</p>
     {% endif %}
 
+    {# Proposals — lender-side shopping (a deal can be proposed to many lenders) #}
+    <h2 class="font-semibold mt-8 mb-2">Proposals</h2>
+    <table class="table table-xs w-full">
+      <thead>
+        <tr><th>Lender</th><th>Status</th><th>Ref #</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in deal.proposals.all %}
+          <tr>
+            <td>
+              <a href="{{ p.lender.get_absolute_url }}" class="link link-hover">{{ p.lender.name }}</a>
+              {% if p.contact %} · <a href="{{ p.contact.get_absolute_url }}" class="link link-hover">{{ p.contact }}</a>{% endif %}
+            </td>
+            <td><span class="badge badge-ghost badge-sm">{{ p.get_status_display }}</span></td>
+            <td class="opacity-70">{{ p.proposal_number|default:"—" }}</td>
+            <td class="text-right whitespace-nowrap">
+              <a href="{% url 'crm:proposal_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit proposal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+              <form method="post" action="{% url 'crm:proposal_delete' p.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove proposal">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="opacity-60">No proposals yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <a href="{% url 'crm:proposal_create' %}?deal={{ deal.pk }}"
+       class="btn btn-circle btn-xs btn-outline mt-3" title="Add proposal" aria-label="Add proposal">
+      {% icon "plus" class="h-3.5 w-3.5" %}
+    </a>
+
     {# Applicants #}
     <h2 class="font-semibold mt-8 mb-2">Applicants</h2>
     <table class="table table-xs w-full">

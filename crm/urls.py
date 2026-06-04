@@ -35,6 +35,11 @@ urlpatterns = [
     # Stages — append-only event log per deal
     path("stages/new/", views.StageCreateView.as_view(), name="stage_create"),
 
+    # Proposals — created from a deal via `?deal=<pk>`; edit/delete use the proposal's pk
+    path("proposals/new/", views.ProposalCreateView.as_view(), name="proposal_create"),
+    path("proposals/<int:pk>/edit/", views.ProposalUpdateView.as_view(), name="proposal_update"),
+    path("proposals/<int:pk>/delete/", views.ProposalDeleteView.as_view(), name="proposal_delete"),
+
     # HTMX combobox search endpoints (staff)
     path("search/contacts/", views.ContactSearchView.as_view(), name="contact_search"),
     path("search/organisations/", views.OrganisationSearchView.as_view(), name="organisation_search"),

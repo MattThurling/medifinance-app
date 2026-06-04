@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Contact, Deal, Document, Organisation, Participation, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, Stage
 
 
 @admin.register(Organisation)
@@ -49,6 +49,15 @@ class DocumentInline(admin.TabularInline):
     autocomplete_fields = ("uploaded_by",)
 
 
+class ProposalInline(admin.TabularInline):
+    """Inline editor for Deal.proposals — lender-side shopping of the deal."""
+
+    model = Proposal
+    extra = 0
+    fields = ("lender", "contact", "proposal_number", "status")
+    autocomplete_fields = ("lender", "contact")
+
+
 class ParticipationInline(admin.StackedInline):
     """Inline editor for Deal.participations — the sum of `amount` is the deal's funded amount."""
 
@@ -72,7 +81,7 @@ class DealAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("owner", "customer", "organisation", "introducer")
     readonly_fields = ("created_at", "updated_at")
-    inlines = [ParticipationInline, StageInline, QuoteInline, DocumentInline]
+    inlines = [ParticipationInline, ProposalInline, StageInline, QuoteInline, DocumentInline]
     fieldsets = (
         (None, {"fields": ("name", "owner", "customer", "organisation")}),
         ("Associations", {"fields": ("introducer",)}),
@@ -94,6 +103,16 @@ class DealAdmin(admin.ModelAdmin):
         ("HubSpot", {"fields": ("hubspot_id",)}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
     )
+
+
+@admin.register(Proposal)
+class ProposalAdmin(admin.ModelAdmin):
+    list_display = ("deal", "lender", "status", "proposal_number", "created_at")
+    list_select_related = ("deal", "lender", "contact")
+    list_filter = ("status",)
+    search_fields = ("proposal_number", "deal__name", "lender__name")
+    autocomplete_fields = ("deal", "lender", "contact")
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(Quote)

@@ -23,11 +23,12 @@ from .forms import (
     DocumentUploadForm,
     OrganisationForm,
     ParticipationFormSet,
+    ProposalForm,
     QuoteForm,
     QuoteSelectionForm,
     StageForm,
 )
-from .models import Contact, Deal, Document, Organisation, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Proposal, Quote, Stage
 
 
 class SearchableListView(ListView):
@@ -835,6 +836,67 @@ class StageCreateView(StaffRequiredMixin, CreateView):
 
     def get_success_url(self):
         return self.parent_deal.get_absolute_url()
+
+
+# --- Proposal --------------------------------------------------------------
+# Proposals are managed in the context of a parent Deal (the broker shops the
+# deal to many lenders), same shape as Quote — no separate list/detail page.
+
+class ProposalCreateView(StaffRequiredMixin, CreateView):
+    """Create a proposal. Requires `?deal=<pk>` — the deal is set from URL, not the form."""
+
+    model = Proposal
+    form_class = ProposalForm
+
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        deal_pk = request.GET.get("deal")
+        if not deal_pk:
+            raise Http404("?deal query parameter required")
+        try:
+            self.parent_deal = Deal.objects.get(pk=deal_pk)
+        except (Deal.DoesNotExist, ValueError, TypeError) as exc:
+            raise Http404("Deal not found") from exc
+
+    def form_valid(self, form):
+        form.instance.deal = self.parent_deal
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["parent_deal"] = self.parent_deal
+        return ctx
+
+    def get_success_url(self):
+        return self.parent_deal.get_absolute_url()
+
+
+class ProposalUpdateView(StaffRequiredMixin, UpdateView):
+    model = Proposal
+    form_class = ProposalForm
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("deal", "lender", "contact")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["parent_deal"] = self.object.deal
+        return ctx
+
+    def get_success_url(self):
+        return self.object.deal.get_absolute_url()
+
+
+class ProposalDeleteView(StaffRequiredMixin, DeleteView):
+    """Staff: remove a proposal (POST only — inline, no confirm page)."""
+
+    model = Proposal
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("deal")
+
+    def get_success_url(self):
+        return self.object.deal.get_absolute_url()
 
 
 # --- Documents -------------------------------------------------------------

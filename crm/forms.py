@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory, modelformset_factory
 
-from .models import Contact, Deal, Document, Organisation, Participation, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, Stage
 
 
 class DaisyUIFormMixin:
@@ -120,6 +120,14 @@ class StageForm(DaisyUIFormMixin, forms.ModelForm):
         widgets = {
             "note": forms.Textarea(attrs={"rows": 3}),
         }
+
+
+class ProposalForm(DaisyUIFormMixin, forms.ModelForm):
+    """Staff: create / edit a Proposal on a Deal. `deal` is set by the view."""
+
+    class Meta:
+        model = Proposal
+        fields = ["lender", "contact", "proposal_number", "status"]
 
 
 # --- Customer portal forms --------------------------------------------------
