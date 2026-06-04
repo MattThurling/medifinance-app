@@ -19,7 +19,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         user = self.request.user
-        if user.is_customer:
+        if user.is_admin or user.is_associate:
+            # Inline import — accounts is loaded before crm, so a module-level
+            # import here would risk an apps-not-ready loop.
+            from crm.models import Contact, Deal, Organisation
+            ctx["contacts_count"] = Contact.objects.count()
+            ctx["organisations_count"] = Organisation.objects.count()
+            ctx["deals_count"] = Deal.objects.count()
+        elif user.is_customer:
             # OneToOne reverse accessor — may not exist if the user has no linked Contact yet.
             contact = getattr(user, "contact", None)
             ctx["customer_deals"] = contact.deals.all() if contact else []

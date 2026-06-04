@@ -42,12 +42,16 @@
               <a href="{{ c.get_absolute_url }}" class="link link-hover font-medium">{{ c }}</a>
             </td>
             <td class="opacity-80">{{ c.email|default:"—" }}</td>
-            <td class="opacity-60 text-sm">{{ c.phone|default:"—" }}</td>
+            <td class="opacity-80">{{ c.phone|default:"—" }}</td>
             <td>
               {% for o in c.organisations.all %}<a href="{{ o.get_absolute_url }}" class="link link-hover">{{ o.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="opacity-50">—</span>{% endfor %}
             </td>
-            <td>
-              <a href="{% url 'crm:contact_update' c.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+            <td class="text-right whitespace-nowrap">
+              <a href="{% url 'crm:contact_update' c.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit contact">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+              <form method="post" action="{% url 'crm:contact_delete' c.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete contact">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+              </form>
             </td>
           </tr>
         {% empty %}

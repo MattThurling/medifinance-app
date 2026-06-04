@@ -44,7 +44,7 @@
             </td>
             <td>
               {% if d.current_stage_name %}
-                <span class="badge badge-ghost">{{ d.current_stage_name|stage_display }}</span>
+                {{ d.current_stage_name|stage_display }}
               {% else %}<span class="opacity-60">—</span>{% endif %}
             </td>
             <td>
@@ -54,8 +54,12 @@
               {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
             </td>
             <td class="opacity-80">{{ d.owner.full_name }}</td>
-            <td>
-              <a href="{% url 'crm:deal_update' d.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+            <td class="text-right whitespace-nowrap">
+              <a href="{% url 'crm:deal_update' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit deal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+              <form method="post" action="{% url 'crm:deal_delete' d.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete deal">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+              </form>
             </td>
           </tr>
         {% empty %}

@@ -41,9 +41,19 @@
               <a href="{{ org.get_absolute_url }}" class="link link-hover font-medium">{{ org.name }}</a>
             </td>
             <td>{{ org.contacts.count }}</td>
-            <td>{% include "_hubspot_link.html" with obj=org %}</td>
             <td>
-              <a href="{% url 'crm:organisation_update' org.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+              {% if org.hubspot_id %}
+                <a href="{{ org.hubspot_url }}" target="_blank" rel="noopener" class="link link-hover">{{ org.hubspot_id }}</a>
+              {% else %}
+                <span class="opacity-60">—</span>
+              {% endif %}
+            </td>
+            <td class="text-right whitespace-nowrap">
+              <a href="{% url 'crm:organisation_update' org.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit organisation">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+              <form method="post" action="{% url 'crm:organisation_delete' org.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete organisation">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+              </form>
             </td>
           </tr>
         {% empty %}

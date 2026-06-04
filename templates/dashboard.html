@@ -1,39 +1,31 @@
 {% extends "_app_layout.html" %}
+{% load humanize %}
 
 {% block title %}Dashboard · Medifinance CRM{% endblock %}
 
 {% block content %}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
   {% if user.is_admin or user.is_associate %}
-    <div class="card bg-base-100 shadow">
-      <div class="card-body">
+    <a href="{% url 'crm:contact_list' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+      <div class="card-body items-center text-center">
         <h2 class="card-title">Contacts</h2>
-        <p class="opacity-70 text-sm">People linked to an organisation.</p>
-        <div class="card-actions justify-end">
-          <a href="{% url 'crm:contact_list' %}" class="btn btn-sm">Open</a>
-        </div>
+        <p class="text-4xl font-semibold">{{ contacts_count|intcomma }}</p>
       </div>
-    </div>
+    </a>
 
-    <div class="card bg-base-100 shadow">
-      <div class="card-body">
+    <a href="{% url 'crm:organisation_list' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+      <div class="card-body items-center text-center">
         <h2 class="card-title">Organisations</h2>
-        <p class="opacity-70 text-sm">Companies ported from HubSpot.</p>
-        <div class="card-actions justify-end">
-          <a href="{% url 'crm:organisation_list' %}" class="btn btn-sm">Open</a>
-        </div>
+        <p class="text-4xl font-semibold">{{ organisations_count|intcomma }}</p>
       </div>
-    </div>
+    </a>
 
-    <div class="card bg-base-100 shadow">
-      <div class="card-body">
+    <a href="{% url 'crm:deal_list' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+      <div class="card-body items-center text-center">
         <h2 class="card-title">Deals</h2>
-        <p class="opacity-70 text-sm">Pipeline — each deal has an owner and a customer contact.</p>
-        <div class="card-actions justify-end">
-          <a href="{% url 'crm:deal_list' %}" class="btn btn-sm">Open</a>
-        </div>
+        <p class="text-4xl font-semibold">{{ deals_count|intcomma }}</p>
       </div>
-    </div>
+    </a>
   {% else %}
     <div class="card bg-base-100 shadow md:col-span-3">
       <div class="card-body">
