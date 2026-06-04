@@ -7,7 +7,8 @@
 {% if client_org_address %}{{ client_org_address }}
 {% endif %}
 Amount: {{ participation_amount_display }}
-{% if participation_description %}Description: {{ participation_description }}
+{% if participation_description %}
+Description: {{ participation_description }}
 {% endif %}
 has been accepted by:
 
@@ -18,6 +19,7 @@ Please raise your invoice showing:
 
   • Equipment details (include serial numbers)
   • Addressed to the above finance company
+  • Delivery addressed to the client
   • Your banking details
 
 When it's ready, please submit your invoice using the secure link below:

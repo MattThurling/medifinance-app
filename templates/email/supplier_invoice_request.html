@@ -28,11 +28,13 @@
               </p>
 
               <p style="margin:0 0 16px; line-height:1.5;">
-                <strong>Amount:</strong> {{ participation_amount_display }}
-                {% if participation_description %}
-                  <br /><strong>Description:</strong> {{ participation_description }}
-                {% endif %}
+                Amount: {{ participation_amount_display }}
               </p>
+              {% if participation_description %}
+                <p style="margin:0 0 16px; line-height:1.5;">
+                  Description: {{ participation_description }}
+                </p>
+              {% endif %}
 
               <p style="margin:0 0 16px;">has been accepted by:</p>
 
@@ -47,6 +49,7 @@
               <ul style="margin:0 0 24px; padding-left:20px;">
                 <li>Equipment details (include serial numbers)</li>
                 <li>Addressed to the above finance company</li>
+                <li>Delivery addressed to the client</li>
                 <li>Your banking details</li>
               </ul>
 
