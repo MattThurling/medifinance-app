@@ -26,7 +26,17 @@ class DaisyUIFormMixin:
 class OrganisationForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Organisation
-        fields = ["name", "legal_name", "trading_name", "companies_house_number"]
+        fields = [
+            "name",
+            "legal_name",
+            "trading_name",
+            "companies_house_number",
+            "address_line1",
+            "address_line2",
+            "address_city",
+            "address_county",
+            "address_postcode",
+        ]
 
 
 class ContactForm(DaisyUIFormMixin, forms.ModelForm):

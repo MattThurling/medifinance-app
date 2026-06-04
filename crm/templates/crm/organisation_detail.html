@@ -50,6 +50,17 @@
 
 <div class="card bg-base-100 shadow mb-6">
   <div class="card-body">
+    <h2 class="card-title flex items-center gap-2">{% icon "map-pin" %} Address</h2>
+    {% if organisation.display_address %}
+      <p class="text-sm whitespace-pre-line">{{ organisation.display_address }}</p>
+    {% else %}
+      <p class="text-sm opacity-50">— not set</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow mb-6">
+  <div class="card-body">
     <div class="flex items-center justify-between mb-2">
       <h2 class="card-title flex items-center gap-2">{% icon "contact" %} Contacts</h2>
       <a href="{% url 'crm:contact_create' %}?organisation={{ organisation.pk }}" class="btn btn-ghost btn-xs">New contact</a>
