@@ -212,12 +212,16 @@ class Deal(TimestampedModel):
         return self.stage_events.first()
 
 
+def participation_invoice_upload_path(instance: "Participation", filename: str) -> str:
+    return f"deals/{instance.deal_id}/invoices/{filename}"
+
+
 class Participation(TimestampedModel):
     """One contribution to a deal's funded amount. Many participations per deal;
     the sum of their `amount` is the deal's funded amount.
 
-    `organisation` (the supplier) is optional — staff may not know it when the
-    participation is first entered, and can fill it in later.
+    Most fields are optional — staff often start with just an amount and fill in
+    the supplier, invoice and description as the deal progresses.
     """
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="participations")
@@ -230,6 +234,27 @@ class Participation(TimestampedModel):
         help_text="The supplier this amount goes to. Optional — may be added later.",
     )
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    description = models.TextField(
+        blank=True,
+        help_text="What this participation covers (e.g. equipment, install fees).",
+    )
+    invoice_number = models.CharField(
+        max_length=100, blank=True,
+        help_text="Supplier's invoice / reference number for this amount.",
+    )
+    invoice_contact = models.ForeignKey(
+        Contact,
+        on_delete=models.SET_NULL,
+        related_name="invoiced_participations",
+        null=True, blank=True,
+        help_text="The supplier-side contact who handles invoicing.",
+    )
+    invoice = models.FileField(
+        upload_to=participation_invoice_upload_path,
+        null=True, blank=True,
+        help_text="The supplier's invoice (PDF).",
+    )
 
     class Meta:
         ordering = ["pk"]

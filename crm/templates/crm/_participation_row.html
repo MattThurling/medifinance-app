@@ -5,7 +5,8 @@ One row of the inline Participation formset on the deal form. Used both:
     swap with the real index when adding new participations.
 
 The `DELETE` field is a plain hidden input; the "Remove" button sets its value
-to 'on' via JS. Pass `organisation_search_url` from the parent template.
+to 'on' via JS. Pass `organisation_search_url` and `contact_search_url` from
+the parent template.
 {% endcomment %}
 <div class="participation-row card bg-base-200/40 border border-base-300">
   <div class="card-body p-4">
@@ -18,7 +19,28 @@ to 'on' via JS. Pass `organisation_search_url` from the parent template.
 
     {{ form.non_field_errors }}
 
-    {% include "_field.html" with field=form.amount %}
-    {% include "crm/_combobox.html" with name=form.organisation.html_name label="Supplier (optional)" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.amount %}
+      {% include "crm/_combobox.html" with name=form.organisation.html_name label="Supplier (optional)" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
+    </div>
+
+    {% include "_field.html" with field=form.description %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.invoice_number %}
+      {% include "crm/_combobox.html" with name=form.invoice_contact.html_name label="Invoice contact" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.invoice_contact.value selected_label=form.instance.invoice_contact errors=form.invoice_contact.errors %}
+    </div>
+
+    <div class="form-control mb-4">
+      <label class="label"><span class="label-text">Invoice (PDF)</span></label>
+      {% if form.instance.invoice %}
+        <p class="text-xs opacity-70 mb-1">Currently: {{ form.instance.invoice.name|slice:"-60:" }}</p>
+      {% endif %}
+      <input type="file" name="{{ form.invoice.html_name }}" accept="application/pdf"
+             class="file-input file-input-bordered file-input-sm w-full" />
+      {% if form.invoice.errors %}
+        <p class="text-error text-sm mt-1">{{ form.invoice.errors|join:", " }}</p>
+      {% endif %}
+    </div>
   </div>
 </div>

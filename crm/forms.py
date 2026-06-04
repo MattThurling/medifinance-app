@@ -80,7 +80,17 @@ class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
 
     class Meta:
         model = Participation
-        fields = ["amount", "organisation"]
+        fields = [
+            "amount",
+            "organisation",
+            "description",
+            "invoice_number",
+            "invoice_contact",
+            "invoice",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 2}),
+        }
 
 
 ParticipationFormSet = inlineformset_factory(

@@ -49,13 +49,13 @@ class DocumentInline(admin.TabularInline):
     autocomplete_fields = ("uploaded_by",)
 
 
-class ParticipationInline(admin.TabularInline):
+class ParticipationInline(admin.StackedInline):
     """Inline editor for Deal.participations — the sum of `amount` is the deal's funded amount."""
 
     model = Participation
     extra = 0
-    fields = ("amount", "organisation")
-    autocomplete_fields = ("organisation",)
+    fields = ("amount", "organisation", "description", "invoice_number", "invoice_contact", "invoice")
+    autocomplete_fields = ("organisation", "invoice_contact")
 
 
 @admin.register(Deal)

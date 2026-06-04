@@ -20,7 +20,7 @@
     {% if object %}Edit deal{% else %}New deal{% endif %}
   </h1>
 
-  <form method="post" class="card bg-base-100 shadow">
+  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow">
     <div class="card-body">
       {% csrf_token %}
       {% if form.non_field_errors %}
@@ -58,12 +58,12 @@
 
       <div id="participations" class="space-y-3">
         {% for pform in participation_formset %}
-          {% include "crm/_participation_row.html" with form=pform organisation_search_url=organisation_search_url %}
+          {% include "crm/_participation_row.html" with form=pform organisation_search_url=organisation_search_url contact_search_url=contact_search_url %}
         {% endfor %}
       </div>
 
       <template id="participation-template">
-        {% include "crm/_participation_row.html" with form=participation_formset.empty_form organisation_search_url=organisation_search_url is_template=True %}
+        {% include "crm/_participation_row.html" with form=participation_formset.empty_form organisation_search_url=organisation_search_url contact_search_url=contact_search_url is_template=True %}
       </template>
 
       <button type="button" id="add-participation" class="btn btn-sm mt-3">+ Add participation</button>
