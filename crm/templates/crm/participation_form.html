@@ -23,14 +23,16 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
         {% include "_field.html" with field=form.amount %}
-        {% include "crm/_combobox.html" with name="organisation" label="Supplier (optional)" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
+        {% include "crm/_combobox.html" with name="organisation" label="Supplier" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
       </div>
 
       {% include "_field.html" with field=form.description %}
 
+      <div class="divider text-xs opacity-60 mt-2 mb-2">Invoice</div>
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
         {% include "_field.html" with field=form.invoice_number %}
-        {% include "crm/_combobox.html" with name="invoice_contact" label="Invoice contact (optional)" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.invoice_contact.value selected_label=form.instance.invoice_contact errors=form.invoice_contact.errors %}
+        {% include "crm/_combobox.html" with name="invoice_contact" label="Invoice contact" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.invoice_contact.value selected_label=form.instance.invoice_contact errors=form.invoice_contact.errors %}
       </div>
 
       <div class="form-control mb-4">

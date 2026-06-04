@@ -22,7 +22,7 @@
       {% endif %}
 
       {% include "crm/_combobox.html" with name="lender" label="Lender" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.lender.value selected_label=form.instance.lender errors=form.lender.errors %}
-      {% include "crm/_combobox.html" with name="contact" label="Contact (optional)" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.contact.value selected_label=form.instance.contact errors=form.contact.errors %}
+      {% include "crm/_combobox.html" with name="contact" label="Contact" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.contact.value selected_label=form.instance.contact errors=form.contact.errors %}
       {% include "_field.html" with field=form.proposal_number %}
       {% include "_field.html" with field=form.status %}
 

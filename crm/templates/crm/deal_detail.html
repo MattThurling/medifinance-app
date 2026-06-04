@@ -55,6 +55,57 @@ layout (main content left, amount + timeline right).
 
   {# ---- Quotes / Documents / Applicants / Suppliers / Proposals ---- #}
   <div class="lg:col-start-1 lg:col-span-2 lg:row-start-2 space-y-4">
+    {# Suppliers — Participation rows; sum of `amount` is the deal's funded amount #}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "truck" class="h-5 w-5 opacity-70" %} Suppliers
+        </h2>
+        <table class="table table-xs w-full">
+          <thead>
+            <tr><th>Supplier</th><th>Amount</th><th>Invoice #</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for p in deal.participations.all %}
+              <tr>
+                <td>
+                  {% if p.organisation %}<a href="{{ p.organisation.get_absolute_url }}" class="link link-hover">{{ p.organisation.name }}</a>{% else %}<span class="opacity-50 italic">TBD</span>{% endif %}
+                </td>
+                <td class="font-medium whitespace-nowrap">£{{ p.amount|floatformat:2|intcomma }}</td>
+                <td class="opacity-70">
+                  {% if p.invoice_number %}
+                    {% if p.invoice %}
+                      <a href="{% url 'crm:participation_invoice_download' p.pk %}" target="_blank" rel="noopener" class="link link-hover">{{ p.invoice_number }}</a>
+                    {% else %}
+                      {{ p.invoice_number }}
+                    {% endif %}
+                  {% else %}
+                    <form method="post" action="{% url 'crm:participation_request_invoice' p.pk %}" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-xs btn-outline">Request</button>
+                    </form>
+                  {% endif %}
+                </td>
+                <td class="text-right whitespace-nowrap">
+                  <a href="{% url 'crm:participation_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit supplier">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+                  <form method="post" action="{% url 'crm:participation_delete' p.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove supplier">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="opacity-60">No suppliers yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <a href="{% url 'crm:participation_create' %}?deal={{ deal.pk }}"
+           class="btn btn-circle btn-xs btn-outline mt-3" title="Add supplier" aria-label="Add supplier">
+          {% icon "plus" class="h-3.5 w-3.5" %}
+        </a>
+      </div>
+    </div>
+
     {# Quotes #}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">
@@ -173,57 +224,6 @@ layout (main content left, amount + timeline right).
           {% endif %}
           <a href="{% url 'crm:contact_create' %}?deal={{ deal.pk }}" class="btn btn-xs btn-outline">+ New contact</a>
         </div>
-      </div>
-    </div>
-
-    {# Suppliers — Participation rows; sum of `amount` is the deal's funded amount #}
-    <div class="card bg-base-100 shadow w-full">
-      <div class="card-body">
-        <h2 class="card-title text-base">
-          {% icon "truck" class="h-5 w-5 opacity-70" %} Suppliers
-        </h2>
-        <table class="table table-xs w-full">
-          <thead>
-            <tr><th>Supplier</th><th>Amount</th><th>Invoice #</th><th></th></tr>
-          </thead>
-          <tbody>
-            {% for p in deal.participations.all %}
-              <tr>
-                <td>
-                  {% if p.organisation %}<a href="{{ p.organisation.get_absolute_url }}" class="link link-hover">{{ p.organisation.name }}</a>{% else %}<span class="opacity-50 italic">TBD</span>{% endif %}
-                </td>
-                <td class="font-medium whitespace-nowrap">£{{ p.amount|floatformat:2|intcomma }}</td>
-                <td class="opacity-70">
-                  {% if p.invoice_number %}
-                    {% if p.invoice %}
-                      <a href="{% url 'crm:participation_invoice_download' p.pk %}" target="_blank" rel="noopener" class="link link-hover">{{ p.invoice_number }}</a>
-                    {% else %}
-                      {{ p.invoice_number }}
-                    {% endif %}
-                  {% else %}
-                    <form method="post" action="{% url 'crm:participation_request_invoice' p.pk %}" class="inline">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-xs btn-outline">Request</button>
-                    </form>
-                  {% endif %}
-                </td>
-                <td class="text-right whitespace-nowrap">
-                  <a href="{% url 'crm:participation_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit supplier">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
-                  <form method="post" action="{% url 'crm:participation_delete' p.pk %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove supplier">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
-                  </form>
-                </td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="4" class="opacity-60">No suppliers yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <a href="{% url 'crm:participation_create' %}?deal={{ deal.pk }}"
-           class="btn btn-circle btn-xs btn-outline mt-3" title="Add supplier" aria-label="Add supplier">
-          {% icon "plus" class="h-3.5 w-3.5" %}
-        </a>
       </div>
     </div>
 
