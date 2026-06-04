@@ -45,6 +45,7 @@ urlpatterns = [
     path("participations/<int:pk>/edit/", views.ParticipationUpdateView.as_view(), name="participation_update"),
     path("participations/<int:pk>/delete/", views.ParticipationDeleteView.as_view(), name="participation_delete"),
     path("participations/<int:pk>/request-invoice/", views.RequestParticipationInvoiceView.as_view(), name="participation_request_invoice"),
+    path("participations/<int:pk>/invoice/", views.ParticipationInvoiceDownloadView.as_view(), name="participation_invoice_download"),
 
     # Supplier invoice upload — public token-based link, mirrors the customer magic-link UX
     path("p/<str:token>/", views.SubmitParticipationInvoiceView.as_view(), name="participation_submit_invoice"),

@@ -943,6 +943,18 @@ class ParticipationDeleteView(StaffRequiredMixin, DeleteView):
         return self.object.deal.get_absolute_url()
 
 
+class ParticipationInvoiceDownloadView(StaffRequiredMixin, View):
+    """Stream a supplier's invoice PDF inline. Goes through Django so the
+    private GCS bucket stays private — same pattern as DocumentDownloadView."""
+
+    def get(self, request, pk):
+        p = get_object_or_404(Participation.objects.select_related("deal"), pk=pk)
+        if not p.invoice:
+            raise Http404("No invoice file uploaded yet.")
+        filename = p.invoice.name.rsplit("/", 1)[-1]
+        return FileResponse(p.invoice.open("rb"), as_attachment=False, filename=filename)
+
+
 class RequestParticipationInvoiceView(StaffRequiredMixin, View):
     """Staff: mint a single-use upload link for a supplier and email it to their
     invoice contact. Requires an approved Proposal on the deal so the email body
