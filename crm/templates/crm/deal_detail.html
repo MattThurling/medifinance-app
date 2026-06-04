@@ -288,7 +288,7 @@ layout (main content left, amount + timeline right).
   </div>
 
   {# ---- Primary CTA ---- #}
-  <div class="lg:col-start-1 lg:col-span-2 lg:row-start-3 max-w-xl">
+  <div class="lg:col-start-1 lg:col-span-2 lg:row-start-3">
     <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-primary btn-block">
