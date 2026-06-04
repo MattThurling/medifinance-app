@@ -244,7 +244,7 @@ layout (main content left, amount + timeline right).
                   <a href="{{ p.lender.get_absolute_url }}" class="link link-hover">{{ p.lender.name }}</a>
                   {% if p.contact %} · <a href="{{ p.contact.get_absolute_url }}" class="link link-hover">{{ p.contact }}</a>{% endif %}
                 </td>
-                <td><span class="badge badge-ghost badge-sm">{{ p.get_status_display }}</span></td>
+                <td>{{ p.get_status_display }}</td>
                 <td class="opacity-70">{{ p.proposal_number|default:"—" }}</td>
                 <td class="text-right whitespace-nowrap">
                   <a href="{% url 'crm:proposal_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit proposal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
