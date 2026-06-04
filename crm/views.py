@@ -963,7 +963,7 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
     def post(self, request, pk):
         participation = get_object_or_404(
             Participation.objects.select_related(
-                "deal", "deal__organisation",
+                "deal", "deal__organisation", "deal__customer",
                 "organisation", "invoice_contact",
             ),
             pk=pk,
@@ -1008,10 +1008,13 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
             to_email=contact.email,
             link_url=full_url,
             contact_first_name=(contact.first_name or "").strip(),
+            lead_contact_name=str(participation.deal.customer),
             client_org_name=client_org.name,
             client_org_address=client_org.display_address,
             lender_org_name=approved.lender.name,
             lender_org_address=approved.lender.display_address,
+            participation_amount_display=f"£{participation.amount:,.2f}",
+            participation_description=(participation.description or "").strip(),
             expires_at=link.expires_at,
         )
 

@@ -38,24 +38,31 @@ def send_supplier_invoice_request_email(
     to_email: str,
     link_url: str,
     contact_first_name: str,
+    lead_contact_name: str,
     client_org_name: str,
     client_org_address: str,
     lender_org_name: str,
     lender_org_address: str,
+    participation_amount_display: str,
+    participation_description: str,
     expires_at,
 ) -> None:
     """Ask a supplier to upload their invoice for a deal Participation.
 
     Subject: 'Request for Supplier Invoice for <client org name>'.
-    Body contains the client + lender details and a single-use upload link.
+    Body contains the deal lead + client + lender details, the participation
+    amount (and optional description), and a single-use upload link.
     """
     context = {
         "link_url": link_url,
         "contact_first_name": contact_first_name,
+        "lead_contact_name": lead_contact_name,
         "client_org_name": client_org_name,
         "client_org_address": client_org_address,
         "lender_org_name": lender_org_name,
         "lender_org_address": lender_org_address,
+        "participation_amount_display": participation_amount_display,
+        "participation_description": participation_description,
         "expires_at": expires_at,
     }
     subject = f"Request for Supplier Invoice for {client_org_name}"

@@ -2,9 +2,12 @@
 
 {% endif %}I can confirm that the finance proposal for:
 
-Client: {{ client_org_name }}
-{% if client_org_address %}Address:
-{{ client_org_address }}
+{{ lead_contact_name }}
+{{ client_org_name }}
+{% if client_org_address %}{{ client_org_address }}
+{% endif %}
+Amount: {{ participation_amount_display }}
+{% if participation_description %}Description: {{ participation_description }}
 {% endif %}
 has been accepted by:
 

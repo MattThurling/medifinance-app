@@ -19,16 +19,24 @@
 
               <p style="margin:0 0 16px;">I can confirm that the finance proposal for:</p>
 
-              <p style="margin:0 0 16px;">
-                <strong>Client:</strong> {{ client_org_name }}<br />
+              <p style="margin:0 0 16px; line-height:1.5;">
+                {{ lead_contact_name }}<br />
+                <strong>{{ client_org_name }}</strong>
                 {% if client_org_address %}
-                  <span style="color:#6b7280;">{{ client_org_address|linebreaksbr }}</span>
+                  <br /><span style="color:#6b7280;">{{ client_org_address|linebreaksbr }}</span>
+                {% endif %}
+              </p>
+
+              <p style="margin:0 0 16px; line-height:1.5;">
+                <strong>Amount:</strong> {{ participation_amount_display }}
+                {% if participation_description %}
+                  <br /><strong>Description:</strong> {{ participation_description }}
                 {% endif %}
               </p>
 
               <p style="margin:0 0 16px;">has been accepted by:</p>
 
-              <p style="margin:0 0 24px;">
+              <p style="margin:0 0 24px; line-height:1.5;">
                 <strong>{{ lender_org_name }}</strong>
                 {% if lender_org_address %}
                   <br /><span style="color:#6b7280;">{{ lender_org_address|linebreaksbr }}</span>
