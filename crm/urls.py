@@ -35,10 +35,10 @@ urlpatterns = [
     # Stages — append-only event log per deal
     path("stages/new/", views.StageCreateView.as_view(), name="stage_create"),
 
-    # Proposals — created from a deal via `?deal=<pk>`; edit/delete use the proposal's pk
+    # Proposals — created from a deal via `?deal=<pk>`; edit by pk. No delete: a
+    # proposal can only have its status changed (Withdrawn covers 'rescinded').
     path("proposals/new/", views.ProposalCreateView.as_view(), name="proposal_create"),
     path("proposals/<int:pk>/edit/", views.ProposalUpdateView.as_view(), name="proposal_update"),
-    path("proposals/<int:pk>/delete/", views.ProposalDeleteView.as_view(), name="proposal_delete"),
 
     # Participations (suppliers) — created from a deal via `?deal=<pk>`; edit/delete by pk
     path("participations/new/", views.ParticipationCreateView.as_view(), name="participation_create"),

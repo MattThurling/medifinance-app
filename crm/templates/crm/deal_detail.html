@@ -248,10 +248,6 @@ layout (main content left, amount + timeline right).
                 <td class="opacity-70">{{ p.proposal_number|default:"—" }}</td>
                 <td class="text-right whitespace-nowrap">
                   <a href="{% url 'crm:proposal_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit proposal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
-                  <form method="post" action="{% url 'crm:proposal_delete' p.pk %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove proposal">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
-                  </form>
                 </td>
               </tr>
             {% empty %}

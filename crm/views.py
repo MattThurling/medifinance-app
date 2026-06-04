@@ -907,18 +907,6 @@ class ProposalUpdateView(StaffRequiredMixin, UpdateView):
         return self.object.deal.get_absolute_url()
 
 
-class ProposalDeleteView(StaffRequiredMixin, DeleteView):
-    """Staff: remove a proposal (POST only — inline, no confirm page)."""
-
-    model = Proposal
-
-    def get_queryset(self):
-        return super().get_queryset().select_related("deal")
-
-    def get_success_url(self):
-        return self.object.deal.get_absolute_url()
-
-
 # --- Participation (Supplier) ----------------------------------------------
 # Participations represent suppliers contributing to a deal's funded amount.
 # Managed in the context of a parent Deal, same pattern as Quote / Proposal.
