@@ -1,0 +1,28 @@
+{% if contact_first_name %}Dear {{ contact_first_name }},
+
+{% endif %}I can confirm that the finance proposal for:
+
+Client: {{ client_org_name }}
+{% if client_org_address %}Address:
+{{ client_org_address }}
+{% endif %}
+has been accepted by:
+
+{{ lender_org_name }}
+{% if lender_org_address %}{{ lender_org_address }}
+{% endif %}
+Please raise your invoice showing:
+
+  • Equipment details (include serial numbers)
+  • Addressed to the above finance company
+  • Your banking details
+
+When it's ready, please submit your invoice using the secure link below:
+
+{{ link_url }}
+
+For your security this link is time-limited and can only be used once.
+If it's expired, please reply to this email requesting a new link.
+
+Thanks,
+Medifinance

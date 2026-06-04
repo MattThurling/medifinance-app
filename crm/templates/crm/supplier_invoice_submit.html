@@ -1,0 +1,39 @@
+{% extends "_portal_layout.html" %}
+
+{% block title %}Submit your invoice · Medifinance{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-1">Submit your invoice</h1>
+<p class="text-sm opacity-70 mb-6">
+  Invoice for <strong>{{ participation.deal.organisation.name }}</strong>
+  {% if participation.amount %} · £{{ participation.amount }}{% endif %}
+</p>
+
+<form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow">
+  <div class="card-body">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    {% include "_field.html" with field=form.invoice_number %}
+
+    <div class="form-control mb-4">
+      <label class="label"><span class="label-text">Invoice (PDF) <span class="text-error">*</span></span></label>
+      <input type="file" name="{{ form.invoice.html_name }}" accept="application/pdf" required
+             class="file-input file-input-bordered w-full" />
+      {% if form.invoice.errors %}
+        <p class="text-error text-sm mt-1">{{ form.invoice.errors|join:", " }}</p>
+      {% endif %}
+    </div>
+
+    <div class="card-actions justify-end mt-2">
+      <button type="submit" class="btn btn-primary">Submit invoice</button>
+    </div>
+  </div>
+</form>
+
+<p class="text-xs opacity-60 mt-4 text-center">
+  This is a single-use link. It expires on {{ link.expires_at|date:"j M Y, H:i" }}.
+</p>
+{% endblock %}

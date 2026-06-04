@@ -75,6 +75,20 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
             self.fields["owner"].initial = current_user
 
 
+class SupplierInvoiceForm(DaisyUIFormMixin, forms.ModelForm):
+    """The two-field form a supplier sees when they follow their invoice link."""
+
+    class Meta:
+        model = Participation
+        fields = ["invoice_number", "invoice"]
+
+    def clean_invoice(self):
+        f = self.cleaned_data.get("invoice")
+        if not f:
+            raise forms.ValidationError("Please attach your invoice PDF.")
+        return f
+
+
 class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
     """Staff: create / edit a Participation (supplier) on a Deal. `deal` is set by the view."""
 

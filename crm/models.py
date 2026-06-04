@@ -1,3 +1,5 @@
+import secrets
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -65,6 +67,18 @@ class Organisation(TimestampedModel):
     @property
     def hubspot_url(self) -> str | None:
         return _hubspot_url("0-2", self.hubspot_id)
+
+    @property
+    def display_address(self) -> str:
+        """Newline-joined non-empty address lines, suitable for email/PDF bodies."""
+        parts = [
+            self.address_line1,
+            self.address_line2,
+            self.address_city,
+            self.address_county,
+            self.address_postcode,
+        ]
+        return "\n".join(p for p in parts if p)
 
     @property
     def companies_house_url(self) -> str | None:
@@ -262,6 +276,63 @@ class Participation(TimestampedModel):
     def __str__(self) -> str:
         org = self.organisation.name if self.organisation else "TBD"
         return f"{org} — £{self.amount:,.2f}"
+
+
+class ParticipationInvoiceLink(TimestampedModel):
+    """A single-use, time-limited link sent to a supplier so they can upload
+    their invoice for one Participation. No login required — the token is the
+    only auth, same UX as the customer MagicLink but pointing at the upload form.
+    """
+
+    DEFAULT_TTL_DAYS = 7
+
+    participation = models.ForeignKey(
+        Participation, on_delete=models.CASCADE, related_name="invoice_links"
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="issued_invoice_links",
+    )
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        status = "used" if self.used_at else ("expired" if self.is_expired else "active")
+        return f"InvoiceLink({self.participation_id}, {status})"
+
+    @classmethod
+    def issue(cls, *, participation: "Participation", created_by=None,
+              ttl_days: int = DEFAULT_TTL_DAYS) -> "ParticipationInvoiceLink":
+        return cls.objects.create(
+            participation=participation,
+            token=secrets.token_urlsafe(32),
+            created_by=created_by,
+            expires_at=timezone.now() + timedelta(days=ttl_days),
+        )
+
+    @property
+    def is_consumed(self) -> bool:
+        return self.used_at is not None
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.is_consumed and not self.is_expired
+
+    def consume(self, *, ip: str | None = None) -> None:
+        self.used_at = timezone.now()
+        self.used_ip = ip
+        self.save(update_fields=["used_at", "used_ip"])
 
 
 class Proposal(TimestampedModel):

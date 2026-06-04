@@ -1,0 +1,15 @@
+{% extends "_portal_layout.html" %}
+
+{% block title %}Invoice received · Medifinance{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h1 class="card-title text-2xl">Thanks — we've received your invoice</h1>
+    <p class="opacity-80">
+      Your invoice for <strong>{{ participation.deal.organisation.name }}</strong>
+      has been sent through to the Medifinance team. You can close this tab.
+    </p>
+  </div>
+</div>
+{% endblock %}

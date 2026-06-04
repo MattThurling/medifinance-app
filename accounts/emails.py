@@ -31,3 +31,42 @@ def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner
     )
     message.attach_alternative(html_body, "text/html")
     message.send()
+
+
+def send_supplier_invoice_request_email(
+    *,
+    to_email: str,
+    link_url: str,
+    contact_first_name: str,
+    client_org_name: str,
+    client_org_address: str,
+    lender_org_name: str,
+    lender_org_address: str,
+    expires_at,
+) -> None:
+    """Ask a supplier to upload their invoice for a deal Participation.
+
+    Subject: 'Request for Supplier Invoice for <client org name>'.
+    Body contains the client + lender details and a single-use upload link.
+    """
+    context = {
+        "link_url": link_url,
+        "contact_first_name": contact_first_name,
+        "client_org_name": client_org_name,
+        "client_org_address": client_org_address,
+        "lender_org_name": lender_org_name,
+        "lender_org_address": lender_org_address,
+        "expires_at": expires_at,
+    }
+    subject = f"Request for Supplier Invoice for {client_org_name}"
+    text_body = render_to_string("email/supplier_invoice_request.txt", context)
+    html_body = render_to_string("email/supplier_invoice_request.html", context)
+
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[to_email],
+    )
+    message.attach_alternative(html_body, "text/html")
+    message.send()
