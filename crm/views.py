@@ -2,7 +2,6 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
 from django.db.models import ProtectedError, Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -22,13 +21,13 @@ from .forms import (
     DocumentRequestForm,
     DocumentUploadForm,
     OrganisationForm,
-    ParticipationFormSet,
+    ParticipationForm,
     ProposalForm,
     QuoteForm,
     QuoteSelectionForm,
     StageForm,
 )
-from .models import Contact, Deal, Document, Organisation, Proposal, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, Stage
 
 
 class SearchableListView(ListView):
@@ -304,34 +303,7 @@ class _DealFormMixin:
         ctx["owner_selected_label"] = (
             get_user_model().objects.filter(pk=owner_id).first() if owner_id else ""
         )
-
-        # Inline Participation formset — funded_amount is derived from the sum
-        # of its rows. On POST we validate eagerly so errors render on re-show.
-        if "participation_formset" not in ctx:
-            instance = getattr(self, "object", None)
-            if self.request.method == "POST":
-                formset = ParticipationFormSet(
-                    self.request.POST, instance=instance, prefix="participations"
-                )
-                formset.is_valid()  # populate errors for the re-render path
-            else:
-                formset = ParticipationFormSet(instance=instance, prefix="participations")
-            ctx["participation_formset"] = formset
         return ctx
-
-    def form_valid(self, form):
-        formset = ParticipationFormSet(
-            self.request.POST, instance=form.instance, prefix="participations"
-        )
-        if not formset.is_valid():
-            return self.render_to_response(
-                self.get_context_data(form=form, participation_formset=formset)
-            )
-        with transaction.atomic():
-            self.object = form.save()
-            formset.instance = self.object
-            formset.save()
-        return redirect(self.get_success_url())
 
     def get_success_url(self):
         return self.object.get_absolute_url()
@@ -891,6 +863,67 @@ class ProposalDeleteView(StaffRequiredMixin, DeleteView):
     """Staff: remove a proposal (POST only — inline, no confirm page)."""
 
     model = Proposal
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("deal")
+
+    def get_success_url(self):
+        return self.object.deal.get_absolute_url()
+
+
+# --- Participation (Supplier) ----------------------------------------------
+# Participations represent suppliers contributing to a deal's funded amount.
+# Managed in the context of a parent Deal, same pattern as Quote / Proposal.
+
+class ParticipationCreateView(StaffRequiredMixin, CreateView):
+    """Create a participation. Requires `?deal=<pk>` — the deal is set from URL, not the form."""
+
+    model = Participation
+    form_class = ParticipationForm
+
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        deal_pk = request.GET.get("deal")
+        if not deal_pk:
+            raise Http404("?deal query parameter required")
+        try:
+            self.parent_deal = Deal.objects.get(pk=deal_pk)
+        except (Deal.DoesNotExist, ValueError, TypeError) as exc:
+            raise Http404("Deal not found") from exc
+
+    def form_valid(self, form):
+        form.instance.deal = self.parent_deal
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["parent_deal"] = self.parent_deal
+        return ctx
+
+    def get_success_url(self):
+        return self.parent_deal.get_absolute_url()
+
+
+class ParticipationUpdateView(StaffRequiredMixin, UpdateView):
+    model = Participation
+    form_class = ParticipationForm
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("deal", "organisation", "invoice_contact")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["parent_deal"] = self.object.deal
+        return ctx
+
+    def get_success_url(self):
+        return self.object.deal.get_absolute_url()
+
+
+class ParticipationDeleteView(StaffRequiredMixin, DeleteView):
+    """Staff: remove a participation (POST only — inline, no confirm page)."""
+
+    model = Participation
 
     def get_queryset(self):
         return super().get_queryset().select_related("deal")

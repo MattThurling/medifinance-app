@@ -40,6 +40,11 @@ urlpatterns = [
     path("proposals/<int:pk>/edit/", views.ProposalUpdateView.as_view(), name="proposal_update"),
     path("proposals/<int:pk>/delete/", views.ProposalDeleteView.as_view(), name="proposal_delete"),
 
+    # Participations (suppliers) — created from a deal via `?deal=<pk>`; edit/delete by pk
+    path("participations/new/", views.ParticipationCreateView.as_view(), name="participation_create"),
+    path("participations/<int:pk>/edit/", views.ParticipationUpdateView.as_view(), name="participation_update"),
+    path("participations/<int:pk>/delete/", views.ParticipationDeleteView.as_view(), name="participation_delete"),
+
     # HTMX combobox search endpoints (staff)
     path("search/contacts/", views.ContactSearchView.as_view(), name="contact_search"),
     path("search/organisations/", views.OrganisationSearchView.as_view(), name="organisation_search"),

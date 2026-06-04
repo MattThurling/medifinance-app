@@ -1,0 +1,55 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}{% if object %}Edit supplier{% else %}New supplier{% endif %} · {{ parent_deal.name }}{% endblock %}
+
+{% block content %}
+{% url 'crm:organisation_search' as organisation_search_url %}
+{% url 'crm:contact_search' as contact_search_url %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
+    <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
+  </p>
+  <h1 class="text-2xl font-semibold mb-6">
+    {% if object %}Edit supplier{% else %}New supplier{% endif %}
+  </h1>
+
+  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow">
+    <div class="card-body">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.amount %}
+        {% include "crm/_combobox.html" with name="organisation" label="Supplier (optional)" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
+      </div>
+
+      {% include "_field.html" with field=form.description %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.invoice_number %}
+        {% include "crm/_combobox.html" with name="invoice_contact" label="Invoice contact (optional)" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.invoice_contact.value selected_label=form.instance.invoice_contact errors=form.invoice_contact.errors %}
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text">Invoice (PDF)</span></label>
+        {% if form.instance.invoice %}
+          <p class="text-xs opacity-70 mb-1">Currently: {{ form.instance.invoice.name|slice:"-60:" }}</p>
+        {% endif %}
+        <input type="file" name="{{ form.invoice.html_name }}" accept="application/pdf"
+               class="file-input file-input-bordered file-input-sm w-full" />
+        {% if form.invoice.errors %}
+          <p class="text-error text-sm mt-1">{{ form.invoice.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+
+      <div class="card-actions justify-end mt-2">
+        <a href="{{ parent_deal.get_absolute_url }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

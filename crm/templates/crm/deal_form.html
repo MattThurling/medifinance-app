@@ -20,7 +20,7 @@
     {% if object %}Edit deal{% else %}New deal{% endif %}
   </h1>
 
-  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow">
+  <form method="post" class="card bg-base-100 shadow">
     <div class="card-body">
       {% csrf_token %}
       {% if form.non_field_errors %}
@@ -48,27 +48,8 @@
       <div class="divider text-xs opacity-60 mt-2 mb-2">Associations</div>
       {% include "crm/_combobox.html" with name="introducer" label="Introducer" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.introducer.value selected_label=form.instance.introducer errors=form.introducer.errors %}
 
-      <div class="divider text-xs opacity-60 mt-2 mb-2">Participations</div>
-      <p class="text-xs opacity-60 mb-3">The deal's funded amount is the sum of these rows.</p>
-
-      {{ participation_formset.management_form }}
-      {% if participation_formset.non_form_errors %}
-        <div class="alert alert-error mb-3">{{ participation_formset.non_form_errors|join:", " }}</div>
-      {% endif %}
-
-      <div id="participations" class="space-y-3">
-        {% for pform in participation_formset %}
-          {% include "crm/_participation_row.html" with form=pform organisation_search_url=organisation_search_url contact_search_url=contact_search_url %}
-        {% endfor %}
-      </div>
-
-      <template id="participation-template">
-        {% include "crm/_participation_row.html" with form=participation_formset.empty_form organisation_search_url=organisation_search_url contact_search_url=contact_search_url is_template=True %}
-      </template>
-
-      <button type="button" id="add-participation" class="btn btn-sm mt-3">+ Add participation</button>
-
-      <div class="divider text-xs opacity-60 mt-6 mb-2">Other financials</div>
+      <div class="divider text-xs opacity-60 mt-2 mb-2">Financials</div>
+      <p class="text-xs opacity-60 mb-3">The deal's funded amount is the sum of its Suppliers (managed on the deal page).</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
         {% include "_field.html" with field=form.earnings %}
         {% include "_field.html" with field=form.flat_fee %}
@@ -83,36 +64,4 @@
     </div>
   </form>
 </div>
-
-<script>
-(function () {
-  const addBtn = document.getElementById('add-participation');
-  if (!addBtn) return;
-  const container = document.getElementById('participations');
-  const template = document.getElementById('participation-template');
-  const totalForms = document.querySelector('input[name="participations-TOTAL_FORMS"]');
-
-  addBtn.addEventListener('click', () => {
-    const i = parseInt(totalForms.value, 10);
-    const clone = template.content.cloneNode(true);
-    clone.querySelectorAll('[name*="__prefix__"]').forEach(el => { el.name = el.name.replace(/__prefix__/g, i); });
-    clone.querySelectorAll('[id*="__prefix__"]').forEach(el => { el.id = el.id.replace(/__prefix__/g, i); });
-    clone.querySelectorAll('label[for*="__prefix__"]').forEach(el => { el.htmlFor = el.htmlFor.replace(/__prefix__/g, i); });
-    container.appendChild(clone);
-    // htmx auto-processes inserted nodes via MutationObserver, but call it
-    // explicitly so the cloned combobox's hx-* attributes wire up reliably.
-    const newRow = container.lastElementChild;
-    if (window.htmx && newRow) window.htmx.process(newRow);
-    totalForms.value = i + 1;
-  });
-
-  container.addEventListener('click', (e) => {
-    if (!e.target.matches('.participation-remove')) return;
-    const row = e.target.closest('.participation-row');
-    const deleteInput = row.querySelector('input[name$="-DELETE"]');
-    if (deleteInput) { deleteInput.value = 'on'; row.classList.add('hidden'); }
-    else { row.remove(); }
-  });
-})();
-</script>
 {% endblock %}

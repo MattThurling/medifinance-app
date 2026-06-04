@@ -1,5 +1,5 @@
 from django import forms
-from django.forms import inlineformset_factory, modelformset_factory
+from django.forms import modelformset_factory
 
 from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, Stage
 
@@ -76,7 +76,7 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
 
 
 class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
-    """One row in the inline Participation formset on the deal form."""
+    """Staff: create / edit a Participation (supplier) on a Deal. `deal` is set by the view."""
 
     class Meta:
         model = Participation
@@ -89,17 +89,8 @@ class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
             "invoice",
         ]
         widgets = {
-            "description": forms.Textarea(attrs={"rows": 2}),
+            "description": forms.Textarea(attrs={"rows": 3}),
         }
-
-
-ParticipationFormSet = inlineformset_factory(
-    Deal,
-    Participation,
-    form=ParticipationForm,
-    extra=1,
-    can_delete=True,
-)
 
 
 class QuoteForm(DaisyUIFormMixin, forms.ModelForm):

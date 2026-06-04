@@ -89,36 +89,39 @@ layout (main content left, amount + timeline right).
       <p class="text-xs opacity-50 mt-2">Set a funded amount (Edit) to add quotes.</p>
     {% endif %}
 
-    {# Proposals — lender-side shopping (a deal can be proposed to many lenders) #}
-    <h2 class="font-semibold mt-8 mb-2">Proposals</h2>
+    {# Documents #}
+    <h2 class="font-semibold mt-8 mb-2">Documents</h2>
     <table class="table table-xs w-full">
       <thead>
-        <tr><th>Lender</th><th>Status</th><th>Ref #</th><th></th></tr>
+        <tr><th>Document</th><th></th></tr>
       </thead>
       <tbody>
-        {% for p in deal.proposals.all %}
+        {% for d in deal.documents.all %}
           <tr>
-            <td>
-              <a href="{{ p.lender.get_absolute_url }}" class="link link-hover">{{ p.lender.name }}</a>
-              {% if p.contact %} · <a href="{{ p.contact.get_absolute_url }}" class="link link-hover">{{ p.contact }}</a>{% endif %}
-            </td>
-            <td><span class="badge badge-ghost badge-sm">{{ p.get_status_display }}</span></td>
-            <td class="opacity-70">{{ p.proposal_number|default:"—" }}</td>
+            <td>{{ d.name }}</td>
             <td class="text-right whitespace-nowrap">
-              <a href="{% url 'crm:proposal_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit proposal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
-              <form method="post" action="{% url 'crm:proposal_delete' p.pk %}" class="inline">
+              {% if d.is_provided %}
+                <a href="{% url 'crm:document_download' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="View document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
+              {% else %}
+                <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
+                <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
+                  {% csrf_token %}
+                  <input id="upload-{{ d.pk }}" type="file" name="file" onchange="this.form.submit()" />
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'crm:document_delete' d.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove proposal">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove document">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
               </form>
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="4" class="opacity-60">No proposals yet.</td></tr>
+          <tr><td colspan="2" class="opacity-60">No documents requested yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
-    <a href="{% url 'crm:proposal_create' %}?deal={{ deal.pk }}"
-       class="btn btn-circle btn-xs btn-outline mt-3" title="Add proposal" aria-label="Add proposal">
+    <a href="{% url 'crm:document_create' %}?deal={{ deal.pk }}"
+       class="btn btn-circle btn-xs btn-outline mt-3" title="Request a document" aria-label="Request a document">
       {% icon "plus" class="h-3.5 w-3.5" %}
     </a>
 
@@ -155,39 +158,69 @@ layout (main content left, amount + timeline right).
       <a href="{% url 'crm:contact_create' %}?deal={{ deal.pk }}" class="btn btn-xs btn-outline">+ New contact</a>
     </div>
 
-    {# Documents #}
-    <h2 class="font-semibold mt-8 mb-2">Documents</h2>
+    {# Suppliers — Participation rows; sum of `amount` is the deal's funded amount #}
+    <h2 class="font-semibold mt-8 mb-2">Suppliers</h2>
     <table class="table table-xs w-full">
       <thead>
-        <tr><th>Document</th><th></th></tr>
+        <tr><th>Supplier</th><th>Amount</th><th>Invoice #</th><th>Inv</th><th></th></tr>
       </thead>
       <tbody>
-        {% for d in deal.documents.all %}
+        {% for p in deal.participations.all %}
           <tr>
-            <td>{{ d.name }}</td>
+            <td>
+              {% if p.organisation %}<a href="{{ p.organisation.get_absolute_url }}" class="link link-hover">{{ p.organisation.name }}</a>{% else %}<span class="opacity-50 italic">TBD</span>{% endif %}
+            </td>
+            <td class="font-medium whitespace-nowrap">£{{ p.amount }}</td>
+            <td class="opacity-70">{{ p.invoice_number|default:"—" }}</td>
+            <td>{% if p.invoice %}<span title="Invoice attached">✓</span>{% else %}<span class="opacity-40">—</span>{% endif %}</td>
             <td class="text-right whitespace-nowrap">
-              {% if d.is_provided %}
-                <a href="{% url 'crm:document_download' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="View document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
-              {% else %}
-                <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
-                <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
-                  {% csrf_token %}
-                  <input id="upload-{{ d.pk }}" type="file" name="file" onchange="this.form.submit()" />
-                </form>
-              {% endif %}
-              <form method="post" action="{% url 'crm:document_delete' d.pk %}" class="inline">
+              <a href="{% url 'crm:participation_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit supplier">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+              <form method="post" action="{% url 'crm:participation_delete' p.pk %}" class="inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove document">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove supplier">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
               </form>
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="2" class="opacity-60">No documents requested yet.</td></tr>
+          <tr><td colspan="5" class="opacity-60">No suppliers yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
-    <a href="{% url 'crm:document_create' %}?deal={{ deal.pk }}"
-       class="btn btn-circle btn-xs btn-outline mt-3" title="Request a document" aria-label="Request a document">
+    <a href="{% url 'crm:participation_create' %}?deal={{ deal.pk }}"
+       class="btn btn-circle btn-xs btn-outline mt-3" title="Add supplier" aria-label="Add supplier">
+      {% icon "plus" class="h-3.5 w-3.5" %}
+    </a>
+
+    {# Proposals — lender-side shopping (a deal can be proposed to many lenders) #}
+    <h2 class="font-semibold mt-8 mb-2">Proposals</h2>
+    <table class="table table-xs w-full">
+      <thead>
+        <tr><th>Lender</th><th>Status</th><th>Ref #</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in deal.proposals.all %}
+          <tr>
+            <td>
+              <a href="{{ p.lender.get_absolute_url }}" class="link link-hover">{{ p.lender.name }}</a>
+              {% if p.contact %} · <a href="{{ p.contact.get_absolute_url }}" class="link link-hover">{{ p.contact }}</a>{% endif %}
+            </td>
+            <td><span class="badge badge-ghost badge-sm">{{ p.get_status_display }}</span></td>
+            <td class="opacity-70">{{ p.proposal_number|default:"—" }}</td>
+            <td class="text-right whitespace-nowrap">
+              <a href="{% url 'crm:proposal_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit proposal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+              <form method="post" action="{% url 'crm:proposal_delete' p.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove proposal">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="opacity-60">No proposals yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <a href="{% url 'crm:proposal_create' %}?deal={{ deal.pk }}"
+       class="btn btn-circle btn-xs btn-outline mt-3" title="Add proposal" aria-label="Add proposal">
       {% icon "plus" class="h-3.5 w-3.5" %}
     </a>
   </div>
