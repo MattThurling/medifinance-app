@@ -48,5 +48,6 @@ def _bootstrap_initial_stage(sender, instance: Deal, created: bool, **kwargs):
         Stage.objects.create(
             deal=instance,
             name=Stage.Name.APPLICATION,
+            organisation=instance.organisation,
             set_by=instance.owner,
         )

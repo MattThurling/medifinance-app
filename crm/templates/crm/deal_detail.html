@@ -279,11 +279,13 @@ layout (main content left, amount + timeline right).
           {% if forloop.counter|divisibleby:2 %}
             <div class="timeline-start timeline-box">
               {{ s.get_name_display }}
+              {% if s.organisation %}<span class="block text-xs">{{ s.organisation.name }}</span>{% endif %}
               <span class="block text-xs opacity-60">{{ s.occurred_at|timesince }} ago</span>
             </div>
           {% else %}
             <div class="timeline-end timeline-box">
               {{ s.get_name_display }}
+              {% if s.organisation %}<span class="block text-xs">{{ s.organisation.name }}</span>{% endif %}
               <span class="block text-xs opacity-60">{{ s.occurred_at|timesince }} ago</span>
             </div>
           {% endif %}

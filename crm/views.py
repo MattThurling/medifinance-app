@@ -274,7 +274,9 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         deal = self.object
 
         # Stage history oldest-first for the vertical steps timeline
-        ctx["stages_chrono"] = deal.stage_events.order_by("occurred_at", "pk")
+        ctx["stages_chrono"] = (
+            deal.stage_events.select_related("organisation").order_by("occurred_at", "pk")
+        )
 
         # Applicants = the lead (customer) plus any co-applicants
         applicants = [deal.customer, *deal.co_applicants.all()]
@@ -707,6 +709,7 @@ class PortalApplicantsView(_PortalStepMixin, View):
                 Stage.objects.create(
                     deal=deal,
                     name=Stage.Name.INFO_RECEIVED,
+                    organisation=deal.organisation,
                     set_by=request.user,
                     note="Customer completed application via portal.",
                 )
@@ -810,6 +813,10 @@ class StageCreateView(StaffRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.deal = self.parent_deal
         form.instance.set_by = self.request.user
+        # Manual stages default to the deal's organisation (the client) — staff
+        # can add more granular stages via the auto-fired events on Proposals
+        # and Participations instead.
+        form.instance.organisation = self.parent_deal.organisation
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
@@ -843,7 +850,14 @@ class ProposalCreateView(StaffRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.deal = self.parent_deal
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        Stage.objects.create(
+            deal=self.parent_deal,
+            name=Stage.Name.PROPOSAL_SUBMITTED,
+            organisation=self.object.lender,
+            set_by=self.request.user,
+        )
+        return response
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -858,6 +872,14 @@ class ProposalUpdateView(StaffRequiredMixin, UpdateView):
     model = Proposal
     form_class = ProposalForm
 
+    # Map a new Proposal.Status -> the Stage.Name to emit when status flips to it.
+    _STATUS_TO_STAGE = {
+        Proposal.Status.SUBMITTED: Stage.Name.PROPOSAL_SUBMITTED,
+        Proposal.Status.APPROVED: Stage.Name.PROPOSAL_APPROVED,
+        Proposal.Status.DECLINED: Stage.Name.PROPOSAL_DECLINED,
+        Proposal.Status.WITHDRAWN: Stage.Name.PROPOSAL_WITHDRAWN,
+    }
+
     def get_queryset(self):
         return super().get_queryset().select_related("deal", "lender", "contact")
 
@@ -865,6 +887,21 @@ class ProposalUpdateView(StaffRequiredMixin, UpdateView):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.object.deal
         return ctx
+
+    def form_valid(self, form):
+        old_status = form.initial.get("status")
+        response = super().form_valid(form)
+        new_status = self.object.status
+        if old_status != new_status:
+            stage_name = self._STATUS_TO_STAGE.get(new_status)
+            if stage_name:
+                Stage.objects.create(
+                    deal=self.object.deal,
+                    name=stage_name,
+                    organisation=self.object.lender,
+                    set_by=self.request.user,
+                )
+        return response
 
     def get_success_url(self):
         return self.object.deal.get_absolute_url()
@@ -1018,6 +1055,13 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
             expires_at=link.expires_at,
         )
 
+        Stage.objects.create(
+            deal=participation.deal,
+            name=Stage.Name.INVOICE_REQUESTED,
+            organisation=participation.organisation,
+            set_by=request.user,
+        )
+
         messages.success(
             request,
             f"Invoice request emailed to {contact.email}. "
@@ -1073,6 +1117,12 @@ class SubmitParticipationInvoiceView(View):
         if form.is_valid():
             form.save()
             link.consume(ip=self._client_ip(request))
+            Stage.objects.create(
+                deal=link.participation.deal,
+                name=Stage.Name.INVOICE_RECEIVED,
+                organisation=link.participation.organisation,
+                # No set_by — the supplier isn't a logged-in user.
+            )
             return render(request, self.complete_template_name,
                           {"participation": link.participation})
         return render(request, self.template_name,

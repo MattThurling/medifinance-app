@@ -381,9 +381,24 @@ class Stage(TimestampedModel):
     class Name(models.TextChoices):
         APPLICATION = "application", "Application"
         INFO_RECEIVED = "info_received", "Info Received"
+        PROPOSAL_SUBMITTED = "proposal_submitted", "Proposal Submitted"
+        PROPOSAL_APPROVED = "proposal_approved", "Proposal Approved"
+        PROPOSAL_DECLINED = "proposal_declined", "Proposal Declined"
+        PROPOSAL_WITHDRAWN = "proposal_withdrawn", "Proposal Withdrawn"
+        INVOICE_REQUESTED = "invoice_requested", "Invoice Requested"
+        INVOICE_RECEIVED = "invoice_received", "Invoice Received"
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="stage_events")
     name = models.CharField(max_length=32, choices=Name.choices)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Which organisation this stage is about — the client, the "
+                  "lender (for proposal stages), or the supplier (for invoice stages).",
+    )
     occurred_at = models.DateTimeField(default=timezone.now)
     set_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
