@@ -1,4 +1,5 @@
 {% extends "_portal_layout.html" %}
+{% load humanize %}
 
 {% block title %}Choose a quote · {{ deal.name }}{% endblock %}
 
@@ -37,7 +38,7 @@
           <tr>
             <td>{{ q.term }} months</td>
             <td>{{ q.apr }}%</td>
-            <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment }}{% else %}—{% endif %}</td>
+            <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
             <td class="text-right">
               <input type="radio" name="quote" value="{{ q.pk }}"
                      class="radio radio-lg radio-primary"

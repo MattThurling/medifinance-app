@@ -1,4 +1,5 @@
 {% extends "_portal_layout.html" %}
+{% load humanize %}
 
 {% block title %}Application received · {{ deal.name }}{% endblock %}
 
@@ -16,7 +17,7 @@
         {% if deal.selected_quote %}
           <p>
             <strong>Selected quote:</strong>
-            {{ deal.selected_quote.term }} months @ {{ deal.selected_quote.apr }}% — £{{ deal.selected_quote.monthly_payment }}/mo
+            {{ deal.selected_quote.term }} months @ {{ deal.selected_quote.apr }}% — £{{ deal.selected_quote.monthly_payment|floatformat:2|intcomma }}/mo
           </p>
         {% endif %}
       </div>

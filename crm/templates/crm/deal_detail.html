@@ -1,5 +1,5 @@
 {% extends "_app_layout.html" %}
-{% load icons %}
+{% load icons humanize %}
 
 {% block title %}{{ deal.name }} · Deals{% endblock %}
 
@@ -70,7 +70,7 @@ layout (main content left, amount + timeline right).
               <tr>
                 <td>{{ q.term }} m</td>
                 <td class="opacity-70">{{ q.apr }}%</td>
-                <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment }}{% else %}—{% endif %}</td>
+                <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="text-right whitespace-nowrap">
                   <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
                   <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
@@ -192,7 +192,7 @@ layout (main content left, amount + timeline right).
                 <td>
                   {% if p.organisation %}<a href="{{ p.organisation.get_absolute_url }}" class="link link-hover">{{ p.organisation.name }}</a>{% else %}<span class="opacity-50 italic">TBD</span>{% endif %}
                 </td>
-                <td class="font-medium whitespace-nowrap">£{{ p.amount }}</td>
+                <td class="font-medium whitespace-nowrap">£{{ p.amount|floatformat:2|intcomma }}</td>
                 <td class="opacity-70">
                   {% if p.invoice_number %}
                     {% if p.invoice %}
