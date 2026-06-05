@@ -61,6 +61,13 @@ urlpatterns = [
     path("documents/<int:pk>/download/", views.DocumentDownloadView.as_view(), name="document_download"),
     path("documents/<int:pk>/delete/", views.DocumentDeleteView.as_view(), name="document_delete"),
 
+    # Xero — OAuth flow + status page + raise-invoice on a deal
+    path("xero/", views.XeroStatusView.as_view(), name="xero_status"),
+    path("xero/connect/", views.XeroConnectView.as_view(), name="xero_connect"),
+    path("xero/callback/", views.XeroCallbackView.as_view(), name="xero_callback"),
+    path("xero/disconnect/", views.XeroDisconnectView.as_view(), name="xero_disconnect"),
+    path("deals/<int:pk>/raise-invoice/", views.DealRaiseInvoiceView.as_view(), name="deal_raise_invoice"),
+
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/
     path("deals/<int:pk>/portal-link/", views.IssuePortalLinkView.as_view(), name="deal_issue_portal_link"),
     path("deals/<int:pk>/portal-link/email/", views.EmailPortalLinkView.as_view(), name="deal_email_portal_link"),

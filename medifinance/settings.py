@@ -203,6 +203,19 @@ LOGGING = {
 HUBSPOT_PORTAL_ID = os.getenv("HUBSPOT_PORTAL_ID", "3378161")
 
 
+# Xero — credentials for the developer app (one app per environment). Without
+# these, the Xero pages render but the Connect button is disabled.
+XERO_CLIENT_ID = os.getenv("XERO_CLIENT_ID", "")
+XERO_CLIENT_SECRET = os.getenv("XERO_CLIENT_SECRET", "")
+XERO_SCOPES = (
+    "openid profile email "
+    "offline_access "
+    "accounting.transactions "
+    "accounting.contacts "
+    "accounting.settings.read"
+)
+
+
 # Email — SMTP over SSL to the medi-finance.co.uk mail server (used in dev too).
 # Password comes from EMAIL_HOST_PASSWORD; if it's empty we fall back to the
 # console backend so local runs without credentials still work (emails print to

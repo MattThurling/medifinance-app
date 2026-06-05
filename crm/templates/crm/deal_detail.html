@@ -298,17 +298,56 @@ layout (main content left, amount + timeline right).
   </div>
 
   {# ---- Primary CTA ---- #}
-  <div class="lg:col-start-1 lg:col-span-2 lg:row-start-3">
-    <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-primary btn-block">
-        Send application to {{ deal.customer.first_name|default:"customer" }}
-      </button>
-    </form>
-    <form method="post" action="{% url 'crm:deal_issue_portal_link' deal.pk %}" class="mt-2 text-center">
-      {% csrf_token %}
-      <button type="submit" class="link link-hover text-xs opacity-60">or generate a link to send manually</button>
-    </form>
+  <div class="lg:col-start-1 lg:col-span-2 lg:row-start-3 space-y-4">
+    <div>
+      <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-block">
+          Send application to {{ deal.customer.first_name|default:"customer" }}
+        </button>
+      </form>
+      <form method="post" action="{% url 'crm:deal_issue_portal_link' deal.pk %}" class="mt-2 text-center">
+        {% csrf_token %}
+        <button type="submit" class="link link-hover text-xs opacity-60">or generate a link to send manually</button>
+      </form>
+    </div>
+
+    {# Xero invoices raised against this deal #}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "receipt" class="h-5 w-5 opacity-70" %} Xero invoices
+        </h2>
+        {% if deal.xero_invoices.all %}
+          <table class="table table-xs w-full">
+            <thead>
+              <tr><th>Invoice #</th><th>Contact</th><th>Total</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for xi in deal.xero_invoices.all %}
+                <tr>
+                  <td class="font-medium">{{ xi.xero_invoice_number|default:"—" }}</td>
+                  <td class="opacity-80">{{ xi.contact_name }}</td>
+                  <td class="font-medium whitespace-nowrap">{% if xi.total %}£{{ xi.total|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                  <td class="opacity-70">{{ xi.status }}</td>
+                  <td class="text-right whitespace-nowrap">
+                    <a href="{{ xi.online_invoice_url }}" target="_blank" rel="noopener" class="link link-hover text-xs">Open in Xero ↗</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="text-sm opacity-60">No invoices raised yet.</p>
+        {% endif %}
+        <div class="card-actions justify-end mt-2">
+          <a href="{% url 'crm:deal_raise_invoice' deal.pk %}" class="btn btn-sm">
+            {% icon "plus" class="h-4 w-4" %}
+            Raise invoice
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>

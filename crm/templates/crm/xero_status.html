@@ -1,0 +1,47 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Xero · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <h1 class="text-2xl font-semibold mb-6">Xero</h1>
+
+  {% if connection %}
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <p class="text-sm opacity-70">Connected to</p>
+        <h2 class="card-title">{{ connection.tenant_name }}</h2>
+        <p class="text-sm opacity-70">
+          Connected by {{ connection.connected_by.full_name|default:"—" }}
+          on {{ connection.created_at|date:"j M Y, H:i" }}.
+        </p>
+        <div class="card-actions justify-end mt-2">
+          <form method="post" action="{% url 'crm:xero_disconnect' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-ghost btn-sm">Disconnect</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h2 class="card-title">Not connected yet</h2>
+        <p class="opacity-80">
+          Connect this environment to your Xero organisation so the CRM can raise
+          invoices for deals you've won.
+        </p>
+        {% if xero_configured %}
+          <div class="card-actions justify-end mt-2">
+            <a href="{% url 'crm:xero_connect' %}" class="btn btn-primary">Connect to Xero</a>
+          </div>
+        {% else %}
+          <div class="alert alert-warning mt-2 text-sm">
+            <span>Set <code>XERO_CLIENT_ID</code> and <code>XERO_CLIENT_SECRET</code> on this environment to enable the Connect button.</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

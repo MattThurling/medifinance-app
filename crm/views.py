@@ -7,7 +7,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from accounts.models import MagicLink, Role
 from accounts.permissions import StaffRequiredMixin
@@ -24,6 +24,7 @@ from .forms import (
     ParticipationForm,
     ProposalForm,
     SupplierInvoiceForm,
+    XeroInvoiceForm,
     QuoteForm,
     QuoteSelectionForm,
     StageForm,
@@ -38,6 +39,8 @@ from .models import (
     Proposal,
     Quote,
     Stage,
+    XeroConnection,
+    XeroInvoice,
 )
 
 
@@ -267,6 +270,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             "co_applicants",
             "documents",
             "participations__organisation",
+            "xero_invoices",
         )
 
     def get_context_data(self, **kwargs):
@@ -1222,3 +1226,166 @@ class PortalDocumentsView(_PortalStepMixin, View):
                 "current_step": self.step,
             },
         )
+
+
+# --- Xero ------------------------------------------------------------------
+
+class XeroStatusView(StaffRequiredMixin, TemplateView):
+    """Shows whether the CRM is connected to Xero + the Connect / Disconnect controls."""
+
+    template_name = "crm/xero_status.html"
+
+    def get_context_data(self, **kwargs):
+        from . import xero as xero_helpers
+        ctx = super().get_context_data(**kwargs)
+        ctx["connection"] = XeroConnection.objects.first()
+        ctx["xero_configured"] = xero_helpers.is_configured()
+        return ctx
+
+
+class XeroConnectView(StaffRequiredMixin, View):
+    """Kick off the OAuth dance — redirects to Xero's authorize URL with a CSRF state."""
+
+    def get(self, request):
+        import secrets as _secrets
+        from . import xero as xero_helpers
+
+        if not xero_helpers.is_configured():
+            messages.error(
+                request,
+                "Xero developer credentials aren't set on this environment yet.",
+            )
+            return redirect("crm:xero_status")
+
+        state = _secrets.token_urlsafe(16)
+        request.session["xero_oauth_state"] = state
+        redirect_uri = request.build_absolute_uri(reverse("crm:xero_callback"))
+        return redirect(xero_helpers.get_authorize_url(redirect_uri, state))
+
+
+class XeroCallbackView(StaffRequiredMixin, View):
+    """Xero redirects back here with a one-shot code — exchange it for tokens
+    and store the connected org."""
+
+    def get(self, request):
+        from datetime import timedelta
+        from . import xero as xero_helpers
+        from django.utils import timezone
+
+        code = request.GET.get("code")
+        state = request.GET.get("state")
+        expected_state = request.session.pop("xero_oauth_state", None)
+        if not code or state != expected_state:
+            messages.error(request, "Xero authorisation failed (state mismatch).")
+            return redirect("crm:xero_status")
+
+        redirect_uri = request.build_absolute_uri(reverse("crm:xero_callback"))
+        try:
+            tokens = xero_helpers.exchange_code_for_tokens(code, redirect_uri)
+            tenants = xero_helpers.list_authorised_tenants(tokens["access_token"])
+        except Exception as exc:
+            messages.error(request, f"Couldn't talk to Xero: {exc}")
+            return redirect("crm:xero_status")
+
+        if not tenants:
+            messages.error(request, "Xero didn't return any organisations for this account.")
+            return redirect("crm:xero_status")
+
+        tenant = tenants[0]
+        XeroConnection.objects.all().delete()  # only one connection at a time
+        XeroConnection.objects.create(
+            tenant_id=tenant["tenantId"],
+            tenant_name=tenant.get("tenantName") or tenant.get("tenantType") or "Xero org",
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            expires_at=timezone.now() + timedelta(seconds=int(tokens.get("expires_in", 1800))),
+            scopes=tokens.get("scope", ""),
+            connected_by=request.user,
+        )
+        messages.success(request, f"Connected to {tenant.get('tenantName')}.")
+        return redirect("crm:xero_status")
+
+
+class XeroDisconnectView(StaffRequiredMixin, View):
+    """Drop the stored tokens locally. Doesn't revoke server-side at Xero —
+    staff can do that from their Xero developer dashboard."""
+
+    def post(self, request):
+        XeroConnection.objects.all().delete()
+        messages.success(request, "Xero disconnected.")
+        return redirect("crm:xero_status")
+
+
+class DealRaiseInvoiceView(StaffRequiredMixin, View):
+    """Form to raise an ACCREC invoice on a deal, push it to Xero, and stash a
+    XeroInvoice mirror locally so staff can deep-link back."""
+
+    template_name = "crm/deal_raise_invoice.html"
+
+    def _initial_for(self, deal):
+        amount = deal.commission or 0
+        contact_name = deal.organisation.name if deal.organisation else ""
+        return {
+            "contact_name": contact_name,
+            "reference": deal.name,
+            "description": f"Commission for {deal.name}",
+            "amount": amount,
+            "account_code": "200",
+            "tax_type": "NONE",
+            "due_days": 30,
+            "status": "DRAFT",
+        }
+
+    def get(self, request, pk):
+        deal = get_object_or_404(Deal.objects.select_related("organisation"), pk=pk)
+        from . import xero as xero_helpers
+        if xero_helpers.get_active_connection() is None:
+            messages.error(request, "Connect to Xero first.")
+            return redirect("crm:xero_status")
+        form = XeroInvoiceForm(initial=self._initial_for(deal))
+        return render(request, self.template_name, {"form": form, "deal": deal})
+
+    def post(self, request, pk):
+        from decimal import Decimal as D
+        from . import xero as xero_helpers
+
+        deal = get_object_or_404(Deal.objects.select_related("organisation"), pk=pk)
+        form = XeroInvoiceForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "deal": deal})
+
+        line = {
+            "Description": form.cleaned_data["description"],
+            "Quantity": 1,
+            "UnitAmount": str(form.cleaned_data["amount"]),
+            "AccountCode": form.cleaned_data["account_code"],
+            "TaxType": form.cleaned_data["tax_type"] or "NONE",
+        }
+        try:
+            invoice = xero_helpers.create_invoice(
+                contact_name=form.cleaned_data["contact_name"],
+                line_items=[line],
+                reference=form.cleaned_data["reference"],
+                invoice_status=form.cleaned_data["status"],
+                due_days=form.cleaned_data["due_days"],
+            )
+        except xero_helpers.XeroError as exc:
+            messages.error(request, str(exc))
+            return render(request, self.template_name, {"form": form, "deal": deal})
+
+        XeroInvoice.objects.create(
+            deal=deal,
+            xero_invoice_id=invoice["InvoiceID"],
+            xero_invoice_number=invoice.get("InvoiceNumber", ""),
+            contact_name=form.cleaned_data["contact_name"],
+            online_invoice_url=xero_helpers.online_invoice_url(invoice["InvoiceID"]),
+            total=D(str(invoice.get("Total", "0"))),
+            status=invoice.get("Status", form.cleaned_data["status"]),
+            created_by=request.user,
+        )
+        messages.success(
+            request,
+            f"Created Xero invoice {invoice.get('InvoiceNumber', '')} "
+            f"({invoice.get('Status', '').lower()}).",
+        )
+        return redirect(deal.get_absolute_url())

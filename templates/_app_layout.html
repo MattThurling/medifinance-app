@@ -72,6 +72,16 @@
                 Deals
               </a>
             </li>
+
+            <li class="menu-title pt-4">
+              <span>Integrations</span>
+            </li>
+            <li>
+              <a href="{% url 'crm:xero_status' %}" class="{% if 'xero' in request.resolver_match.url_name %}menu-active{% endif %}">
+                {% icon "receipt" %}
+                Xero
+              </a>
+            </li>
           {% endif %}
         </ul>
       </nav>

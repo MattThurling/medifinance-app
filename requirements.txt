@@ -2,6 +2,7 @@ Django>=5.1,<6.0
 django-guardian
 python-dotenv
 django-anymail[mailgun]
+requests
 
 # Production
 psycopg[binary]

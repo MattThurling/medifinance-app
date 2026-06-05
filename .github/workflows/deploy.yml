@@ -73,6 +73,13 @@ jobs:
             SECRETS="${SECRETS},EMAIL_HOST_PASSWORD=email-host-password:latest"
           fi
 
+          # Xero integration — Connect button + invoice-raising flow. Both
+          # credentials must be in Secret Manager when XERO_ENABLED=true; the
+          # Xero status page renders a 'not configured' warning otherwise.
+          if [ "${{ vars.XERO_ENABLED }}" = "true" ]; then
+            SECRETS="${SECRETS},XERO_CLIENT_ID=xero-client-id:latest,XERO_CLIENT_SECRET=xero-client-secret:latest"
+          fi
+
           # Uploaded documents go to a private GCS bucket when GS_BUCKET_NAME is set;
           # otherwise they'd land on the container filesystem and vanish on restart.
           if [ -n "${{ vars.GS_BUCKET_NAME }}" ]; then
