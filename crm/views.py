@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import ProtectedError, Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -24,6 +25,7 @@ from .forms import (
     ParticipationForm,
     ProposalForm,
     RateLookupForm,
+    RateUploadForm,
     SupplierInvoiceForm,
     XeroInvoiceForm,
     QuoteForm,
@@ -1425,3 +1427,50 @@ class RatesView(StaffRequiredMixin, TemplateView):
             ctx["term"] = term
             ctx["amount"] = amount
         return ctx
+
+
+class RateUploadView(StaffRequiredMixin, View):
+    """Upload a lender's rate sheet CSV and upsert RateBand rows.
+
+    CSV columns: minimum, maximum, then one column per term (12, 24, …). Each
+    non-blank term cell becomes a band. Idempotent — keyed on
+    (org, term, min, max), so re-uploading refreshes yields, same as the
+    load_bnp_rates command.
+    """
+
+    template_name = "crm/rate_upload.html"
+
+    def get(self, request):
+        return render(request, self.template_name, {"form": RateUploadForm()})
+
+    def post(self, request):
+        form = RateUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            org = form.cleaned_data["organisation"]
+            bands = form.cleaned_data["bands"]
+            created = updated = 0
+            with transaction.atomic():
+                for lo, hi, term, y in bands:
+                    _, was_created = RateBand.objects.update_or_create(
+                        organisation=org,
+                        term_months=term,
+                        min_amount=lo,
+                        max_amount=hi,
+                        defaults={"yield_percent": y, "is_active": True},
+                    )
+                    created += int(was_created)
+                    updated += int(not was_created)
+            messages.success(
+                request,
+                f"Loaded {len(bands)} rates for {org.name}: {created} new, {updated} updated.",
+            )
+            return redirect("crm:rates")
+
+        # Re-render with the chosen lender preserved in the combobox.
+        pk = request.POST.get("organisation")
+        org = Organisation.objects.filter(pk=pk).first() if pk else None
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "selected_org_id": pk or "", "selected_org_label": org or ""},
+        )

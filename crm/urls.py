@@ -19,8 +19,9 @@ urlpatterns = [
     path("contacts/<int:pk>/edit/", views.ContactUpdateView.as_view(), name="contact_update"),
     path("contacts/<int:pk>/delete/", views.ContactDeleteView.as_view(), name="contact_delete"),
 
-    # Rates — staff lookup by term + amount
+    # Rates — staff lookup by term + amount, plus CSV upload
     path("rates/", views.RatesView.as_view(), name="rates"),
+    path("rates/upload/", views.RateUploadView.as_view(), name="rate_upload"),
 
     # Deals
     path("deals/", views.DealListView.as_view(), name="deal_list"),

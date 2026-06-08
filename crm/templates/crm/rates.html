@@ -4,7 +4,13 @@
 {% block title %}Rates · Medifinance CRM{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-semibold mb-4">Rates</h1>
+<div class="flex items-center justify-between gap-4 mb-4">
+  <h1 class="text-2xl font-semibold">Rates</h1>
+  <a href="{% url 'crm:rate_upload' %}" class="btn btn-primary btn-sm">
+    {% icon "upload" class="h-4 w-4" %}
+    Upload rates
+  </a>
+</div>
 
 <form method="get" class="card bg-base-100 shadow mb-6">
   <div class="card-body">

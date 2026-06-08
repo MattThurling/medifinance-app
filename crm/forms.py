@@ -1,9 +1,33 @@
-from decimal import Decimal
+import csv
+import io
+import re
+from decimal import Decimal, InvalidOperation
 
 from django import forms
 from django.forms import modelformset_factory
 
 from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, Stage
+
+
+def _parse_amount(raw: str) -> "int | None":
+    """'£14,999' / '1000' -> int; blank/non-numeric -> None."""
+    digits = re.sub(r"[^\d]", "", raw or "")
+    return int(digits) if digits else None
+
+
+def _parse_yield(raw: str) -> "Decimal | None":
+    """'15.65%' / '7.75' -> Decimal(2dp); blank/non-numeric/out-of-range -> None."""
+    s = (raw or "").replace("%", "").replace(",", "").strip()
+    if not s:
+        return None
+    try:
+        value = Decimal(s).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return None
+    # yield_percent is DecimalField(max_digits=5, decimal_places=2) -> < 1000.
+    if value < 0 or value >= 1000:
+        return None
+    return value
 
 
 class DaisyUIFormMixin:
@@ -260,6 +284,72 @@ class RateLookupForm(DaisyUIFormMixin, forms.Form):
 
     term_months = forms.IntegerField(min_value=1, max_value=600, label="Term (months)")
     amount = forms.IntegerField(min_value=1, label="Amount (£)")
+
+
+class RateUploadForm(forms.Form):
+    """Upload a lender's rate sheet as CSV.
+
+    Required columns: `minimum`, `maximum`, plus one column per term whose
+    header is the term in months (e.g. 12, 24, 36…). Each non-blank term cell
+    in a row becomes a RateBand for that (amount band × term). `clean()` parses
+    the file and stashes the parsed bands in `cleaned_data['bands']` as a list
+    of (min, max, term, yield) tuples for the view to upsert.
+    """
+
+    organisation = forms.ModelChoiceField(
+        queryset=Organisation.objects.all(),
+        error_messages={"required": "Pick the lender these rates belong to."},
+    )
+    file = forms.FileField()
+
+    def clean_file(self):
+        f = self.cleaned_data["file"]
+        if not (f.name or "").lower().endswith(".csv"):
+            raise forms.ValidationError("Please upload a .csv file.")
+        return f
+
+    def clean(self):
+        cleaned = super().clean()
+        f = cleaned.get("file")
+        if not f:
+            return cleaned  # a clean_file error already covers this
+
+        try:
+            f.seek(0)
+            text = f.read().decode("utf-8-sig")
+        except (UnicodeDecodeError, OSError):
+            raise forms.ValidationError("Couldn't read the file as UTF-8 CSV.")
+
+        reader = csv.DictReader(io.StringIO(text))
+        headers = [(h or "").strip() for h in (reader.fieldnames or [])]
+        lower = {h.lower(): h for h in headers}
+        if "minimum" not in lower or "maximum" not in lower:
+            raise forms.ValidationError("CSV must have 'minimum' and 'maximum' columns.")
+        term_cols = [(int(h), h) for h in headers if h.isdigit()]
+        if not term_cols:
+            raise forms.ValidationError("CSV must have at least one term column (e.g. 12, 24, 36).")
+
+        bands: list[tuple[int, int, int, Decimal]] = []
+        for i, row in enumerate(reader, start=2):  # row 1 is the header
+            lo = _parse_amount(row.get(lower["minimum"]))
+            hi = _parse_amount(row.get(lower["maximum"]))
+            if lo is None or hi is None:
+                raise forms.ValidationError(f"Row {i}: minimum and maximum must both be amounts.")
+            if hi < lo:
+                raise forms.ValidationError(f"Row {i}: maximum must be greater than or equal to minimum.")
+            for term, header in term_cols:
+                cell = (row.get(header) or "").strip()
+                if not cell:
+                    continue
+                y = _parse_yield(cell)
+                if y is None:
+                    raise forms.ValidationError(f"Row {i}: '{cell}' in column '{header}' isn't a valid rate.")
+                bands.append((lo, hi, term, y))
+
+        if not bands:
+            raise forms.ValidationError("No rates found in the file.")
+        cleaned["bands"] = bands
+        return cleaned
 
 
 class DocumentUploadForm(forms.ModelForm):
