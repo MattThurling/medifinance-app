@@ -44,23 +44,21 @@ class Command(BaseCommand):
             )
         org = matches[0]
 
-        created = updated = 0
+        counts = {"new": 0, "changed": 0, "unchanged": 0}
         for min_amount, max_amount, yields in BANDS:
             for term, y in zip(TERMS, yields):
-                _, was_created = RateBand.objects.update_or_create(
+                counts[RateBand.record(
                     organisation=org,
                     term_months=term,
                     min_amount=min_amount,
                     max_amount=max_amount,
-                    defaults={"yield_percent": y, "is_active": True},
-                )
-                created += int(was_created)
-                updated += int(not was_created)
+                    yield_percent=y,
+                )] += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"BNP rates loaded for org pk={org.pk} ({org.name}): "
-                f"{created} created, {updated} updated, "
-                f"{RateBand.objects.filter(organisation=org).count()} total bands."
+                f"BNP rates for org pk={org.pk} ({org.name}): "
+                f"{counts['new']} new, {counts['changed']} changed, {counts['unchanged']} unchanged "
+                f"({RateBand.objects.active().filter(organisation=org).count()} active bands)."
             )
         )

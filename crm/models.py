@@ -575,6 +575,43 @@ class RateBand(TimestampedModel):
             .first()
         )
 
+    @classmethod
+    def record(cls, *, organisation, term_months, min_amount, max_amount, yield_percent):
+        """Record a rate for an exact band, preserving history. Returns one of
+        'new' / 'changed' / 'unchanged'.
+
+        Used for monthly rate-sheet updates: if the current active band for
+        this exact (org, term, min, max) already has this yield, nothing
+        happens. If the yield differs, the old band is deactivated and a new
+        active band is created (so the change is dated and the old rate is
+        kept as history). If no band exists yet, one is created.
+        """
+        current = (
+            cls.objects.active()
+            .filter(
+                organisation=organisation,
+                term_months=term_months,
+                min_amount=min_amount,
+                max_amount=max_amount,
+            )
+            .order_by("-effective_from", "-created_at")
+            .first()
+        )
+        if current is not None and current.yield_percent == yield_percent:
+            return "unchanged"
+        if current is not None:
+            current.is_active = False
+            current.save(update_fields=["is_active"])
+        cls.objects.create(
+            organisation=organisation,
+            term_months=term_months,
+            min_amount=min_amount,
+            max_amount=max_amount,
+            yield_percent=yield_percent,
+            is_active=True,
+        )
+        return "new" if current is None else "changed"
+
 
 class XeroConnection(TimestampedModel):
     """The single Xero organisation this CRM is connected to. Holds the OAuth

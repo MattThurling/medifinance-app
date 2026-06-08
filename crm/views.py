@@ -1448,21 +1448,20 @@ class RateUploadView(StaffRequiredMixin, View):
         if form.is_valid():
             org = form.cleaned_data["organisation"]
             bands = form.cleaned_data["bands"]
-            created = updated = 0
+            counts = {"new": 0, "changed": 0, "unchanged": 0}
             with transaction.atomic():
                 for lo, hi, term, y in bands:
-                    _, was_created = RateBand.objects.update_or_create(
+                    counts[RateBand.record(
                         organisation=org,
                         term_months=term,
                         min_amount=lo,
                         max_amount=hi,
-                        defaults={"yield_percent": y, "is_active": True},
-                    )
-                    created += int(was_created)
-                    updated += int(not was_created)
+                        yield_percent=y,
+                    )] += 1
             messages.success(
                 request,
-                f"Loaded {len(bands)} rates for {org.name}: {created} new, {updated} updated.",
+                f"{org.name}: {counts['new']} new, {counts['changed']} changed, "
+                f"{counts['unchanged']} unchanged.",
             )
             return redirect("crm:rates")
 
