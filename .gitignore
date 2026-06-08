@@ -33,3 +33,6 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Claude Code scheduled-task lock (machine-local)
+.claude/scheduled_tasks.lock
