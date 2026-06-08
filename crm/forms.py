@@ -294,6 +294,7 @@ class RateBandForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = RateBand
         fields = ["organisation", "term_months", "min_amount", "max_amount", "yield_percent"]
+        help_texts = {f: "" for f in ("term_months", "min_amount", "max_amount", "yield_percent")}
 
     def clean(self):
         cleaned = super().clean()

@@ -19,14 +19,12 @@
 
       {% include "crm/_combobox.html" with name="organisation" label="Lender" search_url=organisation_search_url placeholder="Search organisations…" selected_id=selected_org_id selected_label=selected_org_label errors=form.organisation.errors %}
 
-      {% include "_field.html" with field=form.term_months %}
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-x-4">
         {% include "_field.html" with field=form.min_amount %}
         {% include "_field.html" with field=form.max_amount %}
+        {% include "_field.html" with field=form.term_months %}
+        {% include "_field.html" with field=form.yield_percent %}
       </div>
-
-      {% include "_field.html" with field=form.yield_percent %}
 
       <div class="card-actions justify-end mt-2">
         <a href="{% url 'crm:rates' %}" class="btn btn-ghost">Cancel</a>
