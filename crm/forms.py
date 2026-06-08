@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import re
 from decimal import Decimal, InvalidOperation
 
@@ -147,43 +148,63 @@ class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
 class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
     """Quote ModelForm. `deal` is set by the view from URL/context.
     `monthly_payment` is auto-calculated by `Quote.save()` — not user-entered.
-    The rate is chosen from the available (active) rate bands."""
+
+    The rate is chosen from the active rate bands that apply to this deal's
+    funded amount and the chosen term. The term is itself a select of just the
+    terms that have a band covering the amount; picking one refreshes the rate
+    options via HTMX.
+    """
+
+    term = forms.TypedChoiceField(coerce=int, empty_value=None, label="Term (months)")
 
     class Meta:
         model = Quote
         fields = ["term", "rate", "commission_percent"]
         help_texts = {"commission_percent": "Optional."}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, deal=None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # The rate options are scoped to the quote's term. We know the term from
-        # the submitted data (POST) or the instance (edit); on a fresh form it's
-        # unknown, so the select starts empty and HTMX fills it when the user
-        # enters a term. Filtering the queryset by term also enforces that the
-        # submitted rate actually belongs to the submitted term.
-        term = None
+        self.deal = deal or (self.instance.deal if self.instance and self.instance.pk else None)
+        amount = self.deal.funded_amount if self.deal else None
+
+        # Bands that apply to this deal's amount (the pool both selects draw on).
+        pool = RateBand.objects.active().select_related("organisation")
+        if amount is not None:
+            pool = pool.filter(min_amount__lte=amount, max_amount__gte=amount)
+
+        # Term select = the distinct terms in that pool. Keep the current term
+        # selectable on edit even if no longer offered.
+        terms = sorted(set(pool.values_list("term_months", flat=True)))
+        if self.instance and self.instance.pk and self.instance.term and self.instance.term not in terms:
+            terms = sorted(set(terms) | {self.instance.term})
+        self.fields["term"].choices = [("", "Select a term…")] + [(t, f"{t} months") for t in terms]
+
+        # Rate options are the pool narrowed to the in-context term (submitted on
+        # POST, or the instance's on edit). Unknown term -> empty until picked.
+        term_val = None
         if self.is_bound:
-            term = self.data.get(self.add_prefix("term"))
+            term_val = self.data.get(self.add_prefix("term"))
         elif self.instance and self.instance.pk:
-            term = self.instance.term
+            term_val = self.instance.term
 
-        qs = RateBand.objects.active().select_related("organisation")
-        qs = qs.filter(term_months=int(term)) if term and str(term).isdigit() else qs.none()
-
+        rate_qs = pool.filter(term_months=int(term_val)) if term_val and str(term_val).isdigit() else pool.none()
         rate = self.fields["rate"]
-        rate.queryset = qs.order_by("yield_percent")
+        rate.queryset = rate_qs.order_by("yield_percent")
         rate.label = "Rate"
         rate.empty_label = "Select a rate…"
         rate.label_from_instance = lambda rb: f"{rb.organisation.name} — {rb.yield_percent}%"
 
-        # Changing the term refreshes the rate options for that term via HTMX.
-        self.fields["term"].widget.attrs.update({
+        # Changing the term refreshes the rate options (scoped to term + amount).
+        attrs = {
             "hx-get": reverse_lazy("crm:quote_rate_options"),
             "hx-target": "#id_rate",
             "hx-swap": "innerHTML",
-            "hx-trigger": "change, keyup changed delay:300ms",
-        })
+            "hx-trigger": "change",
+        }
+        if self.deal:
+            attrs["hx-vals"] = json.dumps({"deal": self.deal.pk})
+        self.fields["term"].widget.attrs.update(attrs)
 
 
 class StageForm(DaisyUIFormMixin, forms.ModelForm):

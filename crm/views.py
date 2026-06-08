@@ -410,6 +410,11 @@ class QuoteCreateView(StaffRequiredMixin, CreateView):
         except (Deal.DoesNotExist, ValueError, TypeError) as exc:
             raise Http404("Deal not found") from exc
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["deal"] = self.parent_deal
+        return kwargs
+
     def form_valid(self, form):
         if self.parent_deal.funded_amount is None:
             form.add_error(
@@ -762,6 +767,11 @@ class QuoteUpdateView(StaffRequiredMixin, UpdateView):
 
     def get_queryset(self):
         return super().get_queryset().select_related("deal")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["deal"] = self.object.deal
+        return kwargs
 
     def form_valid(self, form):
         if form.instance.deal.funded_amount is None:
@@ -1514,17 +1524,23 @@ class RateBandAddView(StaffRequiredMixin, View):
 
 
 class QuoteRateOptionsView(StaffRequiredMixin, View):
-    """HTMX: <option>s for active rate bands matching ?term=, ascending by
-    yield. Drives the rate select on the quote form when the term changes."""
+    """HTMX: <option>s for active rate bands matching ?term= and applicable to
+    the ?deal=`s funded amount, ascending by yield. Drives the rate select on
+    the quote form when the term changes."""
 
     def get(self, request):
         term = request.GET.get("term", "")
+        deal_pk = request.GET.get("deal", "")
         rates = []
         if term.isdigit():
-            rates = (
+            qs = (
                 RateBand.objects.active()
                 .select_related("organisation")
                 .filter(term_months=int(term))
-                .order_by("yield_percent")
             )
+            deal = Deal.objects.filter(pk=deal_pk).first() if deal_pk.isdigit() else None
+            amount = deal.funded_amount if deal else None
+            if amount is not None:
+                qs = qs.filter(min_amount__lte=amount, max_amount__gte=amount)
+            rates = qs.order_by("yield_percent")
         return render(request, "crm/_quote_rate_options.html", {"rates": rates})
