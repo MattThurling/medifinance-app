@@ -1,6 +1,6 @@
 import secrets
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db import models
@@ -464,15 +464,16 @@ class Quote(TimestampedModel):
         return f"{self.term}m @ {rate} — £{self.monthly_payment}/mo"
 
     def calculate_monthly_payment(self) -> Decimal | None:
-        """Monthly payment, using the same annuity-due formula as the rates
-        (Excel `-PMT(yield/100/12, term, P, 0, 1)` — paid start of period):
+        """Monthly payment, matching the broker's spreadsheet exactly:
 
-            M = P · r · (1+r)^n / ((1+r) · ((1+r)^n − 1))
+            rpt    = the rate band's rate-per-thousand (2dp, annuity-due)
+            figure = rpt + (commission% / 100) · rpt      # commission on the RPT
+            monthly = figure · funded_amount / 1000
 
-        The rate `r` comes from the chosen rate band's yield. P is the deal's
-        funded amount grossed up by the optional commission:
-        P = funded_amount · (1 + commission%/100). Returns None if any input
-        is missing (e.g. no rate, or the deal has no funded_amount yet).
+        Crucially this starts from the *rounded* (2dp) rate-per-thousand rather
+        than re-deriving from the raw principal — that rounding order is what
+        keeps it penny-exact with the spreadsheet. Returns None if any input is
+        missing (no rate, or the deal has no funded_amount yet).
         """
         if not (self.deal_id and self.rate_id and self.term):
             return None
@@ -480,17 +481,11 @@ class Quote(TimestampedModel):
         if principal is None:
             return None
 
-        P = Decimal(principal)
-        if self.commission_percent:
-            P = P * (Decimal("1") + Decimal(self.commission_percent) / Decimal("100"))
-        r = (Decimal(self.rate.yield_percent) / Decimal("100")) / Decimal("12")
-        n = int(self.term)
-
-        if r == 0:
-            return (P / Decimal(n)).quantize(Decimal("0.01"))
-
-        growth = (Decimal("1") + r) ** n
-        return (P * r * growth / ((Decimal("1") + r) * (growth - Decimal("1")))).quantize(Decimal("0.01"))
+        rpt = self.rate.rate_per_thousand  # already quantized to 2dp
+        comm = (self.commission_percent or Decimal("0")) / Decimal("100")
+        figure = rpt + comm * rpt
+        monthly = figure * Decimal(principal) / Decimal("1000")
+        return monthly.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     def save(self, *args, **kwargs):
         computed = self.calculate_monthly_payment()
