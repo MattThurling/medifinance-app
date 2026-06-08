@@ -515,11 +515,6 @@ class RateBand(TimestampedModel):
         decimal_places=2,
         help_text="Largest loan this band applies to, e.g. 250000.",
     )
-    rate_per_thousand = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        help_text="Rate per £1,000 of capital.",
-    )
     is_active = models.BooleanField(
         default=True,
         help_text="Untick to withdraw this band without deleting it.",
@@ -545,6 +540,29 @@ class RateBand(TimestampedModel):
             f"{self.organisation.name} · {self.term_months}m · "
             f"£{self.min_amount:,.0f}–£{self.max_amount:,.0f} @ {self.yield_percent}%"
         )
+
+    @property
+    def rate_per_thousand(self) -> "Decimal":
+        """Monthly rental per £1,000 of capital. Equivalent to the Excel formula
+
+            =-PMT(yield/100/12, term, 1000, 0, 1)
+
+        i.e. an annuity-due payment (type=1 — paid at the *start* of each
+        period) on a £1,000 advance, fv=0. Derived, never stored, so it can't
+        drift from the yield/term.
+
+            RPT = pv · r · (1+r)^n / ((1+r) · ((1+r)^n − 1)),  pv = 1000
+        """
+        if not self.term_months or self.yield_percent is None:
+            return Decimal("0.00")
+        r = (Decimal(self.yield_percent) / Decimal("100")) / Decimal("12")
+        n = int(self.term_months)
+        pv = Decimal("1000")
+        if r == 0:
+            return (pv / Decimal(n)).quantize(Decimal("0.01"))
+        growth = (Decimal("1") + r) ** n
+        pmt = pv * r * growth / ((Decimal("1") + r) * (growth - Decimal("1")))
+        return pmt.quantize(Decimal("0.01"))
 
     @classmethod
     def current_for(cls, organisation, amount, term_months):

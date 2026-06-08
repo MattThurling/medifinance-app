@@ -19,6 +19,7 @@ class RateBandInline(admin.TabularInline):
     model = RateBand
     extra = 0
     fields = ("term_months", "min_amount", "max_amount", "yield_percent", "rate_per_thousand", "effective_from", "is_active")
+    readonly_fields = ("rate_per_thousand",)
     ordering = ("term_months", "min_amount")
 
 
@@ -153,7 +154,19 @@ class RateBandAdmin(admin.ModelAdmin):
     search_fields = ("organisation__name",)
     autocomplete_fields = ("organisation",)
     ordering = ("organisation__name", "term_months", "min_amount")
-    readonly_fields = ("created_at", "updated_at")
+    fields = (
+        "organisation",
+        "term_months",
+        "min_amount",
+        "max_amount",
+        "yield_percent",
+        "rate_per_thousand",
+        "effective_from",
+        "is_active",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = ("rate_per_thousand", "created_at", "updated_at")
 
 
 @admin.register(Quote)
