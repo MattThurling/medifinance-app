@@ -420,15 +420,17 @@ class Quote(TimestampedModel):
     """A financing quote against a deal — one deal can have many quotes.
 
     `monthly_payment` is auto-calculated in `save()` from the deal's
-    `funded_amount`, this quote's APR, and the term. Editing APR or term
-    recomputes on the next save.
+    `funded_amount`, the chosen rate band's yield, and the term. Changing the
+    rate, term or commission recomputes on the next save.
     """
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="quotes")
-    apr = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        help_text="e.g. 5.99 for 5.99%.",
+    rate = models.ForeignKey(
+        "RateBand",
+        on_delete=models.PROTECT,
+        related_name="quotes",
+        null=True,
+        help_text="The lender rate band this quote is priced on.",
     )
     term = models.PositiveSmallIntegerField(help_text="Term in months.")
     commission_percent = models.DecimalField(
@@ -445,28 +447,34 @@ class Quote(TimestampedModel):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Auto-calculated from deal funded amount, APR, term and commission.",
+        help_text="Auto-calculated from deal funded amount, rate, term and commission.",
     )
 
     class Meta:
         ordering = ["deal", "term"]
 
+    @property
+    def yield_percent(self) -> "Decimal | None":
+        return self.rate.yield_percent if self.rate_id else None
+
     def __str__(self) -> str:
+        rate = f"{self.rate.yield_percent}%" if self.rate_id else "no rate"
         if self.monthly_payment is None:
-            return f"{self.term}m @ {self.apr}% — payment TBC"
-        return f"{self.term}m @ {self.apr}% — £{self.monthly_payment}/mo"
+            return f"{self.term}m @ {rate} — payment TBC"
+        return f"{self.term}m @ {rate} — £{self.monthly_payment}/mo"
 
     def calculate_monthly_payment(self) -> Decimal | None:
         """Monthly payment, using the same annuity-due formula as the rates
-        (Excel `-PMT(apr/100/12, term, P, 0, 1)` — paid start of period):
+        (Excel `-PMT(yield/100/12, term, P, 0, 1)` — paid start of period):
 
             M = P · r · (1+r)^n / ((1+r) · ((1+r)^n − 1))
 
-        P is the deal's funded amount grossed up by the optional commission:
+        The rate `r` comes from the chosen rate band's yield. P is the deal's
+        funded amount grossed up by the optional commission:
         P = funded_amount · (1 + commission%/100). Returns None if any input
-        is missing (e.g. the deal has no funded_amount yet).
+        is missing (e.g. no rate, or the deal has no funded_amount yet).
         """
-        if not (self.deal_id and self.apr is not None and self.term):
+        if not (self.deal_id and self.rate_id and self.term):
             return None
         principal = self.deal.funded_amount
         if principal is None:
@@ -475,7 +483,7 @@ class Quote(TimestampedModel):
         P = Decimal(principal)
         if self.commission_percent:
             P = P * (Decimal("1") + Decimal(self.commission_percent) / Decimal("100"))
-        r = (Decimal(self.apr) / Decimal("100")) / Decimal("12")
+        r = (Decimal(self.rate.yield_percent) / Decimal("100")) / Decimal("12")
         n = int(self.term)
 
         if r == 0:

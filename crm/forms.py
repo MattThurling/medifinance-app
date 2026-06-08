@@ -145,12 +145,23 @@ class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
 
 class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
     """Quote ModelForm. `deal` is set by the view from URL/context.
-    `monthly_payment` is auto-calculated by `Quote.save()` — not user-entered."""
+    `monthly_payment` is auto-calculated by `Quote.save()` — not user-entered.
+    The rate is chosen from the available (active) rate bands."""
 
     class Meta:
         model = Quote
-        fields = ["term", "apr", "commission_percent"]
+        fields = ["term", "rate", "commission_percent"]
         help_texts = {"commission_percent": "Optional."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        rate = self.fields["rate"]
+        rate.queryset = (
+            RateBand.objects.active().select_related("organisation").order_by("yield_percent")
+        )
+        rate.label = "Rate"
+        rate.empty_label = "Select a rate…"
+        rate.label_from_instance = lambda rb: f"{rb.organisation.name} — {rb.yield_percent}%"
 
 
 class StageForm(DaisyUIFormMixin, forms.ModelForm):

@@ -15,7 +15,7 @@
     <div class="card-body">
       <p>
         Delete the quote of
-        <strong>£{{ object.monthly_payment|floatformat:2|intcomma }}/mo over {{ object.term }} months at {{ object.apr }}%</strong>?
+        <strong>£{{ object.monthly_payment|floatformat:2|intcomma }}/mo over {{ object.term }} months{% if object.rate %} at {{ object.rate.yield_percent }}%{% endif %}</strong>?
         This cannot be undone.
       </p>
 

@@ -270,7 +270,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         ).prefetch_related(
             "customer__organisations",
             "introducer__organisations",
-            "quotes",
+            "quotes__rate__organisation",
             "stage_events",
             "co_applicants",
             "documents",

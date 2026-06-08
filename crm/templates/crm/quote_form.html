@@ -23,7 +23,7 @@
       {% if parent_deal.funded_amount %}
         <p class="text-sm opacity-70 mb-4">
           Monthly payment is calculated automatically from the funded amount
-          (<strong>{{ funded_amount_display }}</strong>) and the term &amp; APR below.
+          (<strong>{{ funded_amount_display }}</strong>) and the term &amp; rate below.
         </p>
       {% else %}
         <p class="text-sm text-warning mb-4">
@@ -34,7 +34,7 @@
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4">
         {% include "_field.html" with field=form.term %}
-        {% include "_field.html" with field=form.apr %}
+        {% include "_field.html" with field=form.rate %}
         {% include "_field.html" with field=form.commission_percent %}
       </div>
 

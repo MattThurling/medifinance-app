@@ -95,7 +95,7 @@ def _deal_fill_payload(deal: Deal) -> dict:
             "postcode": customer.home_address_postcode,
         },
         "quote": {
-            "apr": _money(quote.apr),
+            "apr": _money(quote.rate.yield_percent) if quote and quote.rate_id else None,
             "term_months": quote.term,
             "monthly_payment": _money(quote.monthly_payment),
         } if quote else None,
@@ -134,7 +134,8 @@ class DealDetailApi(StaffApiView):
             deal = (
                 Deal.objects
                 .select_related(
-                    "customer", "organisation", "owner", "selected_quote",
+                    "customer", "organisation", "owner",
+                    "selected_quote", "selected_quote__rate",
                 )
                 .get(pk=pk)
             )

@@ -51,7 +51,8 @@ class QuoteInline(admin.TabularInline):
     model = Quote
     extra = 0
     readonly_fields = ("created_at", "updated_at")
-    fields = ("apr", "term", "monthly_payment", "created_at", "updated_at")
+    fields = ("rate", "term", "commission_percent", "monthly_payment", "created_at", "updated_at")
+    autocomplete_fields = ("rate",)
 
 
 class StageInline(admin.TabularInline):
@@ -171,10 +172,10 @@ class RateBandAdmin(admin.ModelAdmin):
 
 @admin.register(Quote)
 class QuoteAdmin(admin.ModelAdmin):
-    list_display = ("__str__", "deal", "apr", "term", "monthly_payment", "created_at")
-    list_select_related = ("deal",)
+    list_display = ("__str__", "deal", "rate", "term", "monthly_payment", "created_at")
+    list_select_related = ("deal", "rate", "rate__organisation")
     search_fields = ("deal__name",)
-    autocomplete_fields = ("deal",)
+    autocomplete_fields = ("deal", "rate")
     readonly_fields = ("created_at", "updated_at")
 
 
