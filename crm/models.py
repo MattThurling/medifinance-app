@@ -477,6 +477,91 @@ class Quote(TimestampedModel):
         super().save(*args, **kwargs)
 
 
+class RateBandQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_active=True)
+
+
+class RateBand(TimestampedModel):
+    """A lender's rate for a band of loan amount at a given term.
+
+    Rates are updated periodically. Rather than editing in place, add a new
+    band and deactivate the old one: `is_active` + `effective_from` preserve
+    the full history and let a withdrawn band be switched off without losing
+    the record. The current rate for an amount + term is the latest active
+    band whose [min, max] range contains the amount (see `current_for`).
+    """
+
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.CASCADE,
+        related_name="rate_bands",
+        help_text="The lender this rate belongs to.",
+    )
+    term_months = models.PositiveSmallIntegerField(help_text="Term in months, e.g. 60.")
+    yield_percent = models.DecimalField(
+        "Yield",
+        max_digits=5,
+        decimal_places=2,
+        help_text="Annual yield, e.g. 15.65 for 15.65%.",
+    )
+    min_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Smallest loan this band applies to, e.g. 1000.",
+    )
+    max_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Largest loan this band applies to, e.g. 250000.",
+    )
+    rate_per_thousand = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        help_text="Rate per £1,000 of capital.",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Untick to withdraw this band without deleting it.",
+    )
+    effective_from = models.DateField(
+        default=timezone.localdate,
+        help_text="Date this rate took effect. On overlap, the latest active band wins.",
+    )
+
+    objects = RateBandQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["organisation", "term_months", "min_amount"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(max_amount__gte=models.F("min_amount")),
+                name="rateband_max_gte_min",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.organisation.name} · {self.term_months}m · "
+            f"£{self.min_amount:,.0f}–£{self.max_amount:,.0f} @ {self.yield_percent}%"
+        )
+
+    @classmethod
+    def current_for(cls, organisation, amount, term_months):
+        """The applicable active band for a loan amount + term, or None."""
+        return (
+            cls.objects.active()
+            .filter(
+                organisation=organisation,
+                term_months=term_months,
+                min_amount__lte=amount,
+                max_amount__gte=amount,
+            )
+            .order_by("-effective_from", "-created_at")
+            .first()
+        )
+
+
 class XeroConnection(TimestampedModel):
     """The single Xero organisation this CRM is connected to. Holds the OAuth
     tokens — we only need one row (staff connects once per environment)."""

@@ -1,10 +1,30 @@
 from django.contrib import admin
 
-from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, Stage
+from .models import (
+    Contact,
+    Deal,
+    Document,
+    Organisation,
+    Participation,
+    Proposal,
+    Quote,
+    RateBand,
+    Stage,
+)
+
+
+class RateBandInline(admin.TabularInline):
+    """A lender's rate bands, edited from the organisation page."""
+
+    model = RateBand
+    extra = 0
+    fields = ("term_months", "min_amount", "max_amount", "yield_percent", "rate_per_thousand", "effective_from", "is_active")
+    ordering = ("term_months", "min_amount")
 
 
 @admin.register(Organisation)
 class OrganisationAdmin(admin.ModelAdmin):
+    inlines = [RateBandInline]
     list_display = ("name", "companies_house_number", "hubspot_id", "created_at")
     search_fields = (
         "name",
@@ -112,6 +132,27 @@ class ProposalAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("proposal_number", "deal__name", "lender__name")
     autocomplete_fields = ("deal", "lender", "contact")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(RateBand)
+class RateBandAdmin(admin.ModelAdmin):
+    list_display = (
+        "organisation",
+        "term_months",
+        "min_amount",
+        "max_amount",
+        "yield_percent",
+        "rate_per_thousand",
+        "effective_from",
+        "is_active",
+    )
+    list_select_related = ("organisation",)
+    list_filter = ("is_active", "term_months", "organisation")
+    list_editable = ("is_active",)
+    search_fields = ("organisation__name",)
+    autocomplete_fields = ("organisation",)
+    ordering = ("organisation__name", "term_months", "min_amount")
     readonly_fields = ("created_at", "updated_at")
 
 
