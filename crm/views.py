@@ -1511,3 +1511,20 @@ class RateBandAddView(StaffRequiredMixin, View):
             self.template_name,
             {"form": form, "selected_org_id": pk or "", "selected_org_label": org or ""},
         )
+
+
+class QuoteRateOptionsView(StaffRequiredMixin, View):
+    """HTMX: <option>s for active rate bands matching ?term=, ascending by
+    yield. Drives the rate select on the quote form when the term changes."""
+
+    def get(self, request):
+        term = request.GET.get("term", "")
+        rates = []
+        if term.isdigit():
+            rates = (
+                RateBand.objects.active()
+                .select_related("organisation")
+                .filter(term_months=int(term))
+                .order_by("yield_percent")
+            )
+        return render(request, "crm/_quote_rate_options.html", {"rates": rates})

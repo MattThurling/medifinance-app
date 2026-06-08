@@ -33,6 +33,7 @@ urlpatterns = [
     path("deals/<int:pk>/applicants/add/", views.DealApplicantAddView.as_view(), name="deal_applicant_add"),
 
     # Quotes — created from a deal via `?deal=<pk>`; edit/delete use the quote's pk
+    path("quotes/rate-options/", views.QuoteRateOptionsView.as_view(), name="quote_rate_options"),
     path("quotes/new/", views.QuoteCreateView.as_view(), name="quote_create"),
     path("quotes/<int:pk>/edit/", views.QuoteUpdateView.as_view(), name="quote_update"),
     path("quotes/<int:pk>/delete/", views.QuoteDeleteView.as_view(), name="quote_delete"),

@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from django import forms
 from django.forms import modelformset_factory
+from django.urls import reverse_lazy
 
 from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, RateBand, Stage
 
@@ -155,13 +156,34 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # The rate options are scoped to the quote's term. We know the term from
+        # the submitted data (POST) or the instance (edit); on a fresh form it's
+        # unknown, so the select starts empty and HTMX fills it when the user
+        # enters a term. Filtering the queryset by term also enforces that the
+        # submitted rate actually belongs to the submitted term.
+        term = None
+        if self.is_bound:
+            term = self.data.get(self.add_prefix("term"))
+        elif self.instance and self.instance.pk:
+            term = self.instance.term
+
+        qs = RateBand.objects.active().select_related("organisation")
+        qs = qs.filter(term_months=int(term)) if term and str(term).isdigit() else qs.none()
+
         rate = self.fields["rate"]
-        rate.queryset = (
-            RateBand.objects.active().select_related("organisation").order_by("yield_percent")
-        )
+        rate.queryset = qs.order_by("yield_percent")
         rate.label = "Rate"
         rate.empty_label = "Select a rate…"
         rate.label_from_instance = lambda rb: f"{rb.organisation.name} — {rb.yield_percent}%"
+
+        # Changing the term refreshes the rate options for that term via HTMX.
+        self.fields["term"].widget.attrs.update({
+            "hx-get": reverse_lazy("crm:quote_rate_options"),
+            "hx-target": "#id_rate",
+            "hx-swap": "innerHTML",
+            "hx-trigger": "change, keyup changed delay:300ms",
+        })
 
 
 class StageForm(DaisyUIFormMixin, forms.ModelForm):

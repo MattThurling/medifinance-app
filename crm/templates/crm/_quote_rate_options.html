@@ -1,0 +1,8 @@
+{% comment %}
+HTMX fragment: the <option>s for the quote rate select, scoped to a term.
+Swapped into #id_rate when the term changes.
+{% endcomment %}
+<option value="">Select a rate…</option>
+{% for rb in rates %}
+  <option value="{{ rb.pk }}">{{ rb.organisation.name }} — {{ rb.yield_percent }}%</option>
+{% endfor %}
