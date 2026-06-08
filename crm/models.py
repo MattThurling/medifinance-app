@@ -505,14 +505,10 @@ class RateBand(TimestampedModel):
         decimal_places=2,
         help_text="Annual yield, e.g. 15.65 for 15.65%.",
     )
-    min_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    min_amount = models.PositiveIntegerField(
         help_text="Smallest loan this band applies to, e.g. 1000.",
     )
-    max_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    max_amount = models.PositiveIntegerField(
         help_text="Largest loan this band applies to, e.g. 250000.",
     )
     is_active = models.BooleanField(
