@@ -1419,8 +1419,8 @@ class RatesView(StaffRequiredMixin, TemplateView):
                 .select_related("organisation")
                 .filter(term_months=term, min_amount__lte=amount, max_amount__gte=amount)
             )
-            # rate_per_thousand is a computed property, so sort in Python.
-            results = sorted(bands, key=lambda b: b.rate_per_thousand, reverse=True)
+            # rate_per_thousand is a computed property, so sort in Python (ascending).
+            results = sorted(bands, key=lambda b: b.rate_per_thousand)
             for b in results:
                 b.monthly = (b.rate_per_thousand * amount / D("1000")).quantize(D("0.01"))
             ctx["results"] = results
