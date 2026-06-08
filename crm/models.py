@@ -431,12 +431,21 @@ class Quote(TimestampedModel):
         help_text="e.g. 5.99 for 5.99%.",
     )
     term = models.PositiveSmallIntegerField(help_text="Term in months.")
+    commission_percent = models.DecimalField(
+        "Commission %",
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional. Added to the advance — the customer's monthly payment "
+                  "is calculated on the grossed-up amount.",
+    )
     monthly_payment = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Auto-calculated from deal funded amount, APR and term.",
+        help_text="Auto-calculated from deal funded amount, APR, term and commission.",
     )
 
     class Meta:
@@ -448,11 +457,14 @@ class Quote(TimestampedModel):
         return f"{self.term}m @ {self.apr}% — £{self.monthly_payment}/mo"
 
     def calculate_monthly_payment(self) -> Decimal | None:
-        """Standard amortising loan payment.
+        """Monthly payment, using the same annuity-due formula as the rates
+        (Excel `-PMT(apr/100/12, term, P, 0, 1)` — paid start of period):
 
-            M = P · r · (1+r)^n / ((1+r)^n − 1)
+            M = P · r · (1+r)^n / ((1+r) · ((1+r)^n − 1))
 
-        Returns None if any input is missing (e.g. the deal has no funded_amount yet).
+        P is the deal's funded amount grossed up by the optional commission:
+        P = funded_amount · (1 + commission%/100). Returns None if any input
+        is missing (e.g. the deal has no funded_amount yet).
         """
         if not (self.deal_id and self.apr is not None and self.term):
             return None
@@ -460,15 +472,17 @@ class Quote(TimestampedModel):
         if principal is None:
             return None
 
+        P = Decimal(principal)
+        if self.commission_percent:
+            P = P * (Decimal("1") + Decimal(self.commission_percent) / Decimal("100"))
         r = (Decimal(self.apr) / Decimal("100")) / Decimal("12")
         n = int(self.term)
-        P = Decimal(principal)
 
         if r == 0:
             return (P / Decimal(n)).quantize(Decimal("0.01"))
 
         growth = (Decimal("1") + r) ** n
-        return (P * r * growth / (growth - Decimal("1"))).quantize(Decimal("0.01"))
+        return (P * r * growth / ((Decimal("1") + r) * (growth - Decimal("1")))).quantize(Decimal("0.01"))
 
     def save(self, *args, **kwargs):
         computed = self.calculate_monthly_payment()

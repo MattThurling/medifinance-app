@@ -35,6 +35,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
         {% include "_field.html" with field=form.term %}
         {% include "_field.html" with field=form.apr %}
+        {% include "_field.html" with field=form.commission_percent %}
       </div>
 
       {% if object and object.monthly_payment %}

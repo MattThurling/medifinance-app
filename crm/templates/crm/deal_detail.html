@@ -114,13 +114,14 @@ layout (main content left, amount + timeline right).
         </h2>
         <table class="table table-xs w-full">
           <thead>
-            <tr><th>Term</th><th>APR</th><th>Monthly</th><th></th></tr>
+            <tr><th>Term</th><th>APR</th><th>Comm</th><th>Monthly</th><th></th></tr>
           </thead>
           <tbody>
             {% for q in deal.quotes.all %}
               <tr>
                 <td>{{ q.term }} m</td>
                 <td class="opacity-70">{{ q.apr }}%</td>
+                <td class="opacity-70">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
                 <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="text-right whitespace-nowrap">
                   <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
@@ -131,7 +132,7 @@ layout (main content left, amount + timeline right).
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="4" class="opacity-60">No quotes yet.</td></tr>
+              <tr><td colspan="5" class="opacity-60">No quotes yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>

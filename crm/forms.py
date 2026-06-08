@@ -149,7 +149,7 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
 
     class Meta:
         model = Quote
-        fields = ["term", "apr"]
+        fields = ["term", "apr", "commission_percent"]
 
 
 class StageForm(DaisyUIFormMixin, forms.ModelForm):
