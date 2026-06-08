@@ -1,0 +1,63 @@
+{% extends "_app_layout.html" %}
+{% load icons humanize %}
+
+{% block title %}Rates · Medifinance CRM{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Rates</h1>
+
+<form method="get" class="card bg-base-100 shadow mb-6">
+  <div class="card-body">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4 items-end">
+      {% include "_field.html" with field=form.term_months %}
+      {% include "_field.html" with field=form.amount %}
+      <div class="form-control mb-4">
+        <button type="submit" class="btn btn-primary w-full">Show rates</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if searched %}
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title text-base">
+        {% icon "percent" class="h-5 w-5 opacity-70" %}
+        Available rates · £{{ amount|intcomma }} over {{ term }} months
+      </h2>
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead>
+            <tr>
+              <th>Lender</th>
+              <th>Yield</th>
+              <th>Rate / £1,000</th>
+              <th>Monthly</th>
+              <th>Band</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in results %}
+              <tr>
+                <td>
+                  <a href="{{ b.organisation.get_absolute_url }}" class="link link-hover font-medium">{{ b.organisation.name }}</a>
+                </td>
+                <td>{{ b.yield_percent }}%</td>
+                <td class="font-medium">£{{ b.rate_per_thousand|floatformat:2|intcomma }}</td>
+                <td class="font-medium">£{{ b.monthly|floatformat:2|intcomma }}</td>
+                <td class="opacity-70 whitespace-nowrap">£{{ b.min_amount|intcomma }}–£{{ b.max_amount|intcomma }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="text-center opacity-60 py-8">
+                  No rates available for £{{ amount|intcomma }} over {{ term }} months.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

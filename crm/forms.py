@@ -255,6 +255,13 @@ class XeroInvoiceForm(DaisyUIFormMixin, forms.Form):
     status = forms.ChoiceField(choices=STATUS_CHOICES, initial="DRAFT")
 
 
+class RateLookupForm(DaisyUIFormMixin, forms.Form):
+    """The Rates page lookup — pick a term + amount, see the available bands."""
+
+    term_months = forms.IntegerField(min_value=1, max_value=600, label="Term (months)")
+    amount = forms.IntegerField(min_value=1, label="Amount (£)")
+
+
 class DocumentUploadForm(forms.ModelForm):
     """Upload a file against an existing document request."""
 

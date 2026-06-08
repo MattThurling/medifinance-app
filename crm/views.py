@@ -23,6 +23,7 @@ from .forms import (
     OrganisationForm,
     ParticipationForm,
     ProposalForm,
+    RateLookupForm,
     SupplierInvoiceForm,
     XeroInvoiceForm,
     QuoteForm,
@@ -38,6 +39,7 @@ from .models import (
     ParticipationInvoiceLink,
     Proposal,
     Quote,
+    RateBand,
     Stage,
     XeroConnection,
     XeroInvoice,
@@ -1389,3 +1391,37 @@ class DealRaiseInvoiceView(StaffRequiredMixin, View):
             f"({invoice.get('Status', '').lower()}).",
         )
         return redirect(deal.get_absolute_url())
+
+
+# --- Rates -----------------------------------------------------------------
+
+class RatesView(StaffRequiredMixin, TemplateView):
+    """Staff rate lookup: enter a term + amount, see every active band that
+    applies, ordered by rate-per-thousand descending."""
+
+    template_name = "crm/rates.html"
+
+    def get_context_data(self, **kwargs):
+        from decimal import Decimal as D
+
+        ctx = super().get_context_data(**kwargs)
+        form = RateLookupForm(self.request.GET or None)
+        ctx["form"] = form
+
+        if self.request.GET and form.is_valid():
+            term = form.cleaned_data["term_months"]
+            amount = form.cleaned_data["amount"]
+            bands = (
+                RateBand.objects.active()
+                .select_related("organisation")
+                .filter(term_months=term, min_amount__lte=amount, max_amount__gte=amount)
+            )
+            # rate_per_thousand is a computed property, so sort in Python.
+            results = sorted(bands, key=lambda b: b.rate_per_thousand, reverse=True)
+            for b in results:
+                b.monthly = (b.rate_per_thousand * amount / D("1000")).quantize(D("0.01"))
+            ctx["results"] = results
+            ctx["searched"] = True
+            ctx["term"] = term
+            ctx["amount"] = amount
+        return ctx

@@ -72,6 +72,12 @@
                 Deals
               </a>
             </li>
+            <li>
+              <a href="{% url 'crm:rates' %}" class="{% if request.resolver_match.url_name == 'rates' %}menu-active{% endif %}">
+                {% icon "percent" %}
+                Rates
+              </a>
+            </li>
 
             <li class="menu-title pt-4">
               <span>Integrations</span>
