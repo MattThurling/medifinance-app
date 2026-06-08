@@ -150,6 +150,7 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Quote
         fields = ["term", "apr", "commission_percent"]
+        help_texts = {"commission_percent": "Optional."}
 
 
 class StageForm(DaisyUIFormMixin, forms.ModelForm):

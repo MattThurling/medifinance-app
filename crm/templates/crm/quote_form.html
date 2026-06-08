@@ -4,7 +4,7 @@
 {% block title %}{% if object %}Edit quote{% else %}New quote{% endif %} · {{ parent_deal.name }}{% endblock %}
 
 {% block content %}
-<div class="max-w-xl">
+<div>
   <p class="text-sm opacity-60 mb-1">
     <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
     <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
@@ -32,7 +32,7 @@
         </p>
       {% endif %}
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4">
         {% include "_field.html" with field=form.term %}
         {% include "_field.html" with field=form.apr %}
         {% include "_field.html" with field=form.commission_percent %}
