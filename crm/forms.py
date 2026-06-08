@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django import forms
 from django.forms import modelformset_factory
 
-from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, Stage
+from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, RateBand, Stage
 
 
 def _parse_amount(raw: str) -> "int | None":
@@ -285,6 +285,23 @@ class RateLookupForm(DaisyUIFormMixin, forms.Form):
 
     term_months = forms.IntegerField(min_value=1, max_value=600, label="Term (months)")
     amount = forms.IntegerField(min_value=1, label="Amount (£)")
+
+
+class RateBandForm(DaisyUIFormMixin, forms.ModelForm):
+    """Add a single rate band manually. `organisation` is rendered as a search
+    combobox (not the default select), so DaisyUI select styling on it is moot."""
+
+    class Meta:
+        model = RateBand
+        fields = ["organisation", "term_months", "min_amount", "max_amount", "yield_percent"]
+
+    def clean(self):
+        cleaned = super().clean()
+        lo = cleaned.get("min_amount")
+        hi = cleaned.get("max_amount")
+        if lo is not None and hi is not None and hi < lo:
+            self.add_error("max_amount", "Maximum must be greater than or equal to minimum.")
+        return cleaned
 
 
 class RateUploadForm(forms.Form):

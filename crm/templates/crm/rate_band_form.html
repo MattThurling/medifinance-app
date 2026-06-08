@@ -1,0 +1,38 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Add rate · Medifinance CRM{% endblock %}
+
+{% block content %}
+{% url 'crm:organisation_search' as organisation_search_url %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    <a href="{% url 'crm:rates' %}" class="link link-hover">Rates</a>
+  </p>
+  <h1 class="text-2xl font-semibold mb-6">Add rate band</h1>
+
+  <form method="post" class="card bg-base-100 shadow">
+    <div class="card-body">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% include "crm/_combobox.html" with name="organisation" label="Lender" search_url=organisation_search_url placeholder="Search organisations…" selected_id=selected_org_id selected_label=selected_org_label errors=form.organisation.errors %}
+
+      {% include "_field.html" with field=form.term_months %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.min_amount %}
+        {% include "_field.html" with field=form.max_amount %}
+      </div>
+
+      {% include "_field.html" with field=form.yield_percent %}
+
+      <div class="card-actions justify-end mt-2">
+        <a href="{% url 'crm:rates' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Add rate</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

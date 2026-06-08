@@ -24,6 +24,7 @@ from .forms import (
     OrganisationForm,
     ParticipationForm,
     ProposalForm,
+    RateBandForm,
     RateLookupForm,
     RateUploadForm,
     SupplierInvoiceForm,
@@ -1466,6 +1467,43 @@ class RateUploadView(StaffRequiredMixin, View):
             return redirect("crm:rates")
 
         # Re-render with the chosen lender preserved in the combobox.
+        pk = request.POST.get("organisation")
+        org = Organisation.objects.filter(pk=pk).first() if pk else None
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "selected_org_id": pk or "", "selected_org_label": org or ""},
+        )
+
+
+class RateBandAddView(StaffRequiredMixin, View):
+    """Add a single rate band. Routes through RateBand.record() so manual adds
+    get the same history-preserving behaviour as the CSV upload (an existing
+    active band for the same key is superseded rather than overwritten)."""
+
+    template_name = "crm/rate_band_form.html"
+
+    def get(self, request):
+        return render(request, self.template_name, {"form": RateBandForm()})
+
+    def post(self, request):
+        form = RateBandForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            status = RateBand.record(
+                organisation=cd["organisation"],
+                term_months=cd["term_months"],
+                min_amount=cd["min_amount"],
+                max_amount=cd["max_amount"],
+                yield_percent=cd["yield_percent"],
+            )
+            messages.success(
+                request,
+                f"Rate {status} for {cd['organisation'].name}: {cd['term_months']}m, "
+                f"£{cd['min_amount']:,}–£{cd['max_amount']:,} @ {cd['yield_percent']}%.",
+            )
+            return redirect("crm:rates")
+
         pk = request.POST.get("organisation")
         org = Organisation.objects.filter(pk=pk).first() if pk else None
         return render(
