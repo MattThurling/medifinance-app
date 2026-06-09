@@ -487,6 +487,55 @@ class Quote(TimestampedModel):
     def monthly_payment(self) -> "Decimal | None":
         return self.calculate_monthly_payment()
 
+    @property
+    def apr(self) -> "Decimal | None":
+        """Effective annual cost rate (%) implied by the monthly payment,
+        including any commission gross-up. Back-solves the monthly rate `i`
+        that discounts the annuity-due payments to the advance, then annualises
+        it: APR = (1 + i)**12 − 1. Returns None if inputs are missing.
+
+        With zero commission this equals the compounded yield; commission
+        raises the payment, so the implied rate — and the APR — rise with it.
+        """
+        monthly = self.monthly_payment
+        funded = self.deal.funded_amount if self.deal_id else None
+        if monthly is None or funded is None or not self.term or monthly <= 0:
+            return None
+        n = int(self.term)
+        pmt = Decimal(monthly)
+        advance = Decimal(funded)
+        if pmt * n <= advance:          # no positive-rate solution (no interest)
+            return Decimal("0.00")
+
+        def pv(i: Decimal) -> Decimal:  # PV of the annuity-due at monthly rate i
+            factor = (Decimal(1) - (Decimal(1) + i) ** (-n)) / i
+            return pmt * factor * (Decimal(1) + i)
+
+        # PV decreases as i rises; bracket the root and bisect.
+        lo, hi = Decimal("0.000000001"), Decimal("1")
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if pv(mid) > advance else (lo, mid)
+        i = (lo + hi) / 2
+        apr = ((Decimal(1) + i) ** 12 - Decimal(1)) * Decimal("100")
+        return apr.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @property
+    def flat_rate(self) -> "Decimal | None":
+        """Annual flat interest rate (%): total interest over the term as a
+        yearly percentage of the advance —
+        (monthly·term − advance) / advance / years. None if inputs missing.
+        """
+        monthly = self.monthly_payment
+        funded = self.deal.funded_amount if self.deal_id else None
+        if monthly is None or funded is None or not self.term or funded == 0:
+            return None
+        advance = Decimal(funded)
+        total = Decimal(monthly) * int(self.term)
+        years = Decimal(self.term) / Decimal("12")
+        flat = (total - advance) / advance / years * Decimal("100")
+        return flat.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
 
 class RateBandQuerySet(models.QuerySet):
     def active(self):

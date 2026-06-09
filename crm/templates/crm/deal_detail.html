@@ -114,16 +114,26 @@ layout (main content left, amount + timeline right).
         </h2>
         <table class="table table-xs w-full">
           <thead>
-            <tr><th>Term</th><th>Rate</th><th>Comm</th><th>Monthly</th><th></th></tr>
+            <tr>
+              <th>Term</th>
+              <th class="hidden md:table-cell">Rate</th>
+              <th class="hidden md:table-cell">Comm</th>
+              <th class="hidden md:table-cell">APR</th>
+              <th class="hidden md:table-cell">Flat</th>
+              <th>Monthly</th>
+              <th class="hidden md:table-cell"></th>
+            </tr>
           </thead>
           <tbody>
             {% for q in deal.quotes.all %}
               <tr>
                 <td>{{ q.term }} m</td>
-                <td class="opacity-70">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% else %}—{% endif %}</td>
-                <td class="opacity-70">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td class="text-right whitespace-nowrap">
+                <td class="text-right whitespace-nowrap hidden md:table-cell">
                   <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
                   <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
                     {% csrf_token %}
@@ -132,7 +142,7 @@ layout (main content left, amount + timeline right).
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="5" class="opacity-60">No quotes yet.</td></tr>
+              <tr><td colspan="7" class="opacity-60">No quotes yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
