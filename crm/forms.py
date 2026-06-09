@@ -147,7 +147,7 @@ class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
 
 class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
     """Quote ModelForm. `deal` is set by the view from URL/context.
-    `monthly_payment` is auto-calculated by `Quote.save()` — not user-entered.
+    `monthly_payment` is computed on access (a Quote property) — not user-entered.
 
     The rate is chosen from the active rate bands that apply to this deal's
     funded amount and the chosen term. The term is itself a select of just the

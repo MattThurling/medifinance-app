@@ -419,9 +419,9 @@ class Stage(TimestampedModel):
 class Quote(TimestampedModel):
     """A financing quote against a deal — one deal can have many quotes.
 
-    `monthly_payment` is auto-calculated in `save()` from the deal's
-    `funded_amount`, the chosen rate band's yield, and the term. Changing the
-    rate, term or commission recomputes on the next save.
+    `monthly_payment` is computed on access (a property) from the deal's
+    `funded_amount`, the chosen rate band's yield, and the term — never stored,
+    so it always reflects the deal's current participations.
     """
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="quotes")
@@ -441,13 +441,6 @@ class Quote(TimestampedModel):
         blank=True,
         help_text="Optional. Added to the advance — the customer's monthly payment "
                   "is calculated on the grossed-up amount.",
-    )
-    monthly_payment = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Auto-calculated from deal funded amount, rate, term and commission.",
     )
 
     class Meta:
@@ -490,11 +483,9 @@ class Quote(TimestampedModel):
         monthly = figure * Decimal(principal) / Decimal("1000")
         return monthly.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    def save(self, *args, **kwargs):
-        computed = self.calculate_monthly_payment()
-        if computed is not None:
-            self.monthly_payment = computed
-        super().save(*args, **kwargs)
+    @property
+    def monthly_payment(self) -> "Decimal | None":
+        return self.calculate_monthly_payment()
 
 
 class RateBandQuerySet(models.QuerySet):

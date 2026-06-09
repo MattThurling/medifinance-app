@@ -50,7 +50,7 @@ class ContactAdmin(admin.ModelAdmin):
 class QuoteInline(admin.TabularInline):
     model = Quote
     extra = 0
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("monthly_payment", "created_at", "updated_at")
     fields = ("rate", "term", "commission_percent", "monthly_payment", "created_at", "updated_at")
     autocomplete_fields = ("rate",)
 
