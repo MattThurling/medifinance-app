@@ -28,6 +28,7 @@
       <thead>
         <tr>
           <th>Term</th>
+          <th>APR</th>
           <th>Monthly payment</th>
           <th></th>
         </tr>
@@ -36,6 +37,7 @@
         {% for q in deal.quotes.all %}
           <tr>
             <td>{{ q.term }} months</td>
+            <td>{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
             <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
             <td class="text-right">
               <input type="radio" name="quote" value="{{ q.pk }}"
