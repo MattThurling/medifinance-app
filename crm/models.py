@@ -464,24 +464,27 @@ class Quote(TimestampedModel):
         return f"{self.term}m @ {rate} — £{self.monthly_payment}/mo"
 
     def calculate_monthly_payment(self) -> Decimal | None:
-        """Monthly payment, matching the broker's spreadsheet exactly:
+        """Monthly payment, matching the broker's spreadsheet:
 
-            rpt    = the rate band's rate-per-thousand (2dp, annuity-due)
-            figure = rpt + (commission% / 100) · rpt      # commission on the RPT
-            monthly = figure · funded_amount / 1000
+            rpt    = -PMT(yield/100/12, term, 1000, 0, 1)   # full precision
+            figure = rpt + (commission% / 100) · rpt         # commission on the RPT
+            monthly = figure · funded_amount / 1000           # rounded 2dp at the end
 
-        Crucially this starts from the *rounded* (2dp) rate-per-thousand rather
-        than re-deriving from the raw principal — that rounding order is what
-        keeps it penny-exact with the spreadsheet. Returns None if any input is
-        missing (no rate, or the deal has no funded_amount yet).
+        The rate-per-thousand is used at FULL precision (Excel holds the -PMT
+        cell at full precision and only displays it to 2dp). Rounding it first
+        would amplify the error by funded_amount/1000 — noticeably wrong on
+        large loans. Only the final monthly is rounded, half-up like Excel.
+        Returns None if any input is missing.
         """
         if not (self.deal_id and self.rate_id and self.term):
             return None
         principal = self.deal.funded_amount
         if principal is None:
             return None
+        rpt = self.rate.rate_per_thousand_exact()
+        if rpt is None:
+            return None
 
-        rpt = self.rate.rate_per_thousand  # already quantized to 2dp
         comm = (self.commission_percent or Decimal("0")) / Decimal("100")
         figure = rpt + comm * rpt
         monthly = figure * Decimal(principal) / Decimal("1000")
@@ -554,28 +557,34 @@ class RateBand(TimestampedModel):
             f"£{self.min_amount:,.0f}–£{self.max_amount:,.0f} @ {self.yield_percent}%"
         )
 
-    @property
-    def rate_per_thousand(self) -> "Decimal":
-        """Monthly rental per £1,000 of capital. Equivalent to the Excel formula
+    def rate_per_thousand_exact(self) -> "Decimal | None":
+        """Full-precision monthly rental per £1,000 of capital. Equivalent to
 
             =-PMT(yield/100/12, term, 1000, 0, 1)
 
-        i.e. an annuity-due payment (type=1 — paid at the *start* of each
-        period) on a £1,000 advance, fv=0. Derived, never stored, so it can't
-        drift from the yield/term.
+        an annuity-due payment (type=1 — paid at the *start* of each period) on
+        a £1,000 advance, fv=0:
 
             RPT = pv · r · (1+r)^n / ((1+r) · ((1+r)^n − 1)),  pv = 1000
+
+        NOT rounded — callers that multiply by a loan amount must round only at
+        the end, else the 2dp rounding gets amplified by amount/1000.
         """
         if not self.term_months or self.yield_percent is None:
-            return Decimal("0.00")
+            return None
         r = (Decimal(self.yield_percent) / Decimal("100")) / Decimal("12")
         n = int(self.term_months)
         pv = Decimal("1000")
         if r == 0:
-            return (pv / Decimal(n)).quantize(Decimal("0.01"))
+            return pv / Decimal(n)
         growth = (Decimal("1") + r) ** n
-        pmt = pv * r * growth / ((Decimal("1") + r) * (growth - Decimal("1")))
-        return pmt.quantize(Decimal("0.01"))
+        return pv * r * growth / ((Decimal("1") + r) * (growth - Decimal("1")))
+
+    @property
+    def rate_per_thousand(self) -> "Decimal":
+        """`rate_per_thousand_exact` rounded to 2dp for display."""
+        raw = self.rate_per_thousand_exact()
+        return Decimal("0.00") if raw is None else raw.quantize(Decimal("0.01"))
 
     @classmethod
     def current_for(cls, organisation, amount, term_months):
