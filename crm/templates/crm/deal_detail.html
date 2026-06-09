@@ -121,7 +121,7 @@ layout (main content left, amount + timeline right).
               <th class="hidden md:table-cell">APR</th>
               <th class="hidden md:table-cell">Flat</th>
               <th>Monthly</th>
-              <th class="hidden md:table-cell"></th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -133,7 +133,7 @@ layout (main content left, amount + timeline right).
                 <td class="opacity-70 hidden md:table-cell">{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td class="text-right whitespace-nowrap hidden md:table-cell">
+                <td class="text-right whitespace-nowrap">
                   <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
                   <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
                     {% csrf_token %}
