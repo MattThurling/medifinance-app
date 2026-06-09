@@ -489,13 +489,20 @@ class Quote(TimestampedModel):
 
     @property
     def apr(self) -> "Decimal | None":
-        """Effective annual cost rate (%) implied by the monthly payment,
-        including any commission gross-up. Back-solves the monthly rate `i`
-        that discounts the annuity-due payments to the advance, then annualises
-        it: APR = (1 + i)**12 − 1. Returns None if inputs are missing.
+        """Annual cost rate (%) implied by the monthly payment, including any
+        commission gross-up — matching the broker's spreadsheet:
 
-        With zero commission this equals the compounded yield; commission
-        raises the payment, so the implied rate — and the APR — rise with it.
+            APR = RATE(term, -monthly, advance) * 12
+
+        i.e. back-solve the monthly rate `i` that discounts the *ordinary*
+        annuity (payments at period end, Excel RATE's `type=0`) to the advance,
+        then annualise nominally (× 12, no compounding). Returns None if inputs
+        are missing.
+
+        Note the payment itself is computed annuity-*due*; the spreadsheet
+        nonetheless back-solves the APR as an ordinary annuity, so we mirror
+        that here. Commission raises the payment, so the implied rate — and the
+        APR — rise with it.
         """
         monthly = self.monthly_payment
         funded = self.deal.funded_amount if self.deal_id else None
@@ -507,9 +514,8 @@ class Quote(TimestampedModel):
         if pmt * n <= advance:          # no positive-rate solution (no interest)
             return Decimal("0.00")
 
-        def pv(i: Decimal) -> Decimal:  # PV of the annuity-due at monthly rate i
-            factor = (Decimal(1) - (Decimal(1) + i) ** (-n)) / i
-            return pmt * factor * (Decimal(1) + i)
+        def pv(i: Decimal) -> Decimal:  # PV of the ordinary annuity at rate i
+            return pmt * (Decimal(1) - (Decimal(1) + i) ** (-n)) / i
 
         # PV decreases as i rises; bracket the root and bisect.
         lo, hi = Decimal("0.000000001"), Decimal("1")
@@ -517,7 +523,7 @@ class Quote(TimestampedModel):
             mid = (lo + hi) / 2
             lo, hi = (mid, hi) if pv(mid) > advance else (lo, mid)
         i = (lo + hi) / 2
-        apr = ((Decimal(1) + i) ** 12 - Decimal(1)) * Decimal("100")
+        apr = i * Decimal("12") * Decimal("100")
         return apr.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     @property
