@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Developer API · Medifinance{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-base-100">
+  <header class="py-6 flex justify-center">
+    <img src="{% static 'img/MedifinanceLogo.webp' %}" alt="Medifinance" class="h-10 w-auto" />
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 pb-16">
+
+    <h1 class="text-3xl font-semibold mb-2">Developer API</h1>
+    <p class="opacity-80 mb-8">
+      One endpoint. Send a loan amount and term; get back the cheapest
+      available quote from our partner lender panel — monthly payment, APR,
+      flat rate, total interest, and which lender.
+    </p>
+
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-2">Authentication</h2>
+      <p class="mb-3">
+        Send your API key in the <code>Authorization</code> header:
+      </p>
+      <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>Authorization: Bearer mfk_…</code></pre>
+      <p class="mt-3 text-sm opacity-80">
+        Keys are issued by Medifinance staff against your organisation and
+        shown to you exactly once. Treat them like a password — store in a
+        secrets manager, not in source. You can hold more than one key at a
+        time so you can rotate cleanly: issue the new one, switch traffic,
+        then ask for the old one to be revoked. Sandbox and production keys
+        come from separate environments — call the right base URL for the key
+        you're using.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-2">Endpoint</h2>
+      <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>POST /api/quotes/</code></pre>
+      <p class="mt-3 text-sm opacity-80"><code>Content-Type: application/json</code></p>
+
+      <h3 class="font-semibold mt-6 mb-2">Request body</h3>
+      <div class="overflow-x-auto">
+      <table class="table table-zebra table-sm">
+        <thead>
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>amount</code></td><td>number</td><td>yes</td><td>Loan principal in GBP. Must be &gt; 0.</td></tr>
+          <tr><td><code>term_months</code></td><td>integer</td><td>yes</td><td>Loan term in whole months. Must be &gt; 0.</td></tr>
+          <tr><td><code>commission_percent</code></td><td>number</td><td>no</td><td>Optional gross-up on the monthly payment. Defaults to <code>0</code>.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3 class="font-semibold mt-6 mb-2">Response (200)</h3>
+      <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>{
+  "amount": "25000.00",
+  "term_months": 60,
+  "commission_percent": "0.00",
+  "lender": "BNP Paribas",
+  "monthly_payment": "526.79",
+  "apr": "9.64",
+  "flat_rate": "5.29",
+  "total_interest": "6607.40"
+}</code></pre>
+      <p class="mt-3 text-sm opacity-80">
+        Monetary and percentage values are JSON strings with 2 decimal places.
+        Parse them as decimals (not floats) if you're doing further arithmetic
+        — values are computed at full precision and rounded only at the end.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-2">Errors</h2>
+      <p class="mb-3 text-sm opacity-80">All errors are JSON, with an
+        <code>error</code> code and human-readable <code>detail</code>.</p>
+      <div class="overflow-x-auto">
+      <table class="table table-zebra table-sm">
+        <thead><tr><th>Status</th><th>Error code</th><th>When</th></tr></thead>
+        <tbody>
+          <tr><td>400</td><td><code>invalid_json</code></td><td>Body isn't valid JSON / not an object.</td></tr>
+          <tr><td>400</td><td><code>missing_field</code></td><td><code>amount</code> or <code>term_months</code> not supplied.</td></tr>
+          <tr><td>400</td><td><code>invalid_field</code></td><td>Field is the wrong type or out of range.</td></tr>
+          <tr><td>401</td><td><code>not_authenticated</code></td><td>Missing, malformed, unknown, or revoked bearer token.</td></tr>
+          <tr><td>404</td><td><code>no_rate_available</code></td><td>No active rate band covers this amount + term combination.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-2">curl example</h2>
+      <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>curl -X POST {{ request.scheme }}://{{ request.get_host }}/api/quotes/ \
+  -H "Authorization: Bearer mfk_YOUR_KEY_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 25000, "term_months": 60}'</code></pre>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-2">Try it</h2>
+      <p class="text-sm opacity-80 mb-4">
+        Paste your key, fill in an amount and term, and we'll POST it to
+        <code>/api/quotes/</code> from your browser — same request your
+        integration would make.
+      </p>
+
+      <form id="try-it-form" class="card bg-base-200 shadow-sm">
+        <div class="card-body space-y-4">
+          <div>
+            <label class="label" for="api-key"><span class="label-text">API key</span></label>
+            <input id="api-key" type="password" autocomplete="off" placeholder="mfk_…"
+                   class="input input-bordered w-full" />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="label" for="amount"><span class="label-text">Amount (£)</span></label>
+              <input id="amount" type="number" min="1" step="1" value="25000" required
+                     class="input input-bordered w-full" />
+            </div>
+            <div>
+              <label class="label" for="term-months"><span class="label-text">Term (months)</span></label>
+              <input id="term-months" type="number" min="1" step="1" value="60" required
+                     class="input input-bordered w-full" />
+            </div>
+            <div>
+              <label class="label" for="commission"><span class="label-text">Commission % (optional)</span></label>
+              <input id="commission" type="number" min="0" step="0.01" placeholder="0"
+                     class="input input-bordered w-full" />
+            </div>
+          </div>
+
+          <div class="card-actions justify-end">
+            <button type="submit" class="btn btn-primary">Send request</button>
+          </div>
+        </div>
+      </form>
+
+      <div id="response" class="hidden mt-6">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="font-semibold">Response</span>
+          <span id="response-status-badge" class="badge"></span>
+          <span id="response-status" class="opacity-70 text-sm"></span>
+        </div>
+        <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code id="response-body"></code></pre>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById('try-it-form');
+  if (!form) return;
+
+  const responseEl = document.getElementById('response');
+  const statusBadge = document.getElementById('response-status-badge');
+  const statusEl = document.getElementById('response-status');
+  const bodyEl = document.getElementById('response-body');
+
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    const apiKey = document.getElementById('api-key').value.trim();
+    const amountRaw = document.getElementById('amount').value;
+    const termRaw = document.getElementById('term-months').value;
+    const commissionRaw = document.getElementById('commission').value;
+
+    const body = {};
+    if (amountRaw !== '') body.amount = Number(amountRaw);
+    if (termRaw !== '') body.term_months = parseInt(termRaw, 10);
+    if (commissionRaw !== '') body.commission_percent = Number(commissionRaw);
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+
+    responseEl.classList.remove('hidden');
+    statusBadge.className = 'badge';
+    statusBadge.textContent = '';
+    statusEl.textContent = 'Sending…';
+    bodyEl.textContent = '';
+
+    try {
+      const resp = await fetch('/api/quotes/', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(body),
+      });
+      const text = await resp.text();
+      let pretty = text;
+      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (_) {}
+
+      statusBadge.className = 'badge ' + (resp.ok ? 'badge-success' : 'badge-error');
+      statusBadge.textContent = resp.status;
+      statusEl.textContent = resp.statusText || '';
+      bodyEl.textContent = pretty;
+    } catch (err) {
+      statusBadge.className = 'badge badge-error';
+      statusBadge.textContent = 'network';
+      statusEl.textContent = err.message;
+      bodyEl.textContent = '';
+    }
+  });
+})();
+</script>
+{% endblock %}

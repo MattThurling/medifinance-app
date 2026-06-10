@@ -27,6 +27,15 @@ class PublicPageSmokeTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
+    def test_developer_docs_render_anonymously(self):
+        """Public dev page — must load for anyone, no login redirect."""
+        response = self.client.get(reverse("developers"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "POST /api/quotes/")
+        self.assertContains(response, "Bearer")
+        # The try-it widget should be present.
+        self.assertContains(response, 'id="try-it-form"')
+
 
 class StaffPagesRenderTests(TestCase):
     """Every CRM list/detail/create/update page should GET cleanly for staff.

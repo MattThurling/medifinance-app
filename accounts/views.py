@@ -33,6 +33,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
+class DeveloperHomeView(TemplateView):
+    """Public docs + try-it widget for the quote API. No auth on the page —
+    integrators read it before they have a key."""
+
+    template_name = "developers/index.html"
+
+
 class ConsumeMagicLinkView(View):
     """Validate the token, mark it used, log the user in, redirect to the target."""
 

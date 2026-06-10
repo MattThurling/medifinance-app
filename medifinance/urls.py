@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from accounts.views import ConsumeMagicLinkView, DashboardView
+from accounts.views import ConsumeMagicLinkView, DashboardView, DeveloperHomeView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -15,6 +15,9 @@ urlpatterns = [
 
     # JSON API for the browser extension (staff session auth)
     path("api/", include("crm.api_urls")),
+
+    # Public developer docs + try-it widget for the quote API
+    path("developers/", DeveloperHomeView.as_view(), name="developers"),
 
     path("", DashboardView.as_view(), name="dashboard"),
     path("", include("crm.urls")),
