@@ -13,16 +13,20 @@ Authorization: Bearer mfk_…
 
 Keys are issued by Medifinance staff against your organisation and shown to you
 exactly once. Treat them like a password — store in a secrets manager, not in
-source. You can ask for more than one key (e.g. *Production* and *Sandbox*) so
-you can rotate or revoke a single key without taking down your other
-integrations.
+source. You can hold more than one key at a time so you can rotate cleanly:
+issue the new one, switch traffic over, then ask for the old one to be
+revoked.
+
+Production and sandbox keys come from separate environments with separate
+databases, so a sandbox key is never valid against production (and vice
+versa) — call the right base URL for the key you're using.
 
 ## Base URL
 
 | Environment | URL                                |
 |-------------|------------------------------------|
 | Production  | `https://crm.medifinance.co.uk`    |
-| Sandbox     | provided alongside your sandbox key |
+| Sandbox     | `https://medifinance-dev-3ibfasnqaq-nw.a.run.app` |
 
 ## Request
 

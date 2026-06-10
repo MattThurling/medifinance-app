@@ -128,17 +128,13 @@ def make_document(deal: Deal, *, name: str = "Bank statements") -> Document:
 
 
 def make_api_key(*, organisation: Organisation | None = None,
-                 name: str | None = None, created_by=None,
+                 created_by=None,
                  is_active: bool = True) -> tuple[ApiKey, str]:
     """Mint an ApiKey. Returns ``(instance, raw_key)``; tests usually want
     both — the instance to assert on, the raw key to pass as a Bearer token.
     Auto-creates the owning Organisation when one isn't supplied."""
     organisation = organisation or make_organisation(name=f"Integrator {_next()}")
-    instance, raw = ApiKey.issue(
-        organisation=organisation,
-        name=name or f"Key {_next()}",
-        created_by=created_by,
-    )
+    instance, raw = ApiKey.issue(organisation=organisation, created_by=created_by)
     if not is_active:
         instance.is_active = False
         instance.save(update_fields=["is_active"])

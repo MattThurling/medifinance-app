@@ -176,11 +176,6 @@ class ApiKey(models.Model):
         related_name="api_keys",
         help_text="The partner organisation this key belongs to.",
     )
-    name = models.CharField(
-        max_length=120,
-        help_text="Label for this specific key, e.g. 'Production', 'Sandbox'. "
-                  "Distinguishes keys within the same organisation.",
-    )
     prefix = models.CharField(
         max_length=16,
         db_index=True,
@@ -206,21 +201,20 @@ class ApiKey(models.Model):
 
     def __str__(self) -> str:
         status = "active" if self.is_active else "revoked"
-        return f"{self.organisation.name} · {self.name} ({self.prefix}… · {status})"
+        return f"{self.organisation.name} ({self.prefix}… · {status})"
 
     @classmethod
     def _hash(cls, raw_key: str) -> str:
         return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
     @classmethod
-    def issue(cls, *, organisation, name: str, created_by=None) -> tuple["ApiKey", str]:
+    def issue(cls, *, organisation, created_by=None) -> tuple["ApiKey", str]:
         """Mint a new key for `organisation`. Returns ``(instance, raw_key)`` —
         the raw key is the only time the secret is ever surfaced; store it
         somewhere safe before navigating away."""
         raw = cls.KEY_PREFIX + secrets.token_urlsafe(32)
         instance = cls.objects.create(
             organisation=organisation,
-            name=name,
             prefix=raw[:cls.PREFIX_VISIBLE_LEN],
             hashed_key=cls._hash(raw),
             created_by=created_by,

@@ -12,11 +12,10 @@ class ApiKeyIssueTests(TestCase):
     def test_issue_returns_instance_and_raw_key(self):
         creator = User.objects.create_user(email="staff@example.com", password="x")
         org = _org()
-        key, raw = ApiKey.issue(organisation=org, name="Production", created_by=creator)
+        key, raw = ApiKey.issue(organisation=org, created_by=creator)
 
         self.assertIsNotNone(key.pk)
         self.assertEqual(key.organisation, org)
-        self.assertEqual(key.name, "Production")
         self.assertEqual(key.created_by, creator)
         self.assertTrue(key.is_active)
         self.assertIsNone(key.last_used_at)
@@ -27,27 +26,30 @@ class ApiKeyIssueTests(TestCase):
         self.assertEqual(len(key.prefix), ApiKey.PREFIX_VISIBLE_LEN)
 
     def test_raw_key_is_never_stored(self):
-        _, raw = ApiKey.issue(organisation=_org(), name="Production")
+        _, raw = ApiKey.issue(organisation=_org())
         # Hash is stored, not the raw key.
         self.assertNotIn(raw, ApiKey.objects.values_list("hashed_key", flat=True))
 
     def test_two_issued_keys_are_distinct(self):
         org = _org()
-        _, a = ApiKey.issue(organisation=org, name="Production")
-        _, b = ApiKey.issue(organisation=org, name="Sandbox")
+        _, a = ApiKey.issue(organisation=org)
+        _, b = ApiKey.issue(organisation=org)
         self.assertNotEqual(a, b)
 
-    def test_keys_can_belong_to_same_organisation(self):
-        """One integrator may want several keys (prod / sandbox / per-service)."""
+    def test_one_organisation_can_hold_multiple_keys(self):
+        """During rotation an integrator briefly holds two keys — issue the
+        new one, swap, revoke the old. The schema mustn't block that."""
         org = _org()
-        prod, _ = ApiKey.issue(organisation=org, name="Production")
-        sandbox, _ = ApiKey.issue(organisation=org, name="Sandbox")
-        self.assertEqual(list(org.api_keys.order_by("name")), [prod, sandbox])
+        first, _ = ApiKey.issue(organisation=org)
+        second, _ = ApiKey.issue(organisation=org)
+        self.assertEqual(org.api_keys.count(), 2)
+        self.assertIn(first, org.api_keys.all())
+        self.assertIn(second, org.api_keys.all())
 
 
 class ApiKeyAuthenticateTests(TestCase):
     def test_valid_key_returns_instance_and_stamps_last_used(self):
-        original, raw = ApiKey.issue(organisation=_org(), name="Production")
+        original, raw = ApiKey.issue(organisation=_org())
         self.assertIsNone(original.last_used_at)
 
         found = ApiKey.authenticate(raw)
@@ -55,11 +57,11 @@ class ApiKeyAuthenticateTests(TestCase):
         self.assertIsNotNone(found.last_used_at)
 
     def test_unknown_key_returns_none(self):
-        ApiKey.issue(organisation=_org(), name="Production")
+        ApiKey.issue(organisation=_org())
         self.assertIsNone(ApiKey.authenticate("mfk_totally-bogus-token"))
 
     def test_inactive_key_rejected(self):
-        instance, raw = ApiKey.issue(organisation=_org(), name="Production")
+        instance, raw = ApiKey.issue(organisation=_org())
         instance.is_active = False
         instance.save(update_fields=["is_active"])
         self.assertIsNone(ApiKey.authenticate(raw))
@@ -69,7 +71,7 @@ class ApiKeyAuthenticateTests(TestCase):
         self.assertIsNone(ApiKey.authenticate(""))
 
     def test_authenticate_does_not_log_use_for_invalid_key(self):
-        instance, _ = ApiKey.issue(organisation=_org(), name="Production")
+        instance, _ = ApiKey.issue(organisation=_org())
         ApiKey.authenticate("mfk_wrong")
         instance.refresh_from_db()
         self.assertIsNone(instance.last_used_at)
