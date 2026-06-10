@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 from datetime import timedelta
 
@@ -156,3 +157,81 @@ class MagicLink(models.Model):
         self.used_at = timezone.now()
         self.used_ip = ip
         self.save(update_fields=["used_at", "used_ip"])
+
+
+class ApiKey(models.Model):
+    """Bearer token for the public quote API.
+
+    Integrators send `Authorization: Bearer <raw_key>`; we hash the incoming
+    value and look it up against `hashed_key`. The raw key is only ever shown
+    once — at issue time, via a flash message in admin — and never stored.
+    """
+
+    KEY_PREFIX = "mfk_"          # "Medifinance key" — identifiable in logs
+    PREFIX_VISIBLE_LEN = 12      # `mfk_` + first 8 chars of the secret
+
+    name = models.CharField(
+        max_length=120,
+        help_text="Who this key belongs to, e.g. 'Acme Brokers'.",
+    )
+    prefix = models.CharField(
+        max_length=16,
+        db_index=True,
+        help_text="First 12 chars of the key — identifies it in logs and "
+                  "admin without exposing the secret.",
+    )
+    hashed_key = models.CharField(max_length=64, unique=True, db_index=True)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Untick to revoke without deleting (preserves audit history).",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="issued_api_keys",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        status = "active" if self.is_active else "revoked"
+        return f"{self.name} ({self.prefix}… · {status})"
+
+    @classmethod
+    def _hash(cls, raw_key: str) -> str:
+        return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def issue(cls, *, name: str, created_by=None) -> tuple["ApiKey", str]:
+        """Mint a new key. Returns ``(instance, raw_key)`` — the raw key is
+        the only time the secret is ever surfaced; store it server-side
+        somewhere safe before navigating away."""
+        raw = cls.KEY_PREFIX + secrets.token_urlsafe(32)
+        instance = cls.objects.create(
+            name=name,
+            prefix=raw[:cls.PREFIX_VISIBLE_LEN],
+            hashed_key=cls._hash(raw),
+            created_by=created_by,
+        )
+        return instance, raw
+
+    @classmethod
+    def authenticate(cls, raw_key: str | None) -> "ApiKey | None":
+        """Look up an active key by its raw token. Stamps `last_used_at` on a
+        match. Returns None on miss / revoked / bad input."""
+        if not raw_key:
+            return None
+        try:
+            key = cls.objects.get(hashed_key=cls._hash(raw_key), is_active=True)
+        except cls.DoesNotExist:
+            return None
+        key.touch()
+        return key
+
+    def touch(self) -> None:
+        self.last_used_at = timezone.now()
+        self.save(update_fields=["last_used_at"])

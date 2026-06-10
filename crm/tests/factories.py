@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 
-from accounts.models import Role
+from accounts.models import ApiKey, Role
 from crm.models import (
     Contact,
     Deal,
@@ -125,3 +125,14 @@ def make_participation(deal: Deal, *, organisation: Organisation | None = None,
 
 def make_document(deal: Deal, *, name: str = "Bank statements") -> Document:
     return Document.objects.create(deal=deal, name=name)
+
+
+def make_api_key(*, name: str | None = None, created_by=None,
+                 is_active: bool = True) -> tuple[ApiKey, str]:
+    """Mint an ApiKey. Returns ``(instance, raw_key)``; tests usually want
+    both — the instance to assert on, the raw key to pass as a Bearer token."""
+    instance, raw = ApiKey.issue(name=name or f"Test client {_next()}", created_by=created_by)
+    if not is_active:
+        instance.is_active = False
+        instance.save(update_fields=["is_active"])
+    return instance, raw

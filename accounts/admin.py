@@ -1,9 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.utils.translation import gettext_lazy as _
 
-from .models import MagicLink, User
+from .models import ApiKey, MagicLink, User
 
 
 class EmailUserCreationForm(UserCreationForm):
@@ -58,3 +58,38 @@ class MagicLinkAdmin(admin.ModelAdmin):
     search_fields = ("user__email", "token", "redirect_url")
     autocomplete_fields = ("user", "created_by")
     readonly_fields = ("token", "created_at", "used_at", "used_ip")
+
+
+@admin.register(ApiKey)
+class ApiKeyAdmin(admin.ModelAdmin):
+    list_display = ("name", "prefix", "is_active", "last_used_at", "created_at", "created_by")
+    list_filter = ("is_active",)
+    search_fields = ("name", "prefix")
+    readonly_fields = ("prefix", "hashed_key", "created_at", "last_used_at", "created_by")
+    fields = ("name", "is_active", "prefix", "hashed_key", "created_at", "last_used_at", "created_by")
+
+    def get_fields(self, request, obj=None):
+        # On the create form, only "name" matters — everything else is generated.
+        if obj is None:
+            return ("name",)
+        return super().get_fields(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            return super().save_model(request, obj, form, change)
+        # Create path: mint via ApiKey.issue() so the raw key is generated and
+        # flashed once. We can't call super().save() — that would persist the
+        # half-built `obj` first.
+        new_obj, raw_key = ApiKey.issue(name=obj.name, created_by=request.user)
+        # Mutate the in-flight obj so admin's redirect to the change page works.
+        obj.pk = new_obj.pk
+        obj.prefix = new_obj.prefix
+        obj.hashed_key = new_obj.hashed_key
+        obj.is_active = new_obj.is_active
+        obj.created_at = new_obj.created_at
+        obj.created_by = new_obj.created_by
+        messages.warning(
+            request,
+            f"API key for “{new_obj.name}”: {raw_key} "
+            f"— copy it now, this is the only time it will be shown.",
+        )

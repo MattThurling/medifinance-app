@@ -457,31 +457,19 @@ class Quote(TimestampedModel):
         return f"{self.term}m @ {rate} — £{self.monthly_payment}/mo"
 
     def calculate_monthly_payment(self) -> Decimal | None:
-        """Monthly payment, matching the broker's spreadsheet:
+        """Monthly payment for this quote. Returns None if any input is
+        missing. Math lives in `crm.pricing.monthly_payment` — shared with the
+        public quote API so partners get the same numbers as the internal tool."""
+        from . import pricing  # avoid circular import; pricing imports RateBand
 
-            rpt    = -PMT(yield/100/12, term, 1000, 0, 1)   # full precision
-            figure = rpt + (commission% / 100) · rpt         # commission on the RPT
-            monthly = figure · funded_amount / 1000           # rounded 2dp at the end
-
-        The rate-per-thousand is used at FULL precision (Excel holds the -PMT
-        cell at full precision and only displays it to 2dp). Rounding it first
-        would amplify the error by funded_amount/1000 — noticeably wrong on
-        large loans. Only the final monthly is rounded, half-up like Excel.
-        Returns None if any input is missing.
-        """
         if not (self.deal_id and self.rate_id and self.term):
             return None
-        principal = self.deal.funded_amount
-        if principal is None:
-            return None
-        rpt = self.rate.rate_per_thousand_exact()
-        if rpt is None:
-            return None
-
-        comm = (self.commission_percent or Decimal("0")) / Decimal("100")
-        figure = rpt + comm * rpt
-        monthly = figure * Decimal(principal) / Decimal("1000")
-        return monthly.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return pricing.monthly_payment(
+            principal=self.deal.funded_amount,
+            rate_band=self.rate,
+            term_months=self.term,
+            commission_percent=self.commission_percent,
+        )
 
     @property
     def monthly_payment(self) -> "Decimal | None":
@@ -489,58 +477,27 @@ class Quote(TimestampedModel):
 
     @property
     def apr(self) -> "Decimal | None":
-        """Annual cost rate (%) implied by the monthly payment, including any
-        commission gross-up — matching the broker's spreadsheet:
+        from . import pricing
 
-            APR = RATE(term, -monthly, advance) * 12
-
-        i.e. back-solve the monthly rate `i` that discounts the *ordinary*
-        annuity (payments at period end, Excel RATE's `type=0`) to the advance,
-        then annualise nominally (× 12, no compounding). Returns None if inputs
-        are missing.
-
-        Note the payment itself is computed annuity-*due*; the spreadsheet
-        nonetheless back-solves the APR as an ordinary annuity, so we mirror
-        that here. Commission raises the payment, so the implied rate — and the
-        APR — rise with it.
-        """
-        monthly = self.monthly_payment
-        funded = self.deal.funded_amount if self.deal_id else None
-        if monthly is None or funded is None or not self.term or monthly <= 0:
+        if not self.deal_id:
             return None
-        n = int(self.term)
-        pmt = Decimal(monthly)
-        advance = Decimal(funded)
-        if pmt * n <= advance:          # no positive-rate solution (no interest)
-            return Decimal("0.00")
-
-        def pv(i: Decimal) -> Decimal:  # PV of the ordinary annuity at rate i
-            return pmt * (Decimal(1) - (Decimal(1) + i) ** (-n)) / i
-
-        # PV decreases as i rises; bracket the root and bisect.
-        lo, hi = Decimal("0.000000001"), Decimal("1")
-        for _ in range(60):
-            mid = (lo + hi) / 2
-            lo, hi = (mid, hi) if pv(mid) > advance else (lo, mid)
-        i = (lo + hi) / 2
-        apr = i * Decimal("12") * Decimal("100")
-        return apr.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return pricing.apr(
+            principal=self.deal.funded_amount,
+            monthly_payment=self.monthly_payment,
+            term_months=self.term,
+        )
 
     @property
     def flat_rate(self) -> "Decimal | None":
-        """Annual flat interest rate (%): total interest over the term as a
-        yearly percentage of the advance —
-        (monthly·term − advance) / advance / years. None if inputs missing.
-        """
-        monthly = self.monthly_payment
-        funded = self.deal.funded_amount if self.deal_id else None
-        if monthly is None or funded is None or not self.term or funded == 0:
+        from . import pricing
+
+        if not self.deal_id:
             return None
-        advance = Decimal(funded)
-        total = Decimal(monthly) * int(self.term)
-        years = Decimal(self.term) / Decimal("12")
-        flat = (total - advance) / advance / years * Decimal("100")
-        return flat.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return pricing.flat_rate(
+            principal=self.deal.funded_amount,
+            monthly_payment=self.monthly_payment,
+            term_months=self.term,
+        )
 
 
 class RateBandQuerySet(models.QuerySet):
