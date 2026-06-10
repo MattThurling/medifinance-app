@@ -62,16 +62,20 @@ class MagicLinkAdmin(admin.ModelAdmin):
 
 @admin.register(ApiKey)
 class ApiKeyAdmin(admin.ModelAdmin):
-    list_display = ("name", "prefix", "is_active", "last_used_at", "created_at", "created_by")
+    list_display = ("organisation", "name", "prefix", "is_active", "last_used_at", "created_at", "created_by")
     list_filter = ("is_active",)
-    search_fields = ("name", "prefix")
+    list_select_related = ("organisation", "created_by")
+    search_fields = ("name", "prefix", "organisation__name")
+    autocomplete_fields = ("organisation",)
     readonly_fields = ("prefix", "hashed_key", "created_at", "last_used_at", "created_by")
-    fields = ("name", "is_active", "prefix", "hashed_key", "created_at", "last_used_at", "created_by")
+    fields = ("organisation", "name", "is_active", "prefix", "hashed_key",
+              "created_at", "last_used_at", "created_by")
 
     def get_fields(self, request, obj=None):
-        # On the create form, only "name" matters — everything else is generated.
+        # On the create form, only the integrator's org + a label matter —
+        # everything else is generated.
         if obj is None:
-            return ("name",)
+            return ("organisation", "name")
         return super().get_fields(request, obj)
 
     def save_model(self, request, obj, form, change):
@@ -80,7 +84,9 @@ class ApiKeyAdmin(admin.ModelAdmin):
         # Create path: mint via ApiKey.issue() so the raw key is generated and
         # flashed once. We can't call super().save() — that would persist the
         # half-built `obj` first.
-        new_obj, raw_key = ApiKey.issue(name=obj.name, created_by=request.user)
+        new_obj, raw_key = ApiKey.issue(
+            organisation=obj.organisation, name=obj.name, created_by=request.user,
+        )
         # Mutate the in-flight obj so admin's redirect to the change page works.
         obj.pk = new_obj.pk
         obj.prefix = new_obj.prefix
@@ -90,6 +96,6 @@ class ApiKeyAdmin(admin.ModelAdmin):
         obj.created_by = new_obj.created_by
         messages.warning(
             request,
-            f"API key for “{new_obj.name}”: {raw_key} "
-            f"— copy it now, this is the only time it will be shown.",
+            f"API key for {new_obj.organisation.name} ({new_obj.name}): "
+            f"{raw_key} — copy it now, this is the only time it will be shown.",
         )
