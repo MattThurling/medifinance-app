@@ -1,16 +1,47 @@
-name: Deploy
+name: CI/CD
 
+# Test on every push and PR; deploy on push to main/develop only.
 # develop -> medifinance-dev, main -> medifinance-prod
 on:
   push:
     branches: [main, develop]
+  pull_request:
 
 env:
   REGION: europe-west2
   AR_REPO: app
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      # The `{% icon %}` templatetag reads SVGs from node_modules/lucide-static
+      # at render time, so the smoke tests need it on disk.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install lucide-static (for the {% icon %} templatetag)
+        run: npm ci
+
+      - name: Run test suite
+        run: python manage.py test --verbosity=2
+
   deploy:
+    needs: test
+    # Only deploy on push to main/develop — not on PR builds.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
