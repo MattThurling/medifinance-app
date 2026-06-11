@@ -167,7 +167,7 @@ class Deal(TimestampedModel):
 
     # Optional associations
     introducer = models.ForeignKey(
-        Contact,
+        Organisation,
         on_delete=models.SET_NULL,
         related_name="introduced_deals",
         null=True,

@@ -46,7 +46,7 @@
       {% include "crm/_combobox.html" with name="owner" label="Owner" search_url=user_search_url placeholder="Search staff…" selected_id=owner_selected_id selected_label=owner_selected_label errors=form.owner.errors %}
 
       <div class="divider text-xs opacity-60 mt-2 mb-2">Associations</div>
-      {% include "crm/_combobox.html" with name="introducer" label="Introducer" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.introducer.value selected_label=form.instance.introducer errors=form.introducer.errors %}
+      {% include "crm/_combobox.html" with name="introducer" label="Introducer" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.introducer.value selected_label=form.instance.introducer errors=form.introducer.errors %}
 
       <div class="divider text-xs opacity-60 mt-2 mb-2">Financials</div>
       <p class="text-xs opacity-60 mb-3">The deal's funded amount is the sum of its Suppliers (managed on the deal page).</p>
