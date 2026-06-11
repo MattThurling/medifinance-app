@@ -1,0 +1,14 @@
+A new deal was created via the API.
+
+Deal:       {{ deal_name }}
+Introducer: {{ introducer_name }}
+Customer:   {{ customer_name }} <{{ customer_email }}>
+Amount:     {{ amount_display }}
+Ltd:        {% if is_limited_company %}Yes{% else %}No{% endif %}
+Quotes:     {{ quote_count }} attached
+
+View it in the CRM:
+
+{{ deal_url }}
+
+Medifinance

@@ -526,7 +526,7 @@ class EmailPortalLinkView(_PortalLinkMixin, View):
             to_email=link.user.email,
             link_url=full_url,
             deal_name=deal.name,
-            owner_name=deal.owner.full_name,
+            owner_name=deal.owner.full_name if deal.owner else "The team",
             expires_at=link.expires_at,
         )
         messages.success(

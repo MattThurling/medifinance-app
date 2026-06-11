@@ -6,9 +6,10 @@ Two surfaces live here:
   read-only, session-cookie auth via the staff member's CRM login. Consumed by
   the Medifinance browser extension to flat-fill partner application forms.
 
-* **Public quote API** (`BearerApiView` + `QuoteApi`): stateless POST,
-  `Authorization: Bearer <api_key>` auth (see `accounts.models.ApiKey`).
-  Takes amount + term, returns the best-available quote.
+* **Public integrator API** (`BearerApiView` + `QuoteApi` / `DealCreateApi`):
+  stateless POST, `Authorization: Bearer <api_key>` auth (see
+  `accounts.models.ApiKey`). Quotes an amount + term, or creates a deal
+  introduced by the key's organisation.
 
 Everything here returns JSON 401/403/4xx rather than HTML redirects, so the
 client can show a sensible message instead of trying to parse a login page.
@@ -17,8 +18,12 @@ client can show a sensible message instead of trying to parse a login page.
 from __future__ import annotations
 
 import json
+import logging
 from decimal import Decimal, InvalidOperation
 
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
@@ -28,7 +33,9 @@ from django.views.decorators.csrf import csrf_exempt
 from accounts.models import ApiKey
 
 from . import pricing
-from .models import Deal
+from .models import Contact, Deal, Document, Participation, Quote, RateBand
+
+logger = logging.getLogger(__name__)
 
 
 def _money(value: Decimal | None) -> str | None:
@@ -82,7 +89,7 @@ def _deal_fill_payload(deal: Deal) -> dict:
         "broker": {
             "name": deal.owner.full_name,
             "email": deal.owner.email,
-        },
+        } if deal.owner else None,
         "business": {
             "name": org.name,
             "address_line1": org.address_line1,
@@ -265,6 +272,129 @@ class QuoteApi(BearerApiView):
         })
 
 
+DEFAULT_DOCUMENT_REQUESTS = [
+    "Last 3 months business bank statements",
+    "Most recent financial accounts or tax returns",
+]
+
+
+class DealCreateApi(BearerApiView):
+    """POST /api/deals/  -> create a deal introduced by the key's organisation.
+
+    Request body (JSON):
+        {
+          "name": "Dental chair refit",
+          "amount": 25000,
+          "first_name": "Jane",
+          "last_name": "Smith",
+          "email": "jane@example.com",
+          "ltd": true                 // is the business a limited company?
+        }
+
+    Side effects: the customer Contact is reused (matched by email) or created;
+    a quote is attached for every term that has an active rate band covering
+    the amount (the cheapest lender per term); the standard document requests
+    are added; and the NOTIFY_EMAILS staff list is emailed.
+
+    Response (201):
+        {"id": 42, "name": "Dental chair refit", "amount": "25000.00"}
+
+    Errors (always JSON):
+        400 — malformed body / missing or invalid field
+        401 — bad/missing bearer token
+    """
+
+    def post(self, request):
+        try:
+            payload = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            return _bad_request("invalid_json", "Request body must be valid JSON.")
+        if not isinstance(payload, dict):
+            return _bad_request("invalid_json", "Request body must be a JSON object.")
+
+        name, err = _parse_str(payload, "name", max_length=255)
+        if err:
+            return err
+        amount, err = _parse_decimal(payload, "amount", positive=True)
+        if err:
+            return err
+        first_name, err = _parse_str(payload, "first_name", max_length=150)
+        if err:
+            return err
+        last_name, err = _parse_str(payload, "last_name", max_length=150)
+        if err:
+            return err
+        email, err = _parse_str(payload, "email", max_length=254)
+        if err:
+            return err
+        try:
+            validate_email(email)
+        except ValidationError:
+            return _bad_request("invalid_field", "`email` must be a valid email address.")
+        ltd, err = _parse_bool(payload, "ltd")
+        if err:
+            return err
+
+        introducer = request.api_key.organisation
+
+        with transaction.atomic():
+            contact = Contact.objects.filter(email__iexact=email).first()
+            if contact is None:
+                contact = Contact.objects.create(
+                    first_name=first_name, last_name=last_name, email=email,
+                )
+            deal = Deal.objects.create(name=name, customer=contact, introducer=introducer)
+            Participation.objects.create(deal=deal, amount=amount)
+
+            quotes = []
+            terms = (
+                RateBand.objects.active()
+                .filter(min_amount__lte=amount, max_amount__gte=amount)
+                .order_by("term_months")
+                .values_list("term_months", flat=True)
+                .distinct()
+            )
+            for term in terms:
+                band = pricing.cheapest_rate_band(term_months=term, amount=amount)
+                quotes.append(Quote.objects.create(deal=deal, rate=band, term=term))
+
+            for doc_name in DEFAULT_DOCUMENT_REQUESTS:
+                Document.objects.create(deal=deal, name=doc_name)
+
+        try:
+            from accounts.emails import send_new_deal_notification_email
+            send_new_deal_notification_email(
+                deal_name=deal.name,
+                deal_url=request.build_absolute_uri(deal.get_absolute_url()),
+                introducer_name=introducer.name,
+                customer_name=contact.full_name,
+                customer_email=contact.email,
+                amount_display=f"£{amount:,.2f}",
+                is_limited_company=ltd,
+                quote_count=len(quotes),
+            )
+        except Exception:
+            # The deal is already committed — a broken mailserver shouldn't
+            # turn a successful create into a 500 for the integrator.
+            logger.exception("New-deal notification email failed for deal %s", deal.pk)
+
+        return JsonResponse(
+            {"id": deal.pk, "name": deal.name, "amount": _money(amount)},
+            status=201,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class DealRootApi(View):
+    """/api/deals/ serves two auth schemes: GET is the staff extension list
+    (session auth), POST is the public integrator create (bearer auth)."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.method == "POST":
+            return DealCreateApi.as_view()(request, *args, **kwargs)
+        return DealListApi.as_view()(request, *args, **kwargs)
+
+
 def _bad_request(error: str, detail: str) -> JsonResponse:
     return JsonResponse({"error": error, "detail": detail}, status=400)
 
@@ -287,6 +417,29 @@ def _parse_decimal(payload: dict, field: str, *, positive: bool,
     if positive and value <= 0:
         return None, _bad_request("invalid_field", f"`{field}` must be greater than 0.")
     return value, None
+
+
+def _parse_str(payload: dict, field: str, *, max_length: int):
+    if field not in payload:
+        return None, _bad_request("missing_field", f"`{field}` is required.")
+    raw = payload[field]
+    if not isinstance(raw, str) or not raw.strip():
+        return None, _bad_request("invalid_field", f"`{field}` must be a non-empty string.")
+    value = raw.strip()
+    if len(value) > max_length:
+        return None, _bad_request(
+            "invalid_field", f"`{field}` must be at most {max_length} characters.",
+        )
+    return value, None
+
+
+def _parse_bool(payload: dict, field: str):
+    if field not in payload:
+        return None, _bad_request("missing_field", f"`{field}` is required.")
+    raw = payload[field]
+    if not isinstance(raw, bool):
+        return None, _bad_request("invalid_field", f"`{field}` must be true or false.")
+    return raw, None
 
 
 def _parse_int(payload: dict, field: str, *, positive: bool):

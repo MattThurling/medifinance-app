@@ -11,12 +11,7 @@
 
   <main class="max-w-3xl mx-auto px-4 pb-16">
 
-    <h1 class="text-3xl font-semibold mb-2">Quotes API</h1>
-    <p class="opacity-80 mb-8">
-      Send a loan amount and term; get back the cheapest
-      available quote from our partner lender panel — monthly payment, APR,
-      flat rate, total interest, and which lender.
-    </p>
+    <h1 class="text-3xl font-semibold mb-8">Medifinance API</h1>
 
     <section class="mb-10">
       <h2 class="text-xl font-semibold mb-2">Authentication</h2>
@@ -36,7 +31,115 @@
     </section>
 
     <section class="mb-10">
-      <h2 class="text-xl font-semibold mb-2">Endpoint</h2>
+      <h2 class="text-xl font-semibold mb-2">Create a deal</h2>
+      <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>POST /api/deals/</code></pre>
+      <p class="mt-3 text-sm opacity-80"><code>Content-Type: application/json</code></p>
+      <p class="mt-3 mb-3">
+        Creates a deal introduced by your organisation. We attach a quote for
+        every term we can currently fund at that amount (the cheapest lender
+        per term), raise the standard document requests, and notify our team —
+        no further call needed to get the application moving.
+      </p>
+
+      <h3 class="font-semibold mt-6 mb-2">Request body</h3>
+      <div class="overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>string</td><td>yes</td><td>A short label for the deal, e.g. the purchase it funds.</td></tr>
+          <tr><td><code>amount</code></td><td>number</td><td>yes</td><td>Amount to finance in GBP. Must be &gt; 0.</td></tr>
+          <tr><td><code>first_name</code></td><td>string</td><td>yes</td><td>The applicant's first name.</td></tr>
+          <tr><td><code>last_name</code></td><td>string</td><td>yes</td><td>The applicant's last name.</td></tr>
+          <tr><td><code>email</code></td><td>string</td><td>yes</td><td>The applicant's email address.</td></tr>
+          <tr><td><code>ltd</code></td><td>boolean</td><td>yes</td><td>Whether the applicant's business is a limited company.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3 class="font-semibold mt-6 mb-2">Response (201)</h3>
+      <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>{
+  "id": 42,
+  "name": "Dental chair refit",
+  "amount": "25000.00"
+}</code></pre>
+
+      <h3 class="font-semibold mt-6 mb-2">curl example</h3>
+      <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>curl -X POST {{ request.scheme }}://{{ request.get_host }}/api/deals/ \
+  -H "Authorization: Bearer mfk_YOUR_KEY_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Dental chair refit", "amount": 25000,
+       "first_name": "Jane", "last_name": "Smith",
+       "email": "jane@example.com", "ltd": true}'</code></pre>
+
+      <h3 class="font-semibold mt-6 mb-2">Try it</h3>
+      <p class="text-sm opacity-80 mb-4">
+        Paste your key and we'll POST the form to <code>/api/deals/</code>
+        from your browser — same request your integration would make.
+        This creates a real deal against your organisation.
+      </p>
+
+      <form id="try-it-deal-form" class="card bg-base-200 shadow-sm">
+        <div class="card-body space-y-4">
+          <div>
+            <label class="label" for="deal-api-key"><span class="label-text">API key</span></label>
+            <input id="deal-api-key" type="password" autocomplete="off" placeholder="mfk_…"
+                   class="input input-bordered w-full" />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="label" for="deal-name"><span class="label-text">Deal name</span></label>
+              <input id="deal-name" type="text" value="Dental chair refit" required
+                     class="input input-bordered w-full" />
+            </div>
+            <div>
+              <label class="label" for="deal-amount"><span class="label-text">Amount (£)</span></label>
+              <input id="deal-amount" type="number" min="1" step="1" value="25000" required
+                     class="input input-bordered w-full" />
+            </div>
+            <div>
+              <label class="label" for="deal-first-name"><span class="label-text">First name</span></label>
+              <input id="deal-first-name" type="text" value="Jane" required
+                     class="input input-bordered w-full" />
+            </div>
+            <div>
+              <label class="label" for="deal-last-name"><span class="label-text">Last name</span></label>
+              <input id="deal-last-name" type="text" value="Smith" required
+                     class="input input-bordered w-full" />
+            </div>
+            <div>
+              <label class="label" for="deal-email"><span class="label-text">Email</span></label>
+              <input id="deal-email" type="email" value="jane@example.com" required
+                     class="input input-bordered w-full" />
+            </div>
+            <div class="flex items-end pb-1">
+              <label class="label cursor-pointer gap-3" for="deal-ltd">
+                <input id="deal-ltd" type="checkbox" checked class="checkbox" />
+                <span class="label-text">Limited company</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="card-actions justify-end">
+            <button type="submit" class="btn btn-primary">Send request</button>
+          </div>
+        </div>
+      </form>
+
+      <div id="deal-response" class="hidden mt-6">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="font-semibold">Response</span>
+          <span id="deal-response-status-badge" class="badge"></span>
+          <span id="deal-response-status" class="opacity-70 text-sm"></span>
+        </div>
+        <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code id="deal-response-body"></code></pre>
+      </div>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-2">Get a quote</h2>
       <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>POST /api/quotes/</code></pre>
       <p class="mt-3 text-sm opacity-80"><code>Content-Type: application/json</code></p>
 
@@ -70,36 +173,14 @@
         Parse them as decimals (not floats) if you're doing further arithmetic
         — values are computed at full precision and rounded only at the end.
       </p>
-    </section>
 
-    <section class="mb-10">
-      <h2 class="text-xl font-semibold mb-2">Errors</h2>
-      <p class="mb-3 text-sm opacity-80">All errors are JSON, with an
-        <code>error</code> code and human-readable <code>detail</code>.</p>
-      <div class="overflow-x-auto">
-      <table class="table table-sm">
-        <thead><tr><th>Status</th><th>Error code</th><th>When</th></tr></thead>
-        <tbody>
-          <tr><td>400</td><td><code>invalid_json</code></td><td>Body isn't valid JSON / not an object.</td></tr>
-          <tr><td>400</td><td><code>missing_field</code></td><td><code>amount</code> or <code>term_months</code> not supplied.</td></tr>
-          <tr><td>400</td><td><code>invalid_field</code></td><td>Field is the wrong type or out of range.</td></tr>
-          <tr><td>401</td><td><code>not_authenticated</code></td><td>Missing, malformed, unknown, or revoked bearer token.</td></tr>
-          <tr><td>404</td><td><code>no_rate_available</code></td><td>No active rate band covers this amount + term combination.</td></tr>
-        </tbody>
-      </table>
-      </div>
-    </section>
-
-    <section class="mb-10">
-      <h2 class="text-xl font-semibold mb-2">curl example</h2>
+      <h3 class="font-semibold mt-6 mb-2">curl example</h3>
       <pre class="bg-base-200 rounded p-3 text-sm overflow-x-auto"><code>curl -X POST {{ request.scheme }}://{{ request.get_host }}/api/quotes/ \
   -H "Authorization: Bearer mfk_YOUR_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{"amount": 25000, "term_months": 60}'</code></pre>
-    </section>
 
-    <section class="mb-10">
-      <h2 class="text-xl font-semibold mb-2">Try it</h2>
+      <h3 class="font-semibold mt-6 mb-2">Try it</h3>
       <p class="text-sm opacity-80 mb-4">
         Paste your key, fill in an amount and term, and we'll POST it to
         <code>/api/quotes/</code> from your browser — same request your
@@ -148,61 +229,108 @@
       </div>
     </section>
 
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-2">Errors</h2>
+      <p class="mb-3 text-sm opacity-80">Both endpoints return JSON errors,
+        with an <code>error</code> code and human-readable <code>detail</code>.</p>
+      <div class="overflow-x-auto">
+      <table class="table table-sm">
+        <thead><tr><th>Status</th><th>Error code</th><th>When</th></tr></thead>
+        <tbody>
+          <tr><td>400</td><td><code>invalid_json</code></td><td>Body isn't valid JSON / not an object.</td></tr>
+          <tr><td>400</td><td><code>missing_field</code></td><td>A required field was not supplied.</td></tr>
+          <tr><td>400</td><td><code>invalid_field</code></td><td>Field is the wrong type or out of range.</td></tr>
+          <tr><td>401</td><td><code>not_authenticated</code></td><td>Missing, malformed, unknown, or revoked bearer token.</td></tr>
+          <tr><td>404</td><td><code>no_rate_available</code></td><td>Quotes only — no active rate band covers this amount + term combination.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
   </main>
 </div>
 
 <script>
 (function () {
-  const form = document.getElementById('try-it-form');
-  if (!form) return;
+  function wireTryIt({ formId, url, apiKeyId, responsePrefix, buildBody }) {
+    const form = document.getElementById(formId);
+    if (!form) return;
 
-  const responseEl = document.getElementById('response');
-  const statusBadge = document.getElementById('response-status-badge');
-  const statusEl = document.getElementById('response-status');
-  const bodyEl = document.getElementById('response-body');
+    const responseEl = document.getElementById(responsePrefix);
+    const statusBadge = document.getElementById(responsePrefix + '-status-badge');
+    const statusEl = document.getElementById(responsePrefix + '-status');
+    const bodyEl = document.getElementById(responsePrefix + '-body');
 
-  form.addEventListener('submit', async function (event) {
-    event.preventDefault();
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
 
-    const apiKey = document.getElementById('api-key').value.trim();
-    const amountRaw = document.getElementById('amount').value;
-    const termRaw = document.getElementById('term-months').value;
-    const commissionRaw = document.getElementById('commission').value;
+      const apiKey = document.getElementById(apiKeyId).value.trim();
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
 
-    const body = {};
-    if (amountRaw !== '') body.amount = Number(amountRaw);
-    if (termRaw !== '') body.term_months = parseInt(termRaw, 10);
-    if (commissionRaw !== '') body.commission_percent = Number(commissionRaw);
-
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
-
-    responseEl.classList.remove('hidden');
-    statusBadge.className = 'badge';
-    statusBadge.textContent = '';
-    statusEl.textContent = 'Sending…';
-    bodyEl.textContent = '';
-
-    try {
-      const resp = await fetch('/api/quotes/', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(body),
-      });
-      const text = await resp.text();
-      let pretty = text;
-      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (_) {}
-
-      statusBadge.className = 'badge ' + (resp.ok ? 'badge-success' : 'badge-error');
-      statusBadge.textContent = resp.status;
-      statusEl.textContent = resp.statusText || '';
-      bodyEl.textContent = pretty;
-    } catch (err) {
-      statusBadge.className = 'badge badge-error';
-      statusBadge.textContent = 'network';
-      statusEl.textContent = err.message;
+      responseEl.classList.remove('hidden');
+      statusBadge.className = 'badge';
+      statusBadge.textContent = '';
+      statusEl.textContent = 'Sending…';
       bodyEl.textContent = '';
-    }
+
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(buildBody()),
+        });
+        const text = await resp.text();
+        let pretty = text;
+        try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (_) {}
+
+        statusBadge.className = 'badge ' + (resp.ok ? 'badge-success' : 'badge-error');
+        statusBadge.textContent = resp.status;
+        statusEl.textContent = resp.statusText || '';
+        bodyEl.textContent = pretty;
+      } catch (err) {
+        statusBadge.className = 'badge badge-error';
+        statusBadge.textContent = 'network';
+        statusEl.textContent = err.message;
+        bodyEl.textContent = '';
+      }
+    });
+  }
+
+  wireTryIt({
+    formId: 'try-it-deal-form',
+    url: '/api/deals/',
+    apiKeyId: 'deal-api-key',
+    responsePrefix: 'deal-response',
+    buildBody: function () {
+      const body = {
+        name: document.getElementById('deal-name').value,
+        first_name: document.getElementById('deal-first-name').value,
+        last_name: document.getElementById('deal-last-name').value,
+        email: document.getElementById('deal-email').value,
+        ltd: document.getElementById('deal-ltd').checked,
+      };
+      const amountRaw = document.getElementById('deal-amount').value;
+      if (amountRaw !== '') body.amount = Number(amountRaw);
+      return body;
+    },
+  });
+
+  wireTryIt({
+    formId: 'try-it-form',
+    url: '/api/quotes/',
+    apiKeyId: 'api-key',
+    responsePrefix: 'response',
+    buildBody: function () {
+      const body = {};
+      const amountRaw = document.getElementById('amount').value;
+      const termRaw = document.getElementById('term-months').value;
+      const commissionRaw = document.getElementById('commission').value;
+      if (amountRaw !== '') body.amount = Number(amountRaw);
+      if (termRaw !== '') body.term_months = parseInt(termRaw, 10);
+      if (commissionRaw !== '') body.commission_percent = Number(commissionRaw);
+      return body;
+    },
   });
 })();
 </script>

@@ -31,6 +31,7 @@ class PublicPageSmokeTests(TestCase):
         """Public dev page — must load for anyone, no login redirect."""
         response = self.client.get(reverse("developers"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "POST /api/deals/")
         self.assertContains(response, "POST /api/quotes/")
         self.assertContains(response, "Bearer")
         # The try-it widget should be present.

@@ -37,8 +37,9 @@ def _sync_owner_object_perms(sender, instance: Deal, created: bool, **kwargs):
             remove_perm("view_deal", prev, instance)
             remove_perm("change_deal", prev, instance)
 
-    assign_perm("view_deal", instance.owner, instance)
-    assign_perm("change_deal", instance.owner, instance)
+    if instance.owner_id:
+        assign_perm("view_deal", instance.owner, instance)
+        assign_perm("change_deal", instance.owner, instance)
 
 
 @receiver(post_save, sender=Deal)

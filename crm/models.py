@@ -149,6 +149,8 @@ class Deal(TimestampedModel):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="owned_deals",
+        null=True,
+        help_text="Deals created via the public API start unowned.",
     )
     customer = models.ForeignKey(
         Contact,
