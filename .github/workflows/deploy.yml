@@ -117,6 +117,10 @@ jobs:
             ENVVARS="${ENVVARS}|GS_BUCKET_NAME=${{ vars.GS_BUCKET_NAME }}"
           fi
 
+          # Staff addresses notified about new API-created deals (comma-separated).
+          # Override with the NOTIFY_EMAILS repo variable; default matches settings.py.
+          ENVVARS="${ENVVARS}|NOTIFY_EMAILS=${{ vars.NOTIFY_EMAILS || 'mnthurling@gmail.com' }}"
+
           gcloud run deploy "${{ steps.target.outputs.service }}" \
             --image "$IMAGE" \
             --region "$REGION" \

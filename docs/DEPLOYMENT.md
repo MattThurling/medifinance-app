@@ -189,6 +189,7 @@ In the repo: **Settings → Secrets and variables → Actions → Variables** (n
 | `CLOUDSQL_CONNECTION` | the `$SQL_CONN` value (`PROJECT:REGION:INSTANCE`) |
 | `EMAIL_ENABLED` | *(optional)* set to `true` after creating the `email-host-password` secret to wire real SMTP. Unset = console backend. |
 | `GS_BUCKET_NAME` | the documents bucket (`$DOCS_BUCKET`) — required for uploaded documents to persist |
+| `NOTIFY_EMAILS` | *(optional)* comma-separated staff addresses notified about new API-created deals. Defaults to `mnthurling@gmail.com`. |
 
 ## 8. First deploy
 
