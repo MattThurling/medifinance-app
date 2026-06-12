@@ -223,7 +223,7 @@ XERO_SCOPES = (
 EMAIL_HOST = os.getenv("EMAIL_HOST", "mail.medi-finance.co.uk")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "1") == "1"   # port 465 = implicit SSL/SMTPS
-EMAIL_USE_TLS = False                                    # mutually exclusive with USE_SSL
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "0") == "1"   # STARTTLS (e.g. Mailtrap on 2525); mutually exclusive with USE_SSL
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "info@medi-finance.co.uk")
 # .strip() guards against the common gotcha of a trailing newline arriving via
 # Secret Manager / pasted-in env values — SMTP servers will reject the auth.

@@ -103,6 +103,22 @@ unset EMAIL_PW
 > to Cloud Run logs) — useful for the very first deploy if you don't have the
 > password handy. Re-deploy after creating it to flip to real SMTP.
 
+### Mailtrap Sandbox (dev email)
+
+The dev service sends all email to the [Mailtrap](https://mailtrap.io) Sandbox
+— messages are caught in the shared inbox, never delivered. The workflow wires
+the host/port (`sandbox.smtp.mailtrap.io:2525`, STARTTLS) automatically; only
+the inbox's SMTP credentials (Mailtrap → your inbox → SMTP settings) live in
+Secret Manager:
+
+```bash
+printf '%s' "MAILTRAP_SMTP_USERNAME" | gcloud secrets create mailtrap-user --data-file=-
+printf '%s' "MAILTRAP_SMTP_PASSWORD" | gcloud secrets create mailtrap-password --data-file=-
+```
+
+These secrets are **required** for dev deploys — the Cloud Run deploy fails if
+they don't exist.
+
 ## 4b. Cloud Storage bucket (uploaded documents)
 
 Documents (bank statements, ID, etc.) are uploaded by customers and **must** be

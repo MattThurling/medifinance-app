@@ -96,11 +96,17 @@ jobs:
           SECRETS="DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest"
           ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=.run.app|DJANGO_CSRF_TRUSTED_ORIGINS=https://*.run.app|HUBSPOT_PORTAL_ID=3378161"
 
-          # Email via the medi-finance.co.uk SMTP server when EMAIL_ENABLED=true.
-          # Settings already encodes EMAIL_HOST / PORT / USE_SSL / USER as defaults,
-          # so only the password (from Secret Manager) is required here. Without it,
-          # the app falls back to the console backend (emails -> Cloud Run logs).
-          if [ "${{ vars.EMAIL_ENABLED }}" = "true" ]; then
+          # Dev email goes to the Mailtrap Sandbox (caught in the shared inbox,
+          # never delivered) — credentials live in the mailtrap-user /
+          # mailtrap-password secrets. Prod uses the real medi-finance.co.uk
+          # SMTP server when EMAIL_ENABLED=true; settings.py already encodes
+          # its host / port / SSL / user as defaults, so only the password is
+          # needed. Without credentials the app falls back to the console
+          # backend (emails -> Cloud Run logs).
+          if [ "$SUFFIX" = "dev" ]; then
+            ENVVARS="${ENVVARS}|EMAIL_HOST=sandbox.smtp.mailtrap.io|EMAIL_PORT=2525|EMAIL_USE_SSL=0|EMAIL_USE_TLS=1"
+            SECRETS="${SECRETS},EMAIL_HOST_USER=mailtrap-user:latest,EMAIL_HOST_PASSWORD=mailtrap-password:latest"
+          elif [ "${{ vars.EMAIL_ENABLED }}" = "true" ]; then
             SECRETS="${SECRETS},EMAIL_HOST_PASSWORD=email-host-password:latest"
           fi
 
