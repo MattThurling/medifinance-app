@@ -292,7 +292,8 @@ class DealCreateApi(BearerApiView):
         }
 
     Side effects: the customer Contact is reused (matched by email) or created;
-    a quote is attached for every term that has an active rate band covering
+    the key's organisation is set as both the deal's introducer and the
+    participation's supplier; a quote is attached for every term that has an active rate band covering
     the amount (the cheapest lender per term); the standard document requests
     are added; and the NOTIFY_EMAILS staff list is emailed.
 
@@ -344,7 +345,7 @@ class DealCreateApi(BearerApiView):
                     first_name=first_name, last_name=last_name, email=email,
                 )
             deal = Deal.objects.create(name=name, customer=contact, introducer=introducer)
-            Participation.objects.create(deal=deal, amount=amount)
+            Participation.objects.create(deal=deal, amount=amount, organisation=introducer)
 
             quotes = []
             terms = (

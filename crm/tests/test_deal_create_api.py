@@ -148,6 +148,8 @@ class DealCreateApiHappyPathTests(TestCase):
         self.assertEqual(deal.introducer, self.integrator)
         self.assertIsNone(deal.owner)
         self.assertEqual(deal.funded_amount, Decimal("25000.00"))
+        participation = deal.participations.get()
+        self.assertEqual(participation.organisation, self.integrator)
 
     def test_creates_contact_from_payload(self):
         self._post()
