@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from accounts.views import ConsumeMagicLinkView, DashboardView, DeveloperHomeView
+from accounts.views import ConsumeMagicLinkView, DashboardView, DeveloperHomeView, ToggleApiAccessView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -20,5 +20,6 @@ urlpatterns = [
     path("developers/", DeveloperHomeView.as_view(), name="developers"),
 
     path("", DashboardView.as_view(), name="dashboard"),
+    path("settings/api-access/toggle/", ToggleApiAccessView.as_view(), name="toggle_api_access"),
     path("", include("crm.urls")),
 ]

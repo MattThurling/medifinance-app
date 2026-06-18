@@ -26,6 +26,32 @@
         <p class="text-4xl font-semibold">{{ deals_count|intcomma }}</p>
       </div>
     </a>
+  {% if user.is_admin %}
+    <div class="card bg-base-100 shadow md:col-span-3 {% if not api_enabled %}border-2 border-error{% endif %}">
+      <div class="card-body">
+        <form method="post" action="{% url 'toggle_api_access' %}" class="flex items-center gap-4">
+          {% csrf_token %}
+          <input
+            type="checkbox"
+            name="api_enabled"
+            class="toggle toggle-success toggle-lg"
+            {% if api_enabled %}checked{% endif %}
+            onchange="this.form.submit()"
+            aria-label="Partner API access"
+          />
+          <div class="flex-1">
+            <h2 class="card-title text-lg">
+              Partner API access:
+              <span class="{% if api_enabled %}text-success{% else %}text-error{% endif %}">
+                {% if api_enabled %}ON{% else %}OFF{% endif %}
+              </span>
+            </h2>
+            <p class="text-sm opacity-70">Turn off if a partner token is compromised.</p>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endif %}
   {% else %}
     <div class="card bg-base-100 shadow md:col-span-3">
       <div class="card-body">

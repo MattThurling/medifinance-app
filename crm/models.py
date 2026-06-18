@@ -211,6 +211,16 @@ class Deal(TimestampedModel):
 
     hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
 
+    created_via_api_key = models.ForeignKey(
+        "accounts.ApiKey",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_deals",
+        help_text="The partner API key that POSTed this deal in, if any. "
+                  "Used to attribute and rate-limit API-created deals.",
+    )
+
     class Meta:
         ordering = ["-created_at"]
 

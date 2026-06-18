@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
@@ -26,14 +27,26 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
+from django.urls import reverse
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from accounts.models import ApiKey
+from accounts.models import ApiKey, SiteSettings
 
 from . import pricing
 from .models import Contact, Deal, Document, Participation, Quote, RateBand
+
+# Per-token rate limits for POST /api/deals/. Counts deals created by this
+# ApiKey in the rolling window — dedup'd repeats (same customer in 24h) don't
+# count, so a partner safely retrying the same payload never trips the limit.
+RATE_LIMIT_HOUR_MAX = 5
+RATE_LIMIT_DAY_MAX = 25
+
+# Window during which a repeat (introducer + customer email) returns the
+# existing deal instead of creating a new one.
+DEDUP_WINDOW = timedelta(hours=24)
 
 logger = logging.getLogger(__name__)
 
@@ -293,19 +306,44 @@ class DealCreateApi(BearerApiView):
 
     Side effects: the customer Contact is reused (matched by email) or created;
     the key's organisation is set as both the deal's introducer and the
-    participation's supplier; a quote is attached for every term that has an active rate band covering
-    the amount (the cheapest lender per term); the standard document requests
-    are added; and the NOTIFY_EMAILS staff list is emailed.
+    participation's supplier; a quote is attached for every term that has an
+    active rate band covering the amount (the cheapest lender per term, each at
+    a default 3% commission); the standard document requests are added; the
+    NOTIFY_EMAILS staff list is emailed; and the customer is sent a portal
+    magic link — the same one staff would send by pressing "Send Application…".
+
+    Safeguards against customer spam if a partner token is compromised:
+
+    * Global kill switch: `accounts.SiteSettings.api_enabled` (toggleable from
+      the dashboard) blocks every POST with 503 when off.
+    * Per-customer dedup: a repeat (introducer + email) within the dedup window
+      returns the existing deal — no new quotes, no second customer email.
+    * Per-token rate limit: 5/hour and 25/day of *new* (non-dedup'd) deals per
+      key returns 429.
 
     Response (201):
-        {"id": 42, "name": "Dental chair refit", "amount": "25000.00"}
+        {"id": 42, "name": "Dental chair refit", "amount": "25000.00",
+         "deduplicated": false}
+
+    A dedup'd call returns 200 with `"deduplicated": true` and the existing
+    deal's id.
 
     Errors (always JSON):
         400 — malformed body / missing or invalid field
         401 — bad/missing bearer token
+        429 — rate limit exceeded for this key
+        503 — API access is currently disabled site-wide
     """
 
     def post(self, request):
+        if not SiteSettings.get().api_enabled:
+            return JsonResponse(
+                {"error": "api_disabled",
+                 "detail": "Partner API access is currently disabled. "
+                           "Contact Medifinance to restore service."},
+                status=503,
+            )
+
         try:
             payload = json.loads(request.body or b"{}")
         except json.JSONDecodeError:
@@ -338,13 +376,62 @@ class DealCreateApi(BearerApiView):
 
         introducer = request.api_key.organisation
 
+        # Dedup BEFORE rate limit, so a partner safely retrying the same payload
+        # never trips the limit. Match introducer + customer email within the
+        # window; return the most recent existing deal.
+        dedup_cutoff = timezone.now() - DEDUP_WINDOW
+        existing = (
+            Deal.objects
+            .filter(
+                introducer=introducer,
+                customer__email__iexact=email,
+                created_at__gte=dedup_cutoff,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if existing is not None:
+            existing_amount = existing.funded_amount
+            return JsonResponse(
+                {
+                    "id": existing.pk,
+                    "name": existing.name,
+                    "amount": _money(existing_amount) if existing_amount is not None else None,
+                    "deduplicated": True,
+                },
+                status=200,
+            )
+
+        # Per-token rate limit on NEW deals created in the rolling windows.
+        now = timezone.now()
+        recent_qs = Deal.objects.filter(created_via_api_key=request.api_key)
+        hour_count = recent_qs.filter(created_at__gte=now - timedelta(hours=1)).count()
+        day_count = recent_qs.filter(created_at__gte=now - timedelta(days=1)).count()
+        if hour_count >= RATE_LIMIT_HOUR_MAX or day_count >= RATE_LIMIT_DAY_MAX:
+            logger.warning(
+                "Rate limit hit for ApiKey %s (org=%s): %d/h, %d/d",
+                request.api_key.prefix, introducer.name, hour_count, day_count,
+            )
+            return JsonResponse(
+                {"error": "rate_limited",
+                 "detail": f"Too many deals from this key. Limit is "
+                           f"{RATE_LIMIT_HOUR_MAX}/hour and "
+                           f"{RATE_LIMIT_DAY_MAX}/day."},
+                status=429,
+            )
+
         with transaction.atomic():
             contact = Contact.objects.filter(email__iexact=email).first()
             if contact is None:
                 contact = Contact.objects.create(
                     first_name=first_name, last_name=last_name, email=email,
                 )
-            deal = Deal.objects.create(name=name, customer=contact, introducer=introducer)
+            deal = Deal.objects.create(
+                name=name,
+                customer=contact,
+                introducer=introducer,
+                created_via_api_key=request.api_key,
+            )
             Participation.objects.create(deal=deal, amount=amount, organisation=introducer)
 
             quotes = []
@@ -357,7 +444,10 @@ class DealCreateApi(BearerApiView):
             )
             for term in terms:
                 band = pricing.cheapest_rate_band(term_months=term, amount=amount)
-                quotes.append(Quote.objects.create(deal=deal, rate=band, term=term))
+                quotes.append(Quote.objects.create(
+                    deal=deal, rate=band, term=term,
+                    commission_percent=Decimal("3"),
+                ))
 
             for doc_name in DEFAULT_DOCUMENT_REQUESTS:
                 Document.objects.create(deal=deal, name=doc_name)
@@ -379,8 +469,32 @@ class DealCreateApi(BearerApiView):
             # turn a successful create into a 500 for the integrator.
             logger.exception("New-deal notification email failed for deal %s", deal.pk)
 
+        # Send the customer the same portal magic link the "Send Application…"
+        # button would. Wrapped because a mailserver hiccup shouldn't 500 the
+        # integrator on an already-committed deal.
+        try:
+            from .portal_links import issue_portal_link_for_deal, NoCustomerEmailError
+            from accounts.emails import send_magic_link_email
+            link, _dup_warning = issue_portal_link_for_deal(deal, created_by=None)
+            full_url = request.build_absolute_uri(
+                reverse("consume_magic_link", args=[link.token])
+            )
+            send_magic_link_email(
+                to_email=link.user.email,
+                link_url=full_url,
+                deal_name=deal.name,
+                owner_name="The team",
+                expires_at=link.expires_at,
+            )
+        except NoCustomerEmailError:
+            # Email was validated above, so this shouldn't fire — log loudly if it does.
+            logger.exception("Portal link skipped (no email) for API deal %s", deal.pk)
+        except Exception:
+            logger.exception("Portal link email failed for API deal %s", deal.pk)
+
         return JsonResponse(
-            {"id": deal.pk, "name": deal.name, "amount": _money(amount)},
+            {"id": deal.pk, "name": deal.name, "amount": _money(amount),
+             "deduplicated": False},
             status=201,
         )
 

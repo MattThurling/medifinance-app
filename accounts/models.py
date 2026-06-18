@@ -237,3 +237,35 @@ class ApiKey(models.Model):
     def touch(self) -> None:
         self.last_used_at = timezone.now()
         self.save(update_fields=["last_used_at"])
+
+
+class SiteSettings(models.Model):
+    """Single-row global settings. Use `SiteSettings.get()` to read or update.
+
+    Currently holds the API kill switch only — flipping `api_enabled` off
+    immediately blocks `POST /api/deals/` for every partner. Intended as a
+    panic button for token compromise; individual partners can still be
+    revoked via `ApiKey.is_active`.
+    """
+
+    SINGLETON_ID = 1
+
+    api_enabled = models.BooleanField(
+        default=True,
+        help_text="When off, the partner deal-create API returns 503 for every "
+                  "request. Per-key `ApiKey.is_active` still applies independently.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Site settings"
+        verbose_name_plural = "Site settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SINGLETON_ID
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls) -> "SiteSettings":
+        obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_ID)
+        return obj

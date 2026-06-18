@@ -12,7 +12,7 @@ from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
-from accounts.models import MagicLink, Role
+from accounts.models import Role
 from accounts.permissions import StaffRequiredMixin
 
 from .forms import (
@@ -461,51 +461,14 @@ class _PortalLinkMixin(StaffRequiredMixin):
     """
 
     def issue_link(self, request, deal):
-        contact = deal.customer
-
-        if contact.user is not None:
-            link_user = contact.user
-        else:
-            if not contact.email:
-                messages.error(
-                    request,
-                    "Can't issue a link: this contact has no email address on file.",
-                )
-                return None, None
-            User = get_user_model()
-            # Reuse an existing user with that email if one already exists
-            # (e.g. imported from HubSpot, or shared across contacts).
-            link_user, was_created = User.objects.get_or_create(
-                email=contact.email,
-                defaults={
-                    "role": Role.CUSTOMER,
-                    "first_name": contact.first_name,
-                    "last_name": contact.last_name,
-                },
-            )
-            if was_created:
-                link_user.set_unusable_password()
-                link_user.save(update_fields=["password"])
-
-            # Contact.user is OneToOne: don't try to relink if this user is
-            # already attached to another contact. The link still works.
-            other = Contact.objects.filter(user=link_user).exclude(pk=contact.pk).first()
-            if other is not None:
-                messages.warning(
-                    request,
-                    f"Heads up: the email {contact.email} is already linked to contact "
-                    f"“{other}”. The link works fine, but this contact won't be "
-                    f"re-linked to the user. Consider deduplicating the contacts.",
-                )
-            else:
-                contact.user = link_user
-                contact.save(update_fields=["user"])
-
-        link = MagicLink.issue(
-            user=link_user,
-            redirect_url=reverse("crm:portal_quote_select", args=[deal.pk]),
-            created_by=request.user,
-        )
+        from .portal_links import issue_portal_link_for_deal, NoCustomerEmailError
+        try:
+            link, dup_warning = issue_portal_link_for_deal(deal, created_by=request.user)
+        except NoCustomerEmailError as exc:
+            messages.error(request, str(exc))
+            return None, None
+        if dup_warning:
+            messages.warning(request, dup_warning)
         full_url = request.build_absolute_uri(reverse("consume_magic_link", args=[link.token]))
         return link, full_url
 

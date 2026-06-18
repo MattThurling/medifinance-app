@@ -1,10 +1,12 @@
+from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import TemplateView
 
-from .models import MagicLink
+from .models import MagicLink, SiteSettings
 
 
 def _client_ip(request) -> str | None:
@@ -26,11 +28,32 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             ctx["contacts_count"] = Contact.objects.count()
             ctx["organisations_count"] = Organisation.objects.count()
             ctx["deals_count"] = Deal.objects.count()
+            ctx["api_enabled"] = SiteSettings.get().api_enabled
         elif user.is_customer:
             # OneToOne reverse accessor — may not exist if the user has no linked Contact yet.
             contact = getattr(user, "contact", None)
             ctx["customer_deals"] = contact.deals.all() if contact else []
         return ctx
+
+
+class ToggleApiAccessView(LoginRequiredMixin, View):
+    """Flip the global `SiteSettings.api_enabled` kill switch. Admin-only."""
+
+    def post(self, request):
+        if not request.user.is_admin:
+            raise PermissionDenied
+        settings_row = SiteSettings.get()
+        settings_row.api_enabled = not settings_row.api_enabled
+        settings_row.save(update_fields=["api_enabled", "updated_at"])
+        if settings_row.api_enabled:
+            messages.success(request, "Partner API access turned ON.")
+        else:
+            messages.warning(
+                request,
+                "Partner API access turned OFF. New deal-create requests "
+                "will be rejected until you turn it back on.",
+            )
+        return redirect("dashboard")
 
 
 class DeveloperHomeView(TemplateView):
