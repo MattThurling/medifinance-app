@@ -49,8 +49,10 @@
       {% include "crm/_combobox.html" with name="introducer" label="Introducer" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.introducer.value selected_label=form.instance.introducer errors=form.introducer.errors %}
 
       <div class="divider text-xs opacity-60 mt-2 mb-2">Financials</div>
-      <p class="text-xs opacity-60 mb-3">The deal's funded amount is the sum of its Suppliers (managed on the deal page).</p>
+      <p class="text-xs opacity-60 mb-3">The deal's funded amount is the sum of its Suppliers (managed on the deal page). Deposit and balloon are subtracted from that total to give the finance amount.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.deposit %}
+        {% include "_field.html" with field=form.balloon %}
         {% include "_field.html" with field=form.earnings %}
         {% include "_field.html" with field=form.flat_fee %}
         {% include "_field.html" with field=form.commission %}

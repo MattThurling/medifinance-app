@@ -101,6 +101,8 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
             "organisation",
             "owner",
             "introducer",
+            "deposit",
+            "balloon",
             "earnings",
             "flat_fee",
             "commission",
@@ -166,7 +168,7 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         self.deal = deal or (self.instance.deal if self.instance and self.instance.pk else None)
-        amount = self.deal.funded_amount if self.deal else None
+        amount = self.deal.finance_amount if self.deal else None
 
         # Bands that apply to this deal's amount (the pool both selects draw on).
         pool = RateBand.objects.active().select_related("organisation")

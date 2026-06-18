@@ -97,6 +97,23 @@ layout (main content left, amount + timeline right).
             {% empty %}
               <tr><td colspan="4" class="opacity-60">No suppliers yet.</td></tr>
             {% endfor %}
+            {% if deal.funded_amount is not None %}
+              <tr class="opacity-70">
+                <td>Deposit</td>
+                <td class="font-medium whitespace-nowrap">{% if deal.deposit %}−£{{ deal.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td colspan="2"></td>
+              </tr>
+              <tr class="opacity-70">
+                <td>Balloon</td>
+                <td class="font-medium whitespace-nowrap">{% if deal.balloon %}−£{{ deal.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td colspan="2"></td>
+              </tr>
+              <tr class="font-semibold border-t">
+                <td>Finance amount</td>
+                <td class="whitespace-nowrap">£{{ deal.finance_amount|floatformat:2|intcomma }}</td>
+                <td colspan="2"></td>
+              </tr>
+            {% endif %}
           </tbody>
         </table>
         <a href="{% url 'crm:participation_create' %}?deal={{ deal.pk }}"

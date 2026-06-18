@@ -297,10 +297,12 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             if org else Contact.objects.none()
         )
 
-        # Split the amount so the pence can render smaller (£25,000.00)
-        if deal.funded_amount is not None:
-            pounds = int(deal.funded_amount)
-            pence = int((deal.funded_amount - pounds) * 100)
+        # Split the amount so the pence can render smaller (£25,000.00). The
+        # headline card shows what's actually being financed — participations
+        # minus the deposit and balloon.
+        if deal.finance_amount is not None:
+            pounds = int(deal.finance_amount)
+            pence = int((deal.finance_amount - pounds) * 100)
             ctx["amount_pounds"] = f"{pounds:,}"
             ctx["amount_pence"] = f"{pence:02d}"
 
@@ -415,11 +417,11 @@ class QuoteCreateView(StaffRequiredMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
-        if self.parent_deal.funded_amount is None:
+        if self.parent_deal.finance_amount is None:
             form.add_error(
                 None,
-                "This deal has no funded amount set, so we can't calculate a monthly payment. "
-                "Edit the deal and set the funded amount first.",
+                "This deal has no finance amount set, so we can't calculate a monthly payment. "
+                "Edit the deal and add a supplier first.",
             )
             return self.form_invalid(form)
         form.instance.deal = self.parent_deal
@@ -428,8 +430,8 @@ class QuoteCreateView(StaffRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.parent_deal
-        if self.parent_deal.funded_amount is not None:
-            ctx["funded_amount_display"] = f"£{self.parent_deal.funded_amount:,.2f}"
+        if self.parent_deal.finance_amount is not None:
+            ctx["finance_amount_display"] = f"£{self.parent_deal.finance_amount:,.2f}"
         return ctx
 
     def get_success_url(self):
@@ -641,7 +643,7 @@ class PortalQuoteSelectView(_PortalStepMixin, View):
 
     def _render(self, request, deal, form):
         from django.shortcuts import render
-        amount_display = f"£{deal.funded_amount:,.2f}" if deal.funded_amount is not None else None
+        amount_display = f"£{deal.finance_amount:,.2f}" if deal.finance_amount is not None else None
         return render(
             request,
             self.template_name,
@@ -773,11 +775,11 @@ class QuoteUpdateView(StaffRequiredMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        if form.instance.deal.funded_amount is None:
+        if form.instance.deal.finance_amount is None:
             form.add_error(
                 None,
-                "This deal has no funded amount set, so we can't recalculate the monthly payment. "
-                "Edit the deal and set the funded amount first.",
+                "This deal has no finance amount set, so we can't recalculate the monthly payment. "
+                "Edit the deal and add a supplier first.",
             )
             return self.form_invalid(form)
         return super().form_valid(form)
@@ -785,8 +787,8 @@ class QuoteUpdateView(StaffRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.object.deal
-        if self.object.deal.funded_amount is not None:
-            ctx["funded_amount_display"] = f"£{self.object.deal.funded_amount:,.2f}"
+        if self.object.deal.finance_amount is not None:
+            ctx["finance_amount_display"] = f"£{self.object.deal.finance_amount:,.2f}"
         return ctx
 
     def get_success_url(self):
@@ -1538,7 +1540,7 @@ class QuoteRateOptionsView(StaffRequiredMixin, View):
                 .filter(term_months=int(term))
             )
             deal = Deal.objects.filter(pk=deal_pk).first() if deal_pk.isdigit() else None
-            amount = deal.funded_amount if deal else None
+            amount = deal.finance_amount if deal else None
             if amount is not None:
                 qs = qs.filter(min_amount__lte=amount, max_amount__gte=amount)
             rates = qs.order_by("yield_percent")

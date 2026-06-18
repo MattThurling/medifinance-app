@@ -181,6 +181,10 @@ class Deal(TimestampedModel):
     flat_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     document_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Customer-paid contributions that reduce what's financed. `finance_amount`
+    # below = funded_amount - deposit - balloon.
+    deposit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    balloon = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     # Customer's chosen quote, picked via the portal application
     selected_quote = models.ForeignKey(
@@ -221,6 +225,15 @@ class Deal(TimestampedModel):
         if not ps:
             return None
         return sum((p.amount for p in ps), Decimal("0"))
+
+    @property
+    def finance_amount(self) -> "Decimal | None":
+        """The amount actually being financed: participations minus the customer's
+        deposit and balloon. Returns None when there are no participations yet."""
+        funded = self.funded_amount
+        if funded is None:
+            return None
+        return funded - (self.deposit or Decimal("0")) - (self.balloon or Decimal("0"))
 
     @property
     def current_stage(self) -> "Stage | None":
@@ -422,8 +435,8 @@ class Quote(TimestampedModel):
     """A financing quote against a deal — one deal can have many quotes.
 
     `monthly_payment` is computed on access (a property) from the deal's
-    `funded_amount`, the chosen rate band's yield, and the term — never stored,
-    so it always reflects the deal's current participations.
+    `finance_amount`, the chosen rate band's yield, and the term — never stored,
+    so it always reflects the deal's current participations and deposit/balloon.
     """
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="quotes")
@@ -467,7 +480,7 @@ class Quote(TimestampedModel):
         if not (self.deal_id and self.rate_id and self.term):
             return None
         return pricing.monthly_payment(
-            principal=self.deal.funded_amount,
+            principal=self.deal.finance_amount,
             rate_band=self.rate,
             term_months=self.term,
             commission_percent=self.commission_percent,
@@ -484,7 +497,7 @@ class Quote(TimestampedModel):
         if not self.deal_id:
             return None
         return pricing.apr(
-            principal=self.deal.funded_amount,
+            principal=self.deal.finance_amount,
             monthly_payment=self.monthly_payment,
             term_months=self.term,
         )
@@ -496,7 +509,7 @@ class Quote(TimestampedModel):
         if not self.deal_id:
             return None
         return pricing.flat_rate(
-            principal=self.deal.funded_amount,
+            principal=self.deal.finance_amount,
             monthly_payment=self.monthly_payment,
             term_months=self.term,
         )
