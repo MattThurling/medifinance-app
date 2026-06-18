@@ -1046,13 +1046,14 @@ class ParticipationInvoiceDownloadView(StaffRequiredMixin, View):
 
 class RequestParticipationInvoiceView(StaffRequiredMixin, View):
     """Staff: mint a single-use upload link for a supplier and email it to their
-    invoice contact. Requires an approved Proposal on the deal so the email body
+    invoice contact. Requires a selected Proposal on the deal so the email body
     can name the accepted lender."""
 
     def post(self, request, pk):
         participation = get_object_or_404(
             Participation.objects.select_related(
                 "deal", "deal__organisation", "deal__customer",
+                "deal__selected_proposal", "deal__selected_proposal__lender",
                 "organisation", "invoice_contact",
             ),
             pk=pk,
@@ -1066,13 +1067,11 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
             )
             return redirect(participation.deal.get_absolute_url())
 
-        approved = participation.deal.proposals.filter(
-            status=Proposal.Status.APPROVED
-        ).select_related("lender").first()
-        if approved is None:
+        selected = participation.deal.selected_proposal
+        if selected is None:
             messages.error(
                 request,
-                "Mark a Proposal as Approved before sending an invoice request — "
+                "Select a Proposal on this deal before sending an invoice request — "
                 "the email needs to name the accepted lender.",
             )
             return redirect(participation.deal.get_absolute_url())
@@ -1100,8 +1099,8 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
             lead_contact_name=str(participation.deal.customer),
             client_org_name=client_org.name,
             client_org_address=client_org.display_address,
-            lender_org_name=approved.lender.name,
-            lender_org_address=approved.lender.display_address,
+            lender_org_name=selected.lender.name,
+            lender_org_address=selected.lender.display_address,
             participation_amount_display=f"£{participation.amount:,.2f}",
             participation_description=(participation.description or "").strip(),
             expires_at=link.expires_at,
