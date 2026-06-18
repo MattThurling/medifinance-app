@@ -48,6 +48,23 @@ layout (main content left, amount + timeline right).
       <div class="card-body items-center text-center">
         <p class="text-sm opacity-60">Asset Finance</p>
         <p class="text-4xl font-semibold">{% if amount_pounds %}£{{ amount_pounds }}<span class="text-xl align-baseline">.{{ amount_pence }}</span>{% else %}—{% endif %}</p>
+        {% if deal.funded_amount and deal.deposit or deal.funded_amount and deal.balloon %}
+          <p class="text-xs opacity-70 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <span class="inline-flex items-center gap-1" title="Suppliers total">
+              {% icon "sigma" class="h-3.5 w-3.5" %} £{{ deal.funded_amount|floatformat:2|intcomma }}
+            </span>
+            {% if deal.deposit %}
+              <span class="inline-flex items-center gap-1" title="Deposit">
+                {% icon "banknote-arrow-up" class="h-3.5 w-3.5" %} £{{ deal.deposit|floatformat:2|intcomma }}
+              </span>
+            {% endif %}
+            {% if deal.balloon %}
+              <span class="inline-flex items-center gap-1" title="Balloon">
+                {% icon "balloon" class="h-3.5 w-3.5" %} £{{ deal.balloon|floatformat:2|intcomma }}
+              </span>
+            {% endif %}
+          </p>
+        {% endif %}
         {% if commission_display %}<p class="text-sm opacity-70">{{ commission_display }} commission</p>{% endif %}
       </div>
     </div>
@@ -97,23 +114,6 @@ layout (main content left, amount + timeline right).
             {% empty %}
               <tr><td colspan="4" class="opacity-60">No suppliers yet.</td></tr>
             {% endfor %}
-            {% if deal.funded_amount is not None %}
-              <tr class="opacity-70">
-                <td>Deposit</td>
-                <td class="font-medium whitespace-nowrap">{% if deal.deposit %}−£{{ deal.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td colspan="2"></td>
-              </tr>
-              <tr class="opacity-70">
-                <td>Balloon</td>
-                <td class="font-medium whitespace-nowrap">{% if deal.balloon %}−£{{ deal.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td colspan="2"></td>
-              </tr>
-              <tr class="font-semibold border-t">
-                <td>Finance amount</td>
-                <td class="whitespace-nowrap">£{{ deal.finance_amount|floatformat:2|intcomma }}</td>
-                <td colspan="2"></td>
-              </tr>
-            {% endif %}
           </tbody>
         </table>
         <a href="{% url 'crm:participation_create' %}?deal={{ deal.pk }}"
