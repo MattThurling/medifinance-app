@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
+<body style="margin:0; padding:0; background:#f3f4f6; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6; padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px; background:#ffffff; border-radius:12px; overflow:hidden;">
+          <tr>
+            <td style="padding:24px 32px; border-bottom:1px solid #e5e7eb;">
+              <strong style="font-size:18px;">Medifinance</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;">{{ requested_by }} has requested a commission invoice for the deal below.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px; font-size:14px;">
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Deal</td><td style="padding:4px 0;"><strong>{{ deal_name }}</strong></td></tr>
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Customer</td><td style="padding:4px 0;">{{ customer_name }}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Client</td><td style="padding:4px 0;">{{ client_org_name }}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Lender</td><td style="padding:4px 0;">{{ lender_org_name }}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Proposal #</td><td style="padding:4px 0;">{{ proposal_number }}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Finance</td><td style="padding:4px 0;">{{ finance_amount_display }}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Commission</td><td style="padding:4px 0;">{{ commission_display }}</td></tr>
+              </table>
+              <p style="margin:0 0 24px;">
+                <a href="{{ deal_url }}"
+                   style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600;">
+                  Open the deal
+                </a>
+              </p>
+              <p style="margin:0; font-size:13px; word-break:break-all;">
+                <a href="{{ deal_url }}" style="color:#2563eb;">{{ deal_url }}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

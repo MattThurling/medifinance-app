@@ -238,6 +238,12 @@ NOTIFY_EMAILS = [
     e.strip() for e in os.getenv("NOTIFY_EMAILS", "mnthurling@gmail.com").split(",") if e.strip()
 ]
 
+# Comma-separated list of accounts addresses notified when staff request a
+# commission invoice from a deal.
+ACCOUNTS_EMAILS = [
+    e.strip() for e in os.getenv("ACCOUNTS_EMAILS", "mnthurling@gmail.com").split(",") if e.strip()
+]
+
 if EMAIL_HOST_PASSWORD:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 else:

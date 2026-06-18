@@ -133,6 +133,44 @@ def send_supplier_invoice_submitted_email(
     message.send()
 
 
+def send_commission_invoice_request_email(
+    *,
+    deal_name: str,
+    deal_url: str,
+    customer_name: str,
+    client_org_name: str,
+    lender_org_name: str,
+    proposal_number: str,
+    finance_amount_display: str,
+    commission_display: str,
+    requested_by: str,
+) -> None:
+    """Tell the ACCOUNTS_EMAILS list to raise a commission invoice for a deal."""
+    context = {
+        "deal_name": deal_name,
+        "deal_url": deal_url,
+        "customer_name": customer_name,
+        "client_org_name": client_org_name,
+        "lender_org_name": lender_org_name,
+        "proposal_number": proposal_number,
+        "finance_amount_display": finance_amount_display,
+        "commission_display": commission_display,
+        "requested_by": requested_by,
+    }
+    subject = f"Commission invoice request: {deal_name}"
+    text_body = render_to_string("email/commission_invoice_request.txt", context)
+    html_body = render_to_string("email/commission_invoice_request.html", context)
+
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=settings.ACCOUNTS_EMAILS,
+    )
+    message.attach_alternative(html_body, "text/html")
+    message.send()
+
+
 def send_supplier_invoice_request_email(
     *,
     to_email: str,

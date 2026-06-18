@@ -1121,6 +1121,50 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
         return redirect(participation.deal.get_absolute_url())
 
 
+class RequestDealCommissionInvoiceView(StaffRequiredMixin, View):
+    """Staff: notify the ACCOUNTS_EMAILS list to raise a commission invoice for
+    this deal. Requires a selected Proposal so the email names the lender."""
+
+    def post(self, request, pk):
+        deal = get_object_or_404(
+            Deal.objects.select_related(
+                "organisation", "customer",
+                "selected_proposal", "selected_proposal__lender",
+            ),
+            pk=pk,
+        )
+
+        selected = deal.selected_proposal
+        if selected is None:
+            messages.error(
+                request,
+                "Select a Proposal on this deal before requesting a commission invoice.",
+            )
+            return redirect(deal.get_absolute_url())
+
+        finance = deal.finance_amount
+        finance_display = f"£{finance:,.2f}" if finance is not None else "—"
+        commission_display = (
+            f"£{deal.commission:,.2f}" if deal.commission is not None else "—"
+        )
+
+        from accounts.emails import send_commission_invoice_request_email
+        send_commission_invoice_request_email(
+            deal_name=deal.name,
+            deal_url=request.build_absolute_uri(deal.get_absolute_url()),
+            customer_name=str(deal.customer),
+            client_org_name=deal.organisation.name if deal.organisation else "—",
+            lender_org_name=selected.lender.name,
+            proposal_number=selected.proposal_number or "—",
+            finance_amount_display=finance_display,
+            commission_display=commission_display,
+            requested_by=request.user.full_name,
+        )
+
+        messages.success(request, "Commission invoice request sent to accounts.")
+        return redirect(deal.get_absolute_url())
+
+
 class SubmitParticipationInvoiceView(View):
     """Public — the supplier follows the email link, lands here, and uploads
     their invoice. The token is the auth; no login required."""

@@ -1,0 +1,15 @@
+{{ requested_by }} has requested a commission invoice for the deal below.
+
+Deal:       {{ deal_name }}
+Customer:   {{ customer_name }}
+Client:     {{ client_org_name }}
+Lender:     {{ lender_org_name }}
+Proposal #: {{ proposal_number }}
+Finance:    {{ finance_amount_display }}
+Commission: {{ commission_display }}
+
+View it in the CRM:
+
+{{ deal_url }}
+
+Medifinance

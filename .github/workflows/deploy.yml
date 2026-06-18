@@ -127,6 +127,11 @@ jobs:
           # Override with the NOTIFY_EMAILS repo variable; default matches settings.py.
           ENVVARS="${ENVVARS}|NOTIFY_EMAILS=${{ vars.NOTIFY_EMAILS || 'mnthurling@gmail.com' }}"
 
+          # Accounts addresses notified when staff request a commission invoice
+          # (comma-separated). Override with the ACCOUNTS_EMAILS repo variable;
+          # default matches settings.py.
+          ENVVARS="${ENVVARS}|ACCOUNTS_EMAILS=${{ vars.ACCOUNTS_EMAILS || 'mnthurling@gmail.com' }}"
+
           gcloud run deploy "${{ steps.target.outputs.service }}" \
             --image "$IMAGE" \
             --region "$REGION" \
