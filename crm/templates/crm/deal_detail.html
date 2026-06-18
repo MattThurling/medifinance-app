@@ -277,7 +277,7 @@ layout (main content left, amount + timeline right).
           </thead>
           <tbody>
             {% for p in deal.proposals.all %}
-              <tr>
+              <tr {% if deal.selected_proposal_id == p.pk %}class="bg-primary/10"{% endif %}>
                 <td>
                   <a href="{{ p.lender.get_absolute_url }}" class="link link-hover">{{ p.lender.name }}</a>
                   {% if p.contact %} · <a href="{{ p.contact.get_absolute_url }}" class="link link-hover">{{ p.contact }}</a>{% endif %}
@@ -285,6 +285,13 @@ layout (main content left, amount + timeline right).
                 <td>{{ p.get_status_display }}</td>
                 <td class="opacity-70">{{ p.proposal_number|default:"—" }}</td>
                 <td class="text-right whitespace-nowrap">
+                  <form method="post" action="{% url 'crm:proposal_select' p.pk %}" class="inline align-middle">
+                    {% csrf_token %}
+                    <input type="radio" name="selected_proposal" class="radio radio-xs radio-primary align-middle"
+                           {% if deal.selected_proposal_id == p.pk %}checked{% endif %}
+                           onchange="this.form.submit()"
+                           title="Mark as selected proposal" aria-label="Mark as selected proposal" />
+                  </form>
                   <a href="{% url 'crm:proposal_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit proposal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
                 </td>
               </tr>

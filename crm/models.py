@@ -194,6 +194,14 @@ class Deal(TimestampedModel):
         blank=True,
         related_name="+",
     )
+    # The proposal staff has chosen to run with (typically the approved one).
+    selected_proposal = models.ForeignKey(
+        "Proposal",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     # People applying alongside the primary customer (e.g. partners, directors)
     co_applicants = models.ManyToManyField(
         Contact,

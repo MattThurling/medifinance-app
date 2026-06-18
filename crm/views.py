@@ -887,6 +887,15 @@ class StageCreateView(StaffRequiredMixin, CreateView):
 # Proposals are managed in the context of a parent Deal (the broker shops the
 # deal to many lenders), same shape as Quote — no separate list/detail page.
 
+class ProposalSelectView(StaffRequiredMixin, View):
+    """Set `Deal.selected_proposal` from a radio button on the deal detail page."""
+
+    def post(self, request, pk):
+        proposal = get_object_or_404(Proposal.objects.select_related("deal"), pk=pk)
+        Deal.objects.filter(pk=proposal.deal_id).update(selected_proposal=proposal)
+        return redirect(proposal.deal.get_absolute_url())
+
+
 class ProposalCreateView(StaffRequiredMixin, CreateView):
     """Create a proposal. Requires `?deal=<pk>` — the deal is set from URL, not the form."""
 
