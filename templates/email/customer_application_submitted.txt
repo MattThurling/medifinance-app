@@ -1,0 +1,12 @@
+A customer has completed their portal application.
+
+Deal:         {{ deal_name }}
+Customer:     {{ customer_name }} <{{ customer_email }}>
+Organisation: {{ organisation_name }}{% if amount_display %}
+Amount:       {{ amount_display }}{% endif %}
+
+View it in the CRM:
+
+{{ deal_url }}
+
+Medifinance

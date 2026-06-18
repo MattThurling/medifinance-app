@@ -1,0 +1,13 @@
+A supplier has uploaded their invoice.
+
+Deal:     {{ deal_name }}
+Client:   {{ client_org_name }}
+Supplier: {{ supplier_name }}
+Amount:   {{ amount_display }}{% if invoice_number %}
+Invoice#: {{ invoice_number }}{% endif %}
+
+View it in the CRM:
+
+{{ deal_url }}
+
+Medifinance

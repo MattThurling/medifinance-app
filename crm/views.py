@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -47,6 +49,9 @@ from .models import (
     XeroConnection,
     XeroInvoice,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class SearchableListView(ListView):
@@ -728,6 +733,19 @@ class PortalApplicantsView(_PortalStepMixin, View):
                     set_by=request.user,
                     note="Customer completed application via portal.",
                 )
+                try:
+                    from accounts.emails import send_customer_application_submitted_email
+                    finance_amount = deal.finance_amount
+                    send_customer_application_submitted_email(
+                        deal_name=deal.name,
+                        deal_url=request.build_absolute_uri(deal.get_absolute_url()),
+                        customer_name=deal.customer.full_name,
+                        customer_email=deal.customer.email,
+                        organisation_name=deal.organisation.name if deal.organisation else "",
+                        amount_display=f"£{finance_amount:,.2f}" if finance_amount is not None else "",
+                    )
+                except Exception:
+                    logger.exception("Customer-application notification email failed for deal %s", deal.pk)
 
             return redirect("crm:portal_documents", pk=deal.pk)
         return self._render(request, deal, customer_form, co_formset)
@@ -1125,14 +1143,28 @@ class SubmitParticipationInvoiceView(View):
         if form.is_valid():
             form.save()
             link.consume(ip=self._client_ip(request))
+            participation = link.participation
+            deal = participation.deal
             Stage.objects.create(
-                deal=link.participation.deal,
+                deal=deal,
                 name=Stage.Name.INVOICE_RECEIVED,
-                organisation=link.participation.organisation,
+                organisation=participation.organisation,
                 # No set_by — the supplier isn't a logged-in user.
             )
+            try:
+                from accounts.emails import send_supplier_invoice_submitted_email
+                send_supplier_invoice_submitted_email(
+                    deal_name=deal.name,
+                    deal_url=request.build_absolute_uri(deal.get_absolute_url()),
+                    supplier_name=participation.organisation.name if participation.organisation else "",
+                    client_org_name=deal.organisation.name if deal.organisation else "",
+                    amount_display=f"£{participation.amount:,.2f}",
+                    invoice_number=participation.invoice_number or "",
+                )
+            except Exception:
+                logger.exception("Supplier-invoice notification email failed for participation %s", participation.pk)
             return render(request, self.complete_template_name,
-                          {"participation": link.participation})
+                          {"participation": participation})
         return render(request, self.template_name,
                       {"form": form, "link": link, "participation": link.participation})
 

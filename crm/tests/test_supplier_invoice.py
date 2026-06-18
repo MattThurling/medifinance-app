@@ -7,6 +7,7 @@ entire security surface."""
 import tempfile
 from datetime import timedelta
 
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -22,7 +23,7 @@ from .factories import (
 )
 
 
-@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(), NOTIFY_EMAILS=["staff@medi-finance.co.uk"])
 class SupplierInvoiceSubmitTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -88,6 +89,23 @@ class SupplierInvoiceSubmitTests(TestCase):
         )
         latest = Stage.objects.filter(deal=self.deal).order_by("-occurred_at", "-pk").first()
         self.assertEqual(latest.name, Stage.Name.INVOICE_RECEIVED)
+
+    def test_valid_post_notifies_staff(self):
+        link = self._issue_link()
+        self.client.post(
+            self._url(link.token),
+            {
+                "invoice_number": "INV-007",
+                "invoice": SimpleUploadedFile("inv.pdf", b"%PDF-INV", content_type="application/pdf"),
+            },
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, ["staff@medi-finance.co.uk"])
+        self.assertIn("Client Co", message.subject)
+        self.assertIn("Acme Supplies", message.body)
+        self.assertIn("INV-007", message.body)
+        self.assertIn(self.deal.get_absolute_url(), message.body)
 
     def test_consumed_token_cannot_be_reused_for_post(self):
         link = self._issue_link()
