@@ -1278,7 +1278,7 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         if not doc.file:
             raise Http404("No file has been uploaded for this document yet.")
         filename = doc.file.name.rsplit("/", 1)[-1]
-        return FileResponse(doc.file.open("rb"), as_attachment=True, filename=filename)
+        return FileResponse(doc.file.open("rb"), as_attachment=False, filename=filename)
 
 
 class PortalDocumentsView(_PortalStepMixin, View):
