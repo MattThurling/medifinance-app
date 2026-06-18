@@ -143,7 +143,7 @@ layout (main content left, amount + timeline right).
           </thead>
           <tbody>
             {% for q in deal.quotes.all %}
-              <tr>
+              <tr {% if deal.selected_quote_id == q.pk %}class="bg-primary/10"{% endif %}>
                 <td>{{ q.term }} m</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
@@ -151,6 +151,13 @@ layout (main content left, amount + timeline right).
                 <td class="opacity-70 hidden md:table-cell">{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="text-right whitespace-nowrap">
+                  <form method="post" action="{% url 'crm:quote_select' q.pk %}" class="inline align-middle">
+                    {% csrf_token %}
+                    <input type="radio" name="selected_quote" class="radio radio-xs radio-primary align-middle"
+                           {% if deal.selected_quote_id == q.pk %}checked{% endif %}
+                           onchange="this.form.submit()"
+                           title="Mark as selected quote" aria-label="Mark as selected quote" />
+                  </form>
                   <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
                   <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
                     {% csrf_token %}

@@ -37,6 +37,7 @@ urlpatterns = [
     path("quotes/new/", views.QuoteCreateView.as_view(), name="quote_create"),
     path("quotes/<int:pk>/edit/", views.QuoteUpdateView.as_view(), name="quote_update"),
     path("quotes/<int:pk>/delete/", views.QuoteDeleteView.as_view(), name="quote_delete"),
+    path("quotes/<int:pk>/select/", views.QuoteSelectView.as_view(), name="quote_select"),
 
     # Stages — append-only event log per deal
     path("stages/new/", views.StageCreateView.as_view(), name="stage_create"),

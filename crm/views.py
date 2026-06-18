@@ -828,6 +828,16 @@ class QuoteDeleteView(StaffRequiredMixin, DeleteView):
         return self.object.deal.get_absolute_url()
 
 
+class QuoteSelectView(StaffRequiredMixin, View):
+    """Staff equivalent of the portal quote-pick step — sets `Deal.selected_quote`
+    from a radio button on the deal detail page."""
+
+    def post(self, request, pk):
+        quote = get_object_or_404(Quote.objects.select_related("deal"), pk=pk)
+        Deal.objects.filter(pk=quote.deal_id).update(selected_quote=quote)
+        return redirect(quote.deal.get_absolute_url())
+
+
 # --- Stage -----------------------------------------------------------------
 # Stages are an immutable event log — only Create. To "undo" a stage change,
 # just add another stage event with the previous value.
