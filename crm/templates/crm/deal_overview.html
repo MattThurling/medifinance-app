@@ -1,0 +1,199 @@
+{% extends "_app_layout.html" %}
+{% load icons humanize %}
+
+{% block title %}Overview · {{ deal.name }}{% endblock %}
+
+{% block content %}
+{% comment %}
+Plain, label/value layout — one fact per row so staff can triple-click any
+value and paste it straight into an email. Empty fields render as "—" rather
+than being hidden, so the structure stays predictable.
+{% endcomment %}
+<div class="max-w-3xl space-y-8">
+
+  <div>
+    <p class="text-xs uppercase tracking-widest opacity-50">Deal overview</p>
+    <div class="flex items-center gap-2 mt-1">
+      <h1 class="text-3xl font-semibold">{{ deal.name }}</h1>
+      <a href="{% url 'crm:deal_detail' deal.pk %}" class="btn btn-ghost btn-xs">Back</a>
+    </div>
+  </div>
+
+  {# ---- Deal ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Deal</h2>
+    <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+      <dt class="opacity-60">Name</dt>                <dd>{{ deal.name }}</dd>
+      <dt class="opacity-60">Owner</dt>               <dd>{{ deal.owner.full_name|default:"—" }}</dd>
+      <dt class="opacity-60">Lead</dt>                <dd>{{ deal.customer }}</dd>
+      <dt class="opacity-60">Organisation</dt>        <dd>{% if deal.organisation %}{{ deal.organisation.name }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Introducer</dt>          <dd>{% if deal.introducer %}{{ deal.introducer.name }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Current stage</dt>       <dd>{% if deal.current_stage %}{{ deal.current_stage.get_name_display }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Created</dt>             <dd>{{ deal.created_at|date:"j M Y" }}</dd>
+      {% if deal.hubspot_url %}
+        <dt class="opacity-60">HubSpot</dt>           <dd><a href="{{ deal.hubspot_url }}" target="_blank" rel="noopener" class="link link-hover">{{ deal.hubspot_id }}</a></dd>
+      {% endif %}
+    </dl>
+  </section>
+
+  {# ---- Lead contact ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Lead contact</h2>
+    <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+      <dt class="opacity-60">First name</dt>          <dd>{{ deal.customer.first_name|default:"—" }}</dd>
+      <dt class="opacity-60">Last name</dt>           <dd>{{ deal.customer.last_name|default:"—" }}</dd>
+      <dt class="opacity-60">Email</dt>               <dd>{{ deal.customer.email|default:"—" }}</dd>
+      <dt class="opacity-60">Phone</dt>               <dd>{{ deal.customer.phone|default:"—" }}</dd>
+      <dt class="opacity-60">Date of birth</dt>       <dd>{% if deal.customer.date_of_birth %}{{ deal.customer.date_of_birth|date:"j M Y" }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Address line 1</dt>      <dd>{{ deal.customer.home_address_line1|default:"—" }}</dd>
+      <dt class="opacity-60">Address line 2</dt>      <dd>{{ deal.customer.home_address_line2|default:"—" }}</dd>
+      <dt class="opacity-60">City</dt>                <dd>{{ deal.customer.home_address_city|default:"—" }}</dd>
+      <dt class="opacity-60">County</dt>              <dd>{{ deal.customer.home_address_county|default:"—" }}</dd>
+      <dt class="opacity-60">Postcode</dt>            <dd>{{ deal.customer.home_address_postcode|default:"—" }}</dd>
+    </dl>
+  </section>
+
+  {# ---- Organisation ---- #}
+  {% if deal.organisation %}
+    {% with org=deal.organisation %}
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Organisation</h2>
+        <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+          <dt class="opacity-60">Name</dt>              <dd>{{ org.name }}</dd>
+          <dt class="opacity-60">Legal name</dt>        <dd>{{ org.legal_name|default:"—" }}</dd>
+          <dt class="opacity-60">Trading name</dt>      <dd>{{ org.trading_name|default:"—" }}</dd>
+          <dt class="opacity-60">Companies House #</dt> <dd>{{ org.companies_house_number|default:"—" }}</dd>
+          <dt class="opacity-60">Address line 1</dt>    <dd>{{ org.address_line1|default:"—" }}</dd>
+          <dt class="opacity-60">Address line 2</dt>    <dd>{{ org.address_line2|default:"—" }}</dd>
+          <dt class="opacity-60">City</dt>              <dd>{{ org.address_city|default:"—" }}</dd>
+          <dt class="opacity-60">County</dt>            <dd>{{ org.address_county|default:"—" }}</dd>
+          <dt class="opacity-60">Postcode</dt>          <dd>{{ org.address_postcode|default:"—" }}</dd>
+        </dl>
+      </section>
+    {% endwith %}
+  {% endif %}
+
+  {# ---- Financials ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Financials</h2>
+    <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+      <dt class="opacity-60">Funded amount</dt>       <dd>{% if deal.funded_amount is not None %}£{{ deal.funded_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Deposit</dt>             <dd>{% if deal.deposit is not None %}£{{ deal.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Balloon</dt>             <dd>{% if deal.balloon is not None %}£{{ deal.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Asset finance</dt>       <dd>{% if deal.finance_amount is not None %}£{{ deal.finance_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Commission</dt>          <dd>{% if deal.commission is not None %}£{{ deal.commission|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Earnings</dt>            <dd>{% if deal.earnings is not None %}£{{ deal.earnings|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Document fee</dt>        <dd>{% if deal.document_fee is not None %}£{{ deal.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Flat fee</dt>            <dd>{% if deal.flat_fee is not None %}£{{ deal.flat_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+    </dl>
+  </section>
+
+  {# ---- Selected quote ---- #}
+  {% if deal.selected_quote %}
+    {% with q=deal.selected_quote %}
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Selected quote</h2>
+        <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+          <dt class="opacity-60">Lender</dt>            <dd>{% if q.rate %}{{ q.rate.organisation.name }}{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Term</dt>              <dd>{{ q.term }} months</dd>
+          <dt class="opacity-60">Yield</dt>             <dd>{% if q.rate %}{{ q.rate.yield_percent }}%{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Commission %</dt>      <dd>{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">APR</dt>               <dd>{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Flat rate</dt>         <dd>{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Monthly payment</dt>   <dd>{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+        </dl>
+      </section>
+    {% endwith %}
+  {% endif %}
+
+  {# ---- Quotes ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Quotes</h2>
+    {% for q in deal.quotes.all %}
+      <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5 mb-4">
+        <dt class="opacity-60">Quote {{ forloop.counter }}</dt>
+        <dd>
+          {{ q.term }} months
+          {% if q.rate %} · {{ q.rate.organisation.name }} @ {{ q.rate.yield_percent }}%{% endif %}
+          {% if q.monthly_payment is not None %} · £{{ q.monthly_payment|floatformat:2|intcomma }}/month{% endif %}
+          {% if deal.selected_quote_id == q.pk %} · (selected){% endif %}
+        </dd>
+      </dl>
+    {% empty %}
+      <p class="text-sm opacity-60">No quotes yet.</p>
+    {% endfor %}
+  </section>
+
+  {# ---- Suppliers ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Suppliers</h2>
+    {% for p in deal.participations.all %}
+      <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5 mb-4">
+        <dt class="opacity-60">Supplier</dt>            <dd>{% if p.organisation %}{{ p.organisation.name }}{% else %}—{% endif %}</dd>
+        <dt class="opacity-60">Amount</dt>              <dd>£{{ p.amount|floatformat:2|intcomma }}</dd>
+        <dt class="opacity-60">Invoice #</dt>           <dd>{{ p.invoice_number|default:"—" }}</dd>
+        {% if p.description %}
+          <dt class="opacity-60">Description</dt>       <dd>{{ p.description }}</dd>
+        {% endif %}
+      </dl>
+    {% empty %}
+      <p class="text-sm opacity-60">No suppliers yet.</p>
+    {% endfor %}
+  </section>
+
+  {# ---- Applicants ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Applicants</h2>
+    {% for a in applicants %}
+      <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5 mb-4">
+        <dt class="opacity-60">Name</dt>                <dd>{{ a.full_name|default:a }}</dd>
+        <dt class="opacity-60">Email</dt>               <dd>{{ a.email|default:"—" }}</dd>
+        <dt class="opacity-60">Phone</dt>               <dd>{{ a.phone|default:"—" }}</dd>
+        <dt class="opacity-60">Date of birth</dt>       <dd>{% if a.date_of_birth %}{{ a.date_of_birth|date:"j M Y" }}{% else %}—{% endif %}</dd>
+      </dl>
+    {% endfor %}
+  </section>
+
+  {# ---- Proposals ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Proposals</h2>
+    {% for p in deal.proposals.all %}
+      <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5 mb-4">
+        <dt class="opacity-60">Lender</dt>              <dd>{{ p.lender.name }}</dd>
+        <dt class="opacity-60">Contact</dt>             <dd>{% if p.contact %}{{ p.contact }}{% else %}—{% endif %}</dd>
+        <dt class="opacity-60">Status</dt>              <dd>{{ p.get_status_display }}</dd>
+        <dt class="opacity-60">Reference #</dt>         <dd>{{ p.proposal_number|default:"—" }}</dd>
+      </dl>
+    {% empty %}
+      <p class="text-sm opacity-60">No proposals yet.</p>
+    {% endfor %}
+  </section>
+
+  {# ---- Documents ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Documents</h2>
+    <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+      {% for d in deal.documents.all %}
+        <dt class="opacity-60">{% if d.is_provided %}Provided{% else %}Outstanding{% endif %}</dt>
+        <dd>{{ d.name }}</dd>
+      {% empty %}
+        <dt class="opacity-60">—</dt><dd class="opacity-60">No documents requested yet.</dd>
+      {% endfor %}
+    </dl>
+  </section>
+
+  {# ---- Stage history ---- #}
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Stage history</h2>
+    <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+      {% for s in stages_chrono %}
+        <dt class="opacity-60">{{ s.occurred_at|date:"j M Y" }}</dt>
+        <dd>{{ s.get_name_display }}{% if s.organisation %} · {{ s.organisation.name }}{% endif %}</dd>
+      {% empty %}
+        <dt class="opacity-60">—</dt><dd class="opacity-60">No stage events yet.</dd>
+      {% endfor %}
+    </dl>
+  </section>
+
+</div>
+{% endblock %}

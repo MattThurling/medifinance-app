@@ -28,6 +28,7 @@ urlpatterns = [
     path("deals/", views.DealListView.as_view(), name="deal_list"),
     path("deals/new/", views.DealCreateView.as_view(), name="deal_create"),
     path("deals/<int:pk>/", views.DealDetailView.as_view(), name="deal_detail"),
+    path("deals/<int:pk>/overview/", views.DealOverviewView.as_view(), name="deal_overview"),
     path("deals/<int:pk>/edit/", views.DealUpdateView.as_view(), name="deal_update"),
     path("deals/<int:pk>/delete/", views.DealDeleteView.as_view(), name="deal_delete"),
     path("deals/<int:pk>/applicants/add/", views.DealApplicantAddView.as_view(), name="deal_applicant_add"),

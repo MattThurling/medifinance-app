@@ -16,6 +16,9 @@ layout (main content left, amount + timeline right).
     <p class="text-xs uppercase tracking-widest opacity-50">Deal</p>
     <div class="flex items-center gap-2 mt-1">
       <h1 class="text-3xl font-semibold">{{ deal.name }}</h1>
+      <a href="{% url 'crm:deal_overview' deal.pk %}" class="btn btn-ghost btn-xs btn-square" title="Overview" aria-label="Overview">
+        {% icon "eye" class="h-4 w-4" %}
+      </a>
       <a href="{% url 'crm:deal_update' deal.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit deal" aria-label="Edit deal">
         {% icon "pencil" class="h-4 w-4" %}
       </a>

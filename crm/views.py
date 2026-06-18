@@ -316,6 +316,13 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         return ctx
 
 
+class DealOverviewView(DealDetailView):
+    """A read-only, plain-text-style summary of a deal — designed for staff to
+    copy individual fields out into emails or other tools."""
+
+    template_name = "crm/deal_overview.html"
+
+
 class _DealFormMixin:
     form_class = DealForm
 
