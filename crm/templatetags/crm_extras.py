@@ -2,11 +2,33 @@
 
 from __future__ import annotations
 
+import nh3
 from django import template
+from django.utils.safestring import SafeString, mark_safe
+from markdown_it import MarkdownIt
 
 from crm.models import Stage
 
 register = template.Library()
+
+# CommonMark + newlines-as-<br> + bare URLs auto-linked. Notes are written in
+# plain textareas (and converted from HubSpot HTML at import), so soft breaks
+# should be visible breaks.
+_md = MarkdownIt("commonmark", {"breaks": True, "linkify": True}).enable("linkify")
+
+
+@register.filter(name="markdown")
+def markdown(text: str | None) -> SafeString:
+    """Render Markdown to sanitized HTML (used for note content).
+
+    nh3 strips anything unsafe (scripts, event handlers, unknown tags) and
+    stamps links with the DaisyUI `link` class + target/rel so they open in
+    a new tab.
+    """
+    html = _md.render(text or "")
+    return mark_safe(
+        nh3.clean(html, set_tag_attribute_values={"a": {"class": "link", "target": "_blank"}})
+    )
 
 
 @register.filter(name="stage_display")

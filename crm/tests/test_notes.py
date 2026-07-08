@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crm.models import Note
+from crm.templatetags.crm_extras import markdown
 
 from .factories import make_associate, make_contact, make_deal, make_organisation
 
@@ -34,6 +35,47 @@ class NoteDisplayTests(TestCase):
             )
             response = self.client.get(obj.get_absolute_url())
             self.assertContains(response, f"Imported note about the {parent_field}.")
+
+
+class NoteMarkdownTests(TestCase):
+    """Note content is Markdown, rendered to sanitized HTML by the
+    `markdown` filter (crm_extras)."""
+
+    def test_markdown_link(self):
+        html = markdown("See the [quote](https://example.com/q.pdf).")
+        self.assertIn('<a href="https://example.com/q.pdf"', html)
+        self.assertIn('class="link"', html)
+        self.assertIn('target="_blank"', html)
+        self.assertIn("rel=", html)
+
+    def test_bare_url_is_auto_linked(self):
+        html = markdown("Call notes: https://example.com/call")
+        self.assertIn('<a href="https://example.com/call"', html)
+
+    def test_newlines_become_breaks(self):
+        self.assertIn("<br", markdown("line one\nline two"))
+
+    def test_unsafe_html_is_stripped(self):
+        html = markdown('<script>alert(1)</script> hi <b onclick="x">bold</b>')
+        self.assertNotIn("<script", html)
+        self.assertNotIn("onclick", html)
+        self.assertIn("<b>bold</b>", html)
+
+    def test_javascript_url_is_not_a_link(self):
+        self.assertNotIn("<a", markdown("[click](javascript:alert(1))"))
+
+    def test_note_link_renders_on_detail_page(self):
+        staff = make_associate()
+        deal = make_deal(owner=staff)
+        Note.objects.create(
+            type=Note.Type.HUBSPOT_EMAIL,
+            deal=deal,
+            content="Sent the [quote](https://example.com/q.pdf).",
+            datetime=timezone.now(),
+        )
+        self.client.force_login(staff)
+        response = self.client.get(deal.get_absolute_url())
+        self.assertContains(response, '<a href="https://example.com/q.pdf"')
 
 
 class NoteCreateTests(TestCase):

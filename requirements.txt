@@ -4,6 +4,11 @@ python-dotenv
 django-anymail[mailgun]
 requests
 
+# Note content: Markdown rendering + HTML sanitizing
+markdown-it-py
+linkify-it-py
+nh3
+
 # Production
 psycopg[binary]
 dj-database-url

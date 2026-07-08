@@ -1,4 +1,4 @@
-{% load icons %}
+{% load icons crm_extras %}
 {% comment %}
 Notes card — expects `notes` in context (a Note queryset, newest first), plus
 `note_parent_field` ("contact" / "organisation" / "deal") and `note_parent`
@@ -15,7 +15,8 @@ Shared by the contact, organisation and deal detail pages.
       <input type="hidden" name="{{ note_parent_field }}" value="{{ note_parent.pk }}" />
       <textarea name="content" required rows="2" class="textarea textarea-bordered w-full text-sm"
                 placeholder="Add a note…"></textarea>
-      <div class="flex justify-end mt-2">
+      <div class="flex items-center justify-between mt-2">
+        <p class="text-xs opacity-50">Supports Markdown — bare URLs become links.</p>
         <button type="submit" class="btn btn-sm">Add note</button>
       </div>
     </form>
@@ -28,7 +29,7 @@ Shared by the contact, organisation and deal detail pages.
               {% if n.author %}<span>· {{ n.author.full_name }}</span>{% endif %}
               <span class="badge badge-ghost badge-sm">{{ n.get_type_display }}</span>
             </div>
-            <p class="text-sm mt-1 whitespace-pre-line">{{ n.content }}</p>
+            <div class="text-sm mt-1 note-content">{{ n.content|markdown }}</div>
           </li>
         {% endfor %}
       </ul>

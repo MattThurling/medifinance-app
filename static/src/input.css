@@ -6,3 +6,14 @@
 
 @source "../../templates/**/*.html";
 @source "../../**/templates/**/*.html";
+
+/* Rendered note Markdown (crm/templates/crm/_notes.html). Preflight strips
+   list/blockquote styling, so restore just enough for readable notes. */
+.note-content ul { list-style: disc; padding-inline-start: 1.25rem; }
+.note-content ol { list-style: decimal; padding-inline-start: 1.25rem; }
+.note-content > * + * { margin-top: 0.5rem; }
+.note-content blockquote {
+  border-inline-start: 2px solid color-mix(in oklab, currentColor 25%, transparent);
+  padding-inline-start: 0.75rem;
+}
+.note-content code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.9em; }
