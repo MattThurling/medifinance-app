@@ -25,7 +25,7 @@ than being hidden, so the structure stays predictable.
     <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
       <dt class="opacity-60">Name</dt>                <dd>{{ deal.name }}</dd>
       <dt class="opacity-60">Owner</dt>               <dd>{{ deal.owner.full_name|default:"—" }}</dd>
-      <dt class="opacity-60">Lead</dt>                <dd>{{ deal.customer }}</dd>
+      <dt class="opacity-60">Lead</dt>                <dd>{{ deal.customer|default:"—" }}</dd>
       <dt class="opacity-60">Organisation</dt>        <dd>{% if deal.organisation %}{{ deal.organisation.name }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Introducer</dt>          <dd>{% if deal.introducer %}{{ deal.introducer.name }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Current stage</dt>       <dd>{% if deal.current_stage %}{{ deal.current_stage.get_name_display }}{% else %}—{% endif %}</dd>
@@ -37,9 +37,11 @@ than being hidden, so the structure stays predictable.
   </section>
 
   {# ---- Lead contact ---- #}
+  {% if deal.customer %}
   <section>
     <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Lead contact</h2>
     <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
+      <dt class="opacity-60">Title</dt>               <dd>{{ deal.customer.title|default:"—" }}</dd>
       <dt class="opacity-60">First name</dt>          <dd>{{ deal.customer.first_name|default:"—" }}</dd>
       <dt class="opacity-60">Last name</dt>           <dd>{{ deal.customer.last_name|default:"—" }}</dd>
       <dt class="opacity-60">Email</dt>               <dd>{{ deal.customer.email|default:"—" }}</dd>
@@ -52,6 +54,7 @@ than being hidden, so the structure stays predictable.
       <dt class="opacity-60">Postcode</dt>            <dd>{{ deal.customer.home_address_postcode|default:"—" }}</dd>
     </dl>
   </section>
+  {% endif %}
 
   {# ---- Organisation ---- #}
   {% if deal.organisation %}
@@ -63,6 +66,9 @@ than being hidden, so the structure stays predictable.
           <dt class="opacity-60">Legal name</dt>        <dd>{{ org.legal_name|default:"—" }}</dd>
           <dt class="opacity-60">Trading name</dt>      <dd>{{ org.trading_name|default:"—" }}</dd>
           <dt class="opacity-60">Companies House #</dt> <dd>{{ org.companies_house_number|default:"—" }}</dd>
+          <dt class="opacity-60">Website</dt>           <dd>{{ org.url|default:"—" }}</dd>
+          <dt class="opacity-60">Email</dt>             <dd>{{ org.email|default:"—" }}</dd>
+          <dt class="opacity-60">Phone</dt>             <dd>{{ org.phone|default:"—" }}</dd>
           <dt class="opacity-60">Address line 1</dt>    <dd>{{ org.address_line1|default:"—" }}</dd>
           <dt class="opacity-60">Address line 2</dt>    <dd>{{ org.address_line2|default:"—" }}</dd>
           <dt class="opacity-60">City</dt>              <dd>{{ org.address_city|default:"—" }}</dd>
@@ -85,6 +91,8 @@ than being hidden, so the structure stays predictable.
       <dt class="opacity-60">Earnings</dt>            <dd>{% if deal.earnings is not None %}£{{ deal.earnings|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Document fee</dt>        <dd>{% if deal.document_fee is not None %}£{{ deal.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Flat fee</dt>            <dd>{% if deal.flat_fee is not None %}£{{ deal.flat_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">First payment date</dt>  <dd>{% if deal.first_payment_date %}{{ deal.first_payment_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Repayment profile</dt>   <dd>{{ deal.repayment_profile|default:"—" }}</dd>
     </dl>
   </section>
 

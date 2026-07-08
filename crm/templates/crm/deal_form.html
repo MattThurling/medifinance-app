@@ -59,6 +59,12 @@
         {% include "_field.html" with field=form.document_fee %}
       </div>
 
+      <div class="divider text-xs opacity-60 mt-2 mb-2">Repayment</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.first_payment_date %}
+        {% include "_field.html" with field=form.repayment_profile %}
+      </div>
+
       <div class="card-actions justify-end mt-2">
         <a href="{% if parent_contact %}{{ parent_contact.get_absolute_url }}{% elif object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:deal_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
         <button type="submit" class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>

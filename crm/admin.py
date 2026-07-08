@@ -4,6 +4,7 @@ from .models import (
     Contact,
     Deal,
     Document,
+    Note,
     Organisation,
     Participation,
     Proposal,
@@ -26,12 +27,14 @@ class RateBandInline(admin.TabularInline):
 @admin.register(Organisation)
 class OrganisationAdmin(admin.ModelAdmin):
     inlines = [RateBandInline]
-    list_display = ("name", "companies_house_number", "hubspot_id", "created_at")
+    list_display = ("name", "companies_house_number", "email", "phone", "hubspot_id", "created_at")
     search_fields = (
         "name",
         "legal_name",
         "trading_name",
         "companies_house_number",
+        "email",
+        "phone",
         "hubspot_id",
     )
     readonly_fields = ("created_at", "updated_at")
@@ -115,6 +118,8 @@ class DealAdmin(admin.ModelAdmin):
                     "flat_fee",
                     "commission",
                     "document_fee",
+                    "first_payment_date",
+                    "repayment_profile",
                 ),
                 "description": (
                     "The deal's funded amount is the sum of its Participations "
@@ -197,3 +202,14 @@ class DocumentAdmin(admin.ModelAdmin):
     search_fields = ("name", "deal__name")
     autocomplete_fields = ("deal", "uploaded_by")
     readonly_fields = ("uploaded_at", "created_at", "updated_at")
+
+
+@admin.register(Note)
+class NoteAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "type", "contact", "organisation", "deal", "author", "datetime")
+    list_select_related = ("contact", "organisation", "deal", "author")
+    list_filter = ("type",)
+    date_hierarchy = "datetime"
+    search_fields = ("content", "hubspot_id", "contact__first_name", "contact__last_name", "organisation__name", "deal__name")
+    autocomplete_fields = ("contact", "organisation", "deal", "author")
+    readonly_fields = ("created_at", "updated_at")

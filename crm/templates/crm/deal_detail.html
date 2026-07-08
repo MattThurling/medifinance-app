@@ -37,10 +37,16 @@ layout (main content left, amount + timeline right).
     </p>
 
     <div class="mt-5 text-sm space-y-1">
-      <p>Lead: <a href="{{ deal.customer.get_absolute_url }}" class="link link-hover">{{ deal.customer }}</a></p>
+      <p>Lead: {% if deal.customer %}<a href="{{ deal.customer.get_absolute_url }}" class="link link-hover">{{ deal.customer }}</a>{% else %}<span class="opacity-60 italic">not set</span>{% endif %}</p>
       <p>Owner: {{ deal.owner.full_name }}</p>
       {% if deal.introducer %}
         <p>Introducer: <a href="{{ deal.introducer.get_absolute_url }}" class="link link-hover">{{ deal.introducer.name }}</a></p>
+      {% endif %}
+      {% if deal.first_payment_date %}
+        <p>First payment: {{ deal.first_payment_date|date:"j M Y" }}</p>
+      {% endif %}
+      {% if deal.repayment_profile %}
+        <p>Repayment profile: {{ deal.repayment_profile }}</p>
       {% endif %}
     </div>
   </div>
@@ -350,6 +356,7 @@ layout (main content left, amount + timeline right).
 
   {# ---- Primary CTA ---- #}
   <div class="lg:col-start-1 lg:col-span-2 lg:row-start-3 space-y-4">
+    {% if deal.customer %}
     <div>
       <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}">
         {% csrf_token %}
@@ -362,6 +369,7 @@ layout (main content left, amount + timeline right).
         <button type="submit" class="link link-hover text-xs opacity-60">or generate a link to send manually</button>
       </form>
     </div>
+    {% endif %}
 
     {# Xero invoices raised against this deal #}
     <div class="card bg-base-100 shadow w-full">

@@ -31,6 +31,9 @@
         <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
       {% endif %}
 
+      <div class="max-w-xs">
+        {% include "_field.html" with field=form.title %}
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
         {% include "_field.html" with field=form.first_name %}
         {% include "_field.html" with field=form.last_name %}

@@ -64,13 +64,17 @@ class OrganisationForm(DaisyUIFormMixin, forms.ModelForm):
             "address_city",
             "address_county",
             "address_postcode",
+            "url",
+            "email",
+            "phone",
         ]
+        labels = {"url": "Website"}
 
 
 class ContactForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Contact
-        fields = ["first_name", "last_name", "email", "phone", "organisations"]
+        fields = ["title", "first_name", "last_name", "email", "phone", "organisations"]
 
     def selected_organisations(self):
         """Orgs to render as chips on the form. On a bound (POSTed) form we
@@ -107,7 +111,15 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
             "flat_fee",
             "commission",
             "document_fee",
+            "first_payment_date",
+            "repayment_profile",
         ]
+        widgets = {
+            "first_payment_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        }
+        help_texts = {
+            "repayment_profile": "e.g. monthly, quarterly, balloon",
+        }
 
     def __init__(self, *args, current_user=None, **kwargs):
         super().__init__(*args, **kwargs)

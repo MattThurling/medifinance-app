@@ -19,6 +19,21 @@
         <span class="opacity-60">Company #</span><a href="{{ organisation.companies_house_url }}" target="_blank" rel="noopener" class="link link-hover">{{ organisation.companies_house_number }}</a>
       </p>
     {% endif %}
+    {% if organisation.url %}
+      <p class="text-sm mt-1">
+        <span class="opacity-60">Website</span> <a href="{{ organisation.url }}" target="_blank" rel="noopener" class="link link-hover">{{ organisation.url }}</a>
+      </p>
+    {% endif %}
+    {% if organisation.email %}
+      <p class="text-sm mt-1">
+        <span class="opacity-60">Email</span> <a href="mailto:{{ organisation.email }}" class="link link-hover">{{ organisation.email }}</a>
+      </p>
+    {% endif %}
+    {% if organisation.phone %}
+      <p class="text-sm mt-1">
+        <span class="opacity-60">Phone</span> {{ organisation.phone }}
+      </p>
+    {% endif %}
   </div>
   <div class="flex gap-2 shrink-0">
     <a href="{% url 'crm:organisation_update' organisation.pk %}" class="btn btn-sm">Edit</a>

@@ -20,6 +20,8 @@
     <div class="card-body">
       <h2 class="card-title text-base">Details</h2>
       <dl class="grid grid-cols-3 gap-y-2 text-sm mt-2">
+        <dt class="opacity-60">Title</dt>
+        <dd class="col-span-2">{{ contact.title|default:"—" }}</dd>
         <dt class="opacity-60">Email</dt>
         <dd class="col-span-2">{{ contact.email|default:"—" }}</dd>
         <dt class="opacity-60">Phone</dt>

@@ -37,6 +37,13 @@
         {% include "_field.html" with field=form.address_postcode %}
       </div>
 
+      <div class="divider text-xs opacity-60 mt-2 mb-2">Contact details</div>
+      {% include "_field.html" with field=form.url %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.email %}
+        {% include "_field.html" with field=form.phone %}
+      </div>
+
       <div class="card-actions justify-end mt-2">
         <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:organisation_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
         <button type="submit" class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>

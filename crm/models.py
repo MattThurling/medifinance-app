@@ -53,6 +53,14 @@ class Organisation(TimestampedModel):
     address_county = models.CharField("County", max_length=100, blank=True, help_text="Optional")
     address_postcode = models.CharField("Postcode", max_length=10, blank=True)
 
+    url = models.URLField(max_length=255, blank=True, help_text="Homepage / website URL.")
+    email = models.EmailField(
+        blank=True,
+        help_text="Shared / role inbox for the organisation (e.g. info@, reception@). "
+                  "Contacts may share this address.",
+    )
+    phone = models.CharField(max_length=32, blank=True, help_text="Main phone number for the organisation.")
+
     hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
 
     class Meta:
@@ -92,6 +100,7 @@ class Organisation(TimestampedModel):
 
 
 class Contact(TimestampedModel):
+    title = models.CharField(max_length=20, blank=True, help_text="Honorific (Dr, Prof, Mrs …). Optional.")
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     email = models.EmailField(blank=True)
@@ -156,6 +165,10 @@ class Deal(TimestampedModel):
         Contact,
         on_delete=models.PROTECT,
         related_name="deals",
+        null=True,
+        blank=True,
+        help_text="Nullable — some commercial / historical deals genuinely have "
+                  "no individual customer, only an organisation.",
     )
     organisation = models.ForeignKey(
         Organisation,
@@ -185,6 +198,16 @@ class Deal(TimestampedModel):
     # below = funded_amount - deposit - balloon.
     deposit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     balloon = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    first_payment_date = models.DateField(
+        null=True, blank=True,
+        help_text="Date the first repayment falls due.",
+    )
+    repayment_profile = models.CharField(
+        max_length=100, blank=True,
+        help_text="Free-text repayment profile (e.g. monthly, quarterly, balloon). "
+                  "May be structured later.",
+    )
 
     # Customer's chosen quote, picked via the portal application
     selected_quote = models.ForeignKey(
@@ -416,10 +439,14 @@ class Stage(TimestampedModel):
         INFO_RECEIVED = "info_received", "Info Received"
         PROPOSAL_SUBMITTED = "proposal_submitted", "Proposal Submitted"
         PROPOSAL_APPROVED = "proposal_approved", "Proposal Approved"
-        PROPOSAL_DECLINED = "proposal_declined", "Proposal Declined"
-        PROPOSAL_WITHDRAWN = "proposal_withdrawn", "Proposal Withdrawn"
+        DOCUMENTS_OUT = "documents_out", "Documents Out"
+        AWAITING_PAYOUT = "awaiting_payout", "Awaiting Payout"
+        DEAL_LIVE = "deal_live", "Deal Live"
+        COMMISSION_INVOICE_REQUESTED = "commission_invoice_requested", "Commission Invoice Requested"
         INVOICE_REQUESTED = "invoice_requested", "Invoice Requested"
         INVOICE_RECEIVED = "invoice_received", "Invoice Received"
+        PROPOSAL_DECLINED = "proposal_declined", "Proposal Declined"
+        PROPOSAL_WITHDRAWN = "proposal_withdrawn", "Proposal Withdrawn"
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="stage_events")
     name = models.CharField(max_length=32, choices=Name.choices)
@@ -768,3 +795,40 @@ class Document(TimestampedModel):
         self.uploaded_at = timezone.now()
         self.uploaded_by = by
         self.save()
+
+
+class Note(TimestampedModel):
+    """A note attached to a contact, organisation and/or deal.
+
+    Initially used to port notes and logged emails from HubSpot; `datetime`
+    holds when the note was originally written (not when it was imported)."""
+
+    class Type(models.TextChoices):
+        HUBSPOT_NOTE = "hubspot_note", "HubSpot note"
+        HUBSPOT_EMAIL = "hubspot_email", "HubSpot email"
+        HUBSPOT_MIGRATION_COMMENT = "hubspot_migration_comment", "HubSpot migration comment"
+        ADMIN_COMMENT = "admin_comment", "Admin comment"
+
+    type = models.CharField(max_length=32, choices=Type.choices)
+
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, null=True, blank=True, related_name="notes")
+    organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE, null=True, blank=True, related_name="notes")
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, null=True, blank=True, related_name="notes")
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notes",
+    )
+    content = models.TextField()
+    datetime = models.DateTimeField(db_index=True, help_text="When the note was originally written or the email sent.")
+
+    hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
+
+    class Meta:
+        ordering = ["-datetime"]
+
+    def __str__(self) -> str:
+        return f"{self.get_type_display()} — {self.datetime:%Y-%m-%d %H:%M}"
