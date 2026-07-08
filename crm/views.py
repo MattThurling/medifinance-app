@@ -110,6 +110,7 @@ class OrganisationDetailView(StaffRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx["contacts"] = self.object.contacts.all()
         ctx["deals"] = Deal.objects.filter(organisation=self.object).select_related("owner", "customer")
+        ctx["notes"] = self.object.notes.select_related("author")
         return ctx
 
 
@@ -158,6 +159,7 @@ class ContactDetailView(StaffRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["deals"] = self.object.deals.select_related("owner").all()
+        ctx["notes"] = self.object.notes.select_related("author")
         return ctx
 
 
@@ -313,6 +315,8 @@ class DealDetailView(StaffRequiredMixin, DetailView):
 
         if deal.commission is not None:
             ctx["commission_display"] = f"£{deal.commission:,.2f}"
+
+        ctx["notes"] = deal.notes.select_related("author")
         return ctx
 
 

@@ -1,0 +1,28 @@
+{% load icons %}
+{% comment %}
+Notes card — expects `notes` in context (a Note queryset, newest first).
+Shared by the contact, organisation and deal detail pages.
+{% endcomment %}
+<div class="card bg-base-100 shadow w-full">
+  <div class="card-body">
+    <h2 class="card-title text-base flex items-center gap-2">
+      {% icon "sticky-note" class="h-5 w-5 opacity-70" %} Notes
+    </h2>
+    {% if notes %}
+      <ul class="divide-y">
+        {% for n in notes %}
+          <li class="py-3">
+            <div class="flex flex-wrap items-center gap-2 text-xs opacity-60">
+              <span>{{ n.datetime|date:"j M Y, H:i" }}</span>
+              {% if n.author %}<span>· {{ n.author.full_name }}</span>{% endif %}
+              <span class="badge badge-ghost badge-sm">{{ n.get_type_display }}</span>
+            </div>
+            <p class="text-sm mt-1 whitespace-pre-line">{{ n.content }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="opacity-60 text-sm">No notes yet.</p>
+    {% endif %}
+  </div>
+</div>

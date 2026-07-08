@@ -94,7 +94,7 @@
   </div>
 </div>
 
-<div class="card bg-base-100 shadow">
+<div class="card bg-base-100 shadow mb-6">
   <div class="card-body">
     <h2 class="card-title flex items-center gap-2">{% icon "handshake" %} Deals</h2>
     {% if deals %}
@@ -111,4 +111,6 @@
     {% endif %}
   </div>
 </div>
+
+{% include "crm/_notes.html" %}
 {% endblock %}
