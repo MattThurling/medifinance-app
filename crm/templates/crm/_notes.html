@@ -1,6 +1,8 @@
 {% load icons %}
 {% comment %}
-Notes card — expects `notes` in context (a Note queryset, newest first).
+Notes card — expects `notes` in context (a Note queryset, newest first), plus
+`note_parent_field` ("contact" / "organisation" / "deal") and `note_parent`
+(the object itself) for the add-note form.
 Shared by the contact, organisation and deal detail pages.
 {% endcomment %}
 <div class="card bg-base-100 shadow w-full">
@@ -8,6 +10,15 @@ Shared by the contact, organisation and deal detail pages.
     <h2 class="card-title text-base flex items-center gap-2">
       {% icon "sticky-note" class="h-5 w-5 opacity-70" %} Notes
     </h2>
+    <form method="post" action="{% url 'crm:note_create' %}">
+      {% csrf_token %}
+      <input type="hidden" name="{{ note_parent_field }}" value="{{ note_parent.pk }}" />
+      <textarea name="content" required rows="2" class="textarea textarea-bordered w-full text-sm"
+                placeholder="Add a note…"></textarea>
+      <div class="flex justify-end mt-2">
+        <button type="submit" class="btn btn-sm">Add note</button>
+      </div>
+    </form>
     {% if notes %}
       <ul class="divide-y">
         {% for n in notes %}
