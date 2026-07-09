@@ -194,19 +194,10 @@ class Deal(TimestampedModel):
     flat_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     document_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    # Customer-paid contributions that reduce what's financed. `finance_amount`
-    # below = funded_amount - deposit - balloon.
-    deposit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    balloon = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     first_payment_date = models.DateField(
         null=True, blank=True,
         help_text="Date the first repayment falls due.",
-    )
-    repayment_profile = models.CharField(
-        max_length=100, blank=True,
-        help_text="Free-text repayment profile (e.g. monthly, quarterly, balloon). "
-                  "May be structured later.",
     )
 
     # Customer's chosen quote, picked via the portal application
@@ -269,12 +260,14 @@ class Deal(TimestampedModel):
 
     @property
     def finance_amount(self) -> "Decimal | None":
-        """The amount actually being financed: participations minus the customer's
-        deposit and balloon. Returns None when there are no participations yet."""
-        funded = self.funded_amount
-        if funded is None:
-            return None
-        return funded - (self.deposit or Decimal("0")) - (self.balloon or Decimal("0"))
+        """The amount actually being financed: the funded amount minus the
+        selected quote's deposit and balloon. Falls back to the plain funded
+        amount while no quote is selected; None when there are no
+        participations yet."""
+        quote = self.selected_quote
+        if quote is not None:
+            return quote.finance_amount
+        return self.funded_amount
 
     @property
     def current_stage(self) -> "Stage | None":
@@ -292,7 +285,7 @@ class Deal(TimestampedModel):
         if self.first_payment_date is None or quote is None:
             return None
         return pricing.repayment_schedule(
-            principal=self.finance_amount,
+            principal=quote.finance_amount,
             monthly_payment=quote.monthly_payment,
             term_months=quote.term,
             first_payment_date=self.first_payment_date,
@@ -496,9 +489,13 @@ class Stage(TimestampedModel):
 class Quote(TimestampedModel):
     """A financing quote against a deal — one deal can have many quotes.
 
-    `monthly_payment` is computed on access (a property) from the deal's
+    Each quote is a self-contained financing structure: term, rate, and its
+    own deposit/balloon/repayment profile, so alternatives like "£5k deposit
+    over 60 months" vs "no deposit over 48" can sit side by side on one deal.
+    `monthly_payment` is computed on access (a property) from this quote's
     `finance_amount`, the chosen rate band's yield, and the term — never stored,
-    so it always reflects the deal's current participations and deposit/balloon.
+    so it always reflects the deal's current participations and this quote's
+    deposit/balloon.
     """
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="quotes")
@@ -519,6 +516,15 @@ class Quote(TimestampedModel):
         help_text="Optional. Added to the advance — the customer's monthly payment "
                   "is calculated on the grossed-up amount.",
     )
+    # Customer-paid contributions that reduce what's financed. `finance_amount`
+    # below = deal.funded_amount - deposit - balloon.
+    deposit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    balloon = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    repayment_profile = models.CharField(
+        max_length=100, blank=True,
+        help_text="Free-text repayment profile (e.g. monthly, quarterly, balloon). "
+                  "May be structured later.",
+    )
 
     class Meta:
         ordering = ["deal", "term"]
@@ -526,6 +532,15 @@ class Quote(TimestampedModel):
     @property
     def yield_percent(self) -> "Decimal | None":
         return self.rate.yield_percent if self.rate_id else None
+
+    @property
+    def finance_amount(self) -> "Decimal | None":
+        """The amount this quote finances: the deal's funded amount minus this
+        quote's deposit and balloon. None while the deal has no participations."""
+        funded = self.deal.funded_amount if self.deal_id else None
+        if funded is None:
+            return None
+        return funded - (self.deposit or Decimal("0")) - (self.balloon or Decimal("0"))
 
     def __str__(self) -> str:
         rate = f"{self.rate.yield_percent}%" if self.rate_id else "no rate"
@@ -542,7 +557,7 @@ class Quote(TimestampedModel):
         if not (self.deal_id and self.rate_id and self.term):
             return None
         return pricing.monthly_payment(
-            principal=self.deal.finance_amount,
+            principal=self.finance_amount,
             rate_band=self.rate,
             term_months=self.term,
             commission_percent=self.commission_percent,
@@ -559,7 +574,7 @@ class Quote(TimestampedModel):
         if not self.deal_id:
             return None
         return pricing.apr(
-            principal=self.deal.finance_amount,
+            principal=self.finance_amount,
             monthly_payment=self.monthly_payment,
             term_months=self.term,
         )
@@ -571,7 +586,7 @@ class Quote(TimestampedModel):
         if not self.deal_id:
             return None
         return pricing.flat_rate(
-            principal=self.deal.finance_amount,
+            principal=self.finance_amount,
             monthly_payment=self.monthly_payment,
             term_months=self.term,
         )

@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -307,7 +308,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
 
         # Split the amount so the pence can render smaller (£25,000.00). The
         # headline card shows what's actually being financed — participations
-        # minus the deposit and balloon.
+        # minus the selected quote's deposit and balloon.
         if deal.finance_amount is not None:
             pounds = int(deal.finance_amount)
             pence = int((deal.finance_amount - pounds) * 100)
@@ -474,10 +475,10 @@ class QuoteCreateView(StaffRequiredMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
-        if self.parent_deal.finance_amount is None:
+        if self.parent_deal.funded_amount is None:
             form.add_error(
                 None,
-                "This deal has no finance amount set, so we can't calculate a monthly payment. "
+                "This deal has no funded amount set, so we can't calculate a monthly payment. "
                 "Edit the deal and add a supplier first.",
             )
             return self.form_invalid(form)
@@ -487,8 +488,8 @@ class QuoteCreateView(StaffRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.parent_deal
-        if self.parent_deal.finance_amount is not None:
-            ctx["finance_amount_display"] = f"£{self.parent_deal.finance_amount:,.2f}"
+        if self.parent_deal.funded_amount is not None:
+            ctx["funded_amount_display"] = f"£{self.parent_deal.funded_amount:,.2f}"
         return ctx
 
     def get_success_url(self):
@@ -812,10 +813,10 @@ class QuoteUpdateView(StaffRequiredMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        if form.instance.deal.finance_amount is None:
+        if form.instance.deal.funded_amount is None:
             form.add_error(
                 None,
-                "This deal has no finance amount set, so we can't recalculate the monthly payment. "
+                "This deal has no funded amount set, so we can't recalculate the monthly payment. "
                 "Edit the deal and add a supplier first.",
             )
             return self.form_invalid(form)
@@ -824,8 +825,8 @@ class QuoteUpdateView(StaffRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.object.deal
-        if self.object.deal.finance_amount is not None:
-            ctx["finance_amount_display"] = f"£{self.object.deal.finance_amount:,.2f}"
+        if self.object.deal.funded_amount is not None:
+            ctx["funded_amount_display"] = f"£{self.object.deal.funded_amount:,.2f}"
         return ctx
 
     def get_success_url(self):
@@ -1639,8 +1640,17 @@ class RateBandAddView(StaffRequiredMixin, View):
 
 class QuoteRateOptionsView(StaffRequiredMixin, View):
     """HTMX: <option>s for active rate bands matching ?term= and applicable to
-    the ?deal=`s funded amount, ascending by yield. Drives the rate select on
-    the quote form when the term changes."""
+    the quote's finance amount — the ?deal=`s funded amount minus the form's
+    ?deposit= and ?balloon=. Drives the rate select on the quote form when the
+    term, deposit or balloon changes."""
+
+    @staticmethod
+    def _amount_param(request, name) -> Decimal:
+        raw = (request.GET.get(name) or "").replace(",", "").strip()
+        try:
+            return Decimal(raw) if raw else Decimal("0")
+        except InvalidOperation:
+            return Decimal("0")
 
     def get(self, request):
         term = request.GET.get("term", "")
@@ -1653,8 +1663,9 @@ class QuoteRateOptionsView(StaffRequiredMixin, View):
                 .filter(term_months=int(term))
             )
             deal = Deal.objects.filter(pk=deal_pk).first() if deal_pk.isdigit() else None
-            amount = deal.finance_amount if deal else None
+            amount = deal.funded_amount if deal else None
             if amount is not None:
+                amount = amount - self._amount_param(request, "deposit") - self._amount_param(request, "balloon")
                 qs = qs.filter(min_amount__lte=amount, max_amount__gte=amount)
             rates = qs.order_by("yield_percent")
         return render(request, "crm/_quote_rate_options.html", {"rates": rates})

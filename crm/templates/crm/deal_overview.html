@@ -84,15 +84,12 @@ than being hidden, so the structure stays predictable.
     <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Financials</h2>
     <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
       <dt class="opacity-60">Funded amount</dt>       <dd>{% if deal.funded_amount is not None %}£{{ deal.funded_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
-      <dt class="opacity-60">Deposit</dt>             <dd>{% if deal.deposit is not None %}£{{ deal.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
-      <dt class="opacity-60">Balloon</dt>             <dd>{% if deal.balloon is not None %}£{{ deal.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Asset finance</dt>       <dd>{% if deal.finance_amount is not None %}£{{ deal.finance_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Commission</dt>          <dd>{% if deal.commission is not None %}£{{ deal.commission|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Earnings</dt>            <dd>{% if deal.earnings is not None %}£{{ deal.earnings|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Document fee</dt>        <dd>{% if deal.document_fee is not None %}£{{ deal.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Flat fee</dt>            <dd>{% if deal.flat_fee is not None %}£{{ deal.flat_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">First payment date</dt>  <dd>{% if deal.first_payment_date %}{{ deal.first_payment_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
-      <dt class="opacity-60">Repayment profile</dt>   <dd>{{ deal.repayment_profile|default:"—" }}</dd>
     </dl>
   </section>
 
@@ -104,6 +101,9 @@ than being hidden, so the structure stays predictable.
         <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
           <dt class="opacity-60">Lender</dt>            <dd>{% if q.rate %}{{ q.rate.organisation.name }}{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Term</dt>              <dd>{{ q.term }} months</dd>
+          <dt class="opacity-60">Deposit</dt>           <dd>{% if q.deposit is not None %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Balloon</dt>           <dd>{% if q.balloon is not None %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Repayment profile</dt> <dd>{{ q.repayment_profile|default:"—" }}</dd>
           <dt class="opacity-60">Yield</dt>             <dd>{% if q.rate %}{{ q.rate.yield_percent }}%{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Commission %</dt>      <dd>{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</dd>
           <dt class="opacity-60">APR</dt>               <dd>{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</dd>
@@ -123,6 +123,8 @@ than being hidden, so the structure stays predictable.
         <dd>
           {{ q.term }} months
           {% if q.rate %} · {{ q.rate.organisation.name }} @ {{ q.rate.yield_percent }}%{% endif %}
+          {% if q.deposit %} · £{{ q.deposit|floatformat:2|intcomma }} deposit{% endif %}
+          {% if q.balloon %} · £{{ q.balloon|floatformat:2|intcomma }} balloon{% endif %}
           {% if q.monthly_payment is not None %} · £{{ q.monthly_payment|floatformat:2|intcomma }}/month{% endif %}
           {% if deal.selected_quote_id == q.pk %} · (selected){% endif %}
         </dd>

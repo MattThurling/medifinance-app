@@ -128,6 +128,10 @@ def _deal_fill_payload(deal: Deal) -> dict:
             "apr": _money(quote.rate.yield_percent) if quote and quote.rate_id else None,
             "term_months": quote.term,
             "monthly_payment": _money(quote.monthly_payment),
+            "deposit": _money(quote.deposit),
+            "balloon": _money(quote.balloon),
+            "repayment_profile": quote.repayment_profile or None,
+            "finance_amount": _money(quote.finance_amount),
         } if quote else None,
     }
 

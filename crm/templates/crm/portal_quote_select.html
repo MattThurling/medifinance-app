@@ -28,6 +28,8 @@
       <thead>
         <tr>
           <th>Term</th>
+          <th>Deposit</th>
+          <th>Balloon</th>
           <th>APR</th>
           <th>Monthly payment</th>
           <th></th>
@@ -37,6 +39,8 @@
         {% for q in deal.quotes.all %}
           <tr>
             <td>{{ q.term }} months</td>
+            <td>{% if q.deposit %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+            <td>{% if q.balloon %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
             <td>{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
             <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
             <td class="text-right">

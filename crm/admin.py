@@ -54,7 +54,7 @@ class QuoteInline(admin.TabularInline):
     model = Quote
     extra = 0
     readonly_fields = ("monthly_payment", "created_at", "updated_at")
-    fields = ("rate", "term", "commission_percent", "monthly_payment", "created_at", "updated_at")
+    fields = ("rate", "term", "deposit", "balloon", "repayment_profile", "commission_percent", "monthly_payment", "created_at", "updated_at")
     autocomplete_fields = ("rate",)
 
 
@@ -119,7 +119,6 @@ class DealAdmin(admin.ModelAdmin):
                     "commission",
                     "document_fee",
                     "first_payment_date",
-                    "repayment_profile",
                 ),
                 "description": (
                     "The deal's funded amount is the sum of its Participations "
@@ -177,7 +176,7 @@ class RateBandAdmin(admin.ModelAdmin):
 
 @admin.register(Quote)
 class QuoteAdmin(admin.ModelAdmin):
-    list_display = ("__str__", "deal", "rate", "term", "monthly_payment", "created_at")
+    list_display = ("__str__", "deal", "rate", "term", "deposit", "balloon", "monthly_payment", "created_at")
     list_select_related = ("deal", "rate", "rate__organisation")
     search_fields = ("deal__name",)
     autocomplete_fields = ("deal", "rate")

@@ -105,20 +105,14 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
             "organisation",
             "owner",
             "introducer",
-            "deposit",
-            "balloon",
             "earnings",
             "flat_fee",
             "commission",
             "document_fee",
             "first_payment_date",
-            "repayment_profile",
         ]
         widgets = {
             "first_payment_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-        }
-        help_texts = {
-            "repayment_profile": "e.g. monthly, quarterly, balloon",
         }
 
     def __init__(self, *args, current_user=None, **kwargs):
@@ -163,24 +157,30 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
     """Quote ModelForm. `deal` is set by the view from URL/context.
     `monthly_payment` is computed on access (a Quote property) — not user-entered.
 
-    The rate is chosen from the active rate bands that apply to this deal's
-    funded amount and the chosen term. The term is itself a select of just the
-    terms that have a band covering the amount; picking one refreshes the rate
-    options via HTMX.
+    The rate is chosen from the active rate bands that apply to this quote's
+    finance amount (the deal's funded amount minus the deposit and balloon
+    entered here) and the chosen term. The term is itself a select of just the
+    terms that have a band covering the amount; changing the term, deposit or
+    balloon refreshes the rate options via HTMX.
     """
 
     term = forms.TypedChoiceField(coerce=int, empty_value=None, label="Term (months)")
 
     class Meta:
         model = Quote
-        fields = ["term", "rate", "commission_percent"]
-        help_texts = {"commission_percent": "Optional."}
+        fields = ["term", "rate", "deposit", "balloon", "commission_percent", "repayment_profile"]
+        help_texts = {
+            "commission_percent": "Optional.",
+            "deposit": "Optional. Subtracted from the funded amount.",
+            "balloon": "Optional. Subtracted from the funded amount.",
+            "repayment_profile": "e.g. monthly, quarterly, balloon",
+        }
 
     def __init__(self, *args, deal=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.deal = deal or (self.instance.deal if self.instance and self.instance.pk else None)
-        amount = self.deal.finance_amount if self.deal else None
+        amount = self._amount_in_context()
 
         # Bands that apply to this deal's amount (the pool both selects draw on).
         pool = RateBand.objects.active().select_related("organisation")
@@ -209,16 +209,39 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
         rate.empty_label = "Select a rate…"
         rate.label_from_instance = lambda rb: f"{rb.organisation.name} — {rb.yield_percent}%"
 
-        # Changing the term refreshes the rate options (scoped to term + amount).
+        # Changing the term, deposit or balloon refreshes the rate options
+        # (scoped to term + this quote's finance amount).
         attrs = {
             "hx-get": reverse_lazy("crm:quote_rate_options"),
             "hx-target": "#id_rate",
             "hx-swap": "innerHTML",
             "hx-trigger": "change",
+            "hx-include": "#id_term, #id_deposit, #id_balloon",
         }
         if self.deal:
             attrs["hx-vals"] = json.dumps({"deal": self.deal.pk})
-        self.fields["term"].widget.attrs.update(attrs)
+        for name in ("term", "deposit", "balloon"):
+            self.fields[name].widget.attrs.update(attrs)
+
+    def _amount_in_context(self) -> "Decimal | None":
+        """The amount rate bands must cover: the deal's funded amount minus the
+        deposit and balloon in play — the POSTed values on a bound form, the
+        saved ones on edit. Unparseable input counts as 0 (field validation
+        reports it separately)."""
+        funded = self.deal.funded_amount if self.deal else None
+        if funded is None:
+            return None
+
+        def value(name: str) -> Decimal:
+            if self.is_bound:
+                raw = (self.data.get(self.add_prefix(name)) or "").replace(",", "").strip()
+                try:
+                    return Decimal(raw) if raw else Decimal("0")
+                except InvalidOperation:
+                    return Decimal("0")
+            return getattr(self.instance, name, None) or Decimal("0")
+
+        return funded - value("deposit") - value("balloon")
 
 
 class StageForm(DaisyUIFormMixin, forms.ModelForm):

@@ -45,8 +45,8 @@ layout (main content left, amount + timeline right).
       {% if deal.first_payment_date %}
         <p>First payment: {{ deal.first_payment_date|date:"j M Y" }}</p>
       {% endif %}
-      {% if deal.repayment_profile %}
-        <p>Repayment profile: {{ deal.repayment_profile }}</p>
+      {% if deal.selected_quote.repayment_profile %}
+        <p>Repayment profile: {{ deal.selected_quote.repayment_profile }}</p>
       {% endif %}
     </div>
   </div>
@@ -57,23 +57,25 @@ layout (main content left, amount + timeline right).
       <div class="card-body items-center text-center">
         <p class="text-sm opacity-60">Asset Finance</p>
         <p class="text-4xl font-semibold">{% if amount_pounds %}£{{ amount_pounds }}<span class="text-xl align-baseline">.{{ amount_pence }}</span>{% else %}—{% endif %}</p>
-        {% if deal.funded_amount and deal.deposit or deal.funded_amount and deal.balloon %}
-          <p class="text-xs opacity-70 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-            <span class="inline-flex items-center gap-1" title="Suppliers total">
-              {% icon "sigma" class="h-3.5 w-3.5" %} £{{ deal.funded_amount|floatformat:2|intcomma }}
-            </span>
-            {% if deal.deposit %}
-              <span class="inline-flex items-center gap-1" title="Deposit">
-                {% icon "banknote-arrow-up" class="h-3.5 w-3.5" %} £{{ deal.deposit|floatformat:2|intcomma }}
+        {% with sq=deal.selected_quote %}
+          {% if deal.funded_amount and sq.deposit or deal.funded_amount and sq.balloon %}
+            <p class="text-xs opacity-70 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <span class="inline-flex items-center gap-1" title="Suppliers total">
+                {% icon "sigma" class="h-3.5 w-3.5" %} £{{ deal.funded_amount|floatformat:2|intcomma }}
               </span>
-            {% endif %}
-            {% if deal.balloon %}
-              <span class="inline-flex items-center gap-1" title="Balloon">
-                {% icon "balloon" class="h-3.5 w-3.5" %} £{{ deal.balloon|floatformat:2|intcomma }}
-              </span>
-            {% endif %}
-          </p>
-        {% endif %}
+              {% if sq.deposit %}
+                <span class="inline-flex items-center gap-1" title="Deposit">
+                  {% icon "banknote-arrow-up" class="h-3.5 w-3.5" %} £{{ sq.deposit|floatformat:2|intcomma }}
+                </span>
+              {% endif %}
+              {% if sq.balloon %}
+                <span class="inline-flex items-center gap-1" title="Balloon">
+                  {% icon "balloon" class="h-3.5 w-3.5" %} £{{ sq.balloon|floatformat:2|intcomma }}
+                </span>
+              {% endif %}
+            </p>
+          {% endif %}
+        {% endwith %}
         {% if commission_display %}<p class="text-sm opacity-70">{{ commission_display }} commission</p>{% endif %}
       </div>
     </div>
@@ -149,6 +151,8 @@ layout (main content left, amount + timeline right).
             <tr>
               <th>Term</th>
               <th class="hidden md:table-cell">Rate</th>
+              <th class="hidden md:table-cell">Deposit</th>
+              <th class="hidden md:table-cell">Balloon</th>
               <th class="hidden md:table-cell">Comm</th>
               <th class="hidden md:table-cell">APR</th>
               <th class="hidden md:table-cell">Flat</th>
@@ -161,6 +165,8 @@ layout (main content left, amount + timeline right).
               <tr {% if deal.selected_quote_id == q.pk %}class="bg-primary/10"{% endif %}>
                 <td>{{ q.term }} m</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.deposit %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.balloon %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</td>
@@ -181,7 +187,7 @@ layout (main content left, amount + timeline right).
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="7" class="opacity-60">No quotes yet.</td></tr>
+              <tr><td colspan="9" class="opacity-60">No quotes yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>

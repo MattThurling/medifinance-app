@@ -20,19 +20,23 @@
         <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
       {% endif %}
 
-      {% if parent_deal.finance_amount %}
+      {% if parent_deal.funded_amount %}
         <p class="text-sm opacity-70 mb-4">
-          Monthly payment is calculated automatically from the finance amount
-          (<strong>{{ finance_amount_display }}</strong>) and the term &amp; rate below.
+          Monthly payment is calculated automatically from the funded amount
+          (<strong>{{ funded_amount_display }}</strong>) minus any deposit and balloon,
+          and the term &amp; rate below.
         </p>
       {% else %}
         <p class="text-sm text-warning mb-4">
-          This deal has no finance amount set, so the monthly payment can't be calculated.
-          <a href="{% url 'crm:deal_update' parent_deal.pk %}" class="link">Edit the deal</a> to set one first.
+          This deal has no funded amount set, so the monthly payment can't be calculated.
+          Add a supplier to the deal first.
         </p>
       {% endif %}
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4">
+        {% include "_field.html" with field=form.deposit %}
+        {% include "_field.html" with field=form.balloon %}
+        {% include "_field.html" with field=form.repayment_profile %}
         {% include "_field.html" with field=form.term %}
         {% include "_field.html" with field=form.rate %}
         {% include "_field.html" with field=form.commission_percent %}
