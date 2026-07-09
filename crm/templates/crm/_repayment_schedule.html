@@ -1,0 +1,47 @@
+{% load icons humanize %}
+{% comment %}
+Repayments card — amortisation of the selected quote from the deal's first
+payment date. Include with `schedule=...` (a list of rows from
+Deal.repayment_schedule); pass `empty_message` to render the card with a hint
+when there is no schedule yet, otherwise the card is skipped entirely.
+{% endcomment %}
+{% if schedule or empty_message %}
+<div class="card bg-base-100 shadow w-full">
+  <div class="card-body">
+    <h2 class="card-title text-base">
+      {% icon "banknote-arrow-up" class="h-5 w-5 opacity-70" %} Repayments
+    </h2>
+    {% if schedule %}
+      <div class="max-h-96 overflow-y-auto">
+        <table class="table table-xs table-pin-rows w-full">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Due</th>
+              <th class="hidden md:table-cell">Interest</th>
+              <th class="hidden md:table-cell">Principal</th>
+              <th>Payment</th>
+              <th class="hidden md:table-cell">Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in schedule %}
+              <tr>
+                <td class="opacity-70">{{ row.number }}</td>
+                <td class="whitespace-nowrap">{{ row.due_date|date:"j M Y" }}</td>
+                <td class="opacity-70 hidden md:table-cell">£{{ row.interest|floatformat:2|intcomma }}</td>
+                <td class="opacity-70 hidden md:table-cell">£{{ row.principal|floatformat:2|intcomma }}</td>
+                <td class="font-medium whitespace-nowrap">£{{ row.payment|floatformat:2|intcomma }}</td>
+                <td class="opacity-70 hidden md:table-cell">£{{ row.balance|floatformat:2|intcomma }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs opacity-50 mt-1">The final payment settles the remaining balance, so it may differ by a few pence.</p>
+    {% else %}
+      <p class="text-sm opacity-60">{{ empty_message }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

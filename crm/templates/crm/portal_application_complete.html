@@ -23,5 +23,11 @@
       </div>
     </div>
   </div>
+
+  {% if repayment_schedule %}
+    <div class="mt-6">
+      {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule %}
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

@@ -281,6 +281,23 @@ class Deal(TimestampedModel):
         """Latest stage event for this deal (None if there are no events yet)."""
         return self.stage_events.first()
 
+    @property
+    def repayment_schedule(self) -> "list[dict] | None":
+        """Amortisation schedule for the selected quote, starting at
+        `first_payment_date`. None until both are set (and the quote's monthly
+        payment is computable) — see `crm.pricing.repayment_schedule`."""
+        from . import pricing  # avoid circular import; pricing imports RateBand
+
+        quote = self.selected_quote
+        if self.first_payment_date is None or quote is None:
+            return None
+        return pricing.repayment_schedule(
+            principal=self.finance_amount,
+            monthly_payment=quote.monthly_payment,
+            term_months=quote.term,
+            first_payment_date=self.first_payment_date,
+        )
+
 
 def participation_invoice_upload_path(instance: "Participation", filename: str) -> str:
     return f"deals/{instance.deal_id}/invoices/{filename}"

@@ -5,6 +5,7 @@ quote in the system (internal AND external API) flows through it. Pinning the
 outputs for one known case stops the refactor (or any future tweak) from
 silently drifting."""
 
+from datetime import date
 from decimal import Decimal
 
 from django.test import TestCase
@@ -120,6 +121,80 @@ class PricingEdgeCaseTests(TestCase):
         ))
         self.assertIsNone(pricing.apr(
             principal=Decimal("1000"), monthly_payment=None, term_months=12,
+        ))
+
+
+class RepaymentScheduleTests(TestCase):
+    """Amortisation of the canonical case (£25,000 / 60 months → £526.79/mo),
+    anchored to a month-end first payment so the date clamping is exercised."""
+
+    PRINCIPAL = Decimal("25000")
+    MONTHLY = Decimal("526.79")
+    TERM = 60
+    FIRST = date(2026, 1, 31)
+
+    def _schedule(self):
+        return pricing.repayment_schedule(
+            principal=self.PRINCIPAL,
+            monthly_payment=self.MONTHLY,
+            term_months=self.TERM,
+            first_payment_date=self.FIRST,
+        )
+
+    def test_one_row_per_month(self):
+        rows = self._schedule()
+        self.assertEqual(len(rows), self.TERM)
+        self.assertEqual([r["number"] for r in rows], list(range(1, self.TERM + 1)))
+
+    def test_due_dates_step_monthly_clamping_to_month_end(self):
+        rows = self._schedule()
+        self.assertEqual(rows[0]["due_date"], date(2026, 1, 31))
+        self.assertEqual(rows[1]["due_date"], date(2026, 2, 28))  # clamped
+        self.assertEqual(rows[2]["due_date"], date(2026, 3, 31))  # back to the 31st
+        self.assertEqual(rows[-1]["due_date"], date(2030, 12, 31))
+
+    def test_first_row_split_matches_implied_rate(self):
+        row = self._schedule()[0]
+        self.assertEqual(row["payment"], Decimal("526.79"))
+        self.assertEqual(row["interest"], Decimal("200.89"))
+        self.assertEqual(row["principal"], Decimal("325.90"))
+        self.assertEqual(row["balance"], Decimal("24674.10"))
+
+    def test_principal_repaid_in_full_and_balance_reaches_zero(self):
+        rows = self._schedule()
+        self.assertEqual(sum(r["principal"] for r in rows), self.PRINCIPAL)
+        self.assertEqual(rows[-1]["balance"], Decimal("0.00"))
+
+    def test_final_payment_absorbs_rounding(self):
+        rows = self._schedule()
+        # Every payment is the quoted monthly except the last, which settles
+        # the balance exactly (here a penny over).
+        self.assertTrue(all(r["payment"] == self.MONTHLY for r in rows[:-1]))
+        self.assertEqual(rows[-1]["payment"], Decimal("526.80"))
+
+    def test_zero_interest_schedule_is_all_principal(self):
+        rows = pricing.repayment_schedule(
+            principal=Decimal("1200"),
+            monthly_payment=Decimal("100"),
+            term_months=12,
+            first_payment_date=date(2026, 7, 1),
+        )
+        self.assertTrue(all(r["interest"] == 0 for r in rows))
+        self.assertTrue(all(r["payment"] == Decimal("100") for r in rows))
+        self.assertEqual(rows[-1]["balance"], Decimal("0.00"))
+
+    def test_missing_inputs_return_none(self):
+        self.assertIsNone(pricing.repayment_schedule(
+            principal=None, monthly_payment=self.MONTHLY,
+            term_months=self.TERM, first_payment_date=self.FIRST,
+        ))
+        self.assertIsNone(pricing.repayment_schedule(
+            principal=self.PRINCIPAL, monthly_payment=None,
+            term_months=self.TERM, first_payment_date=self.FIRST,
+        ))
+        self.assertIsNone(pricing.repayment_schedule(
+            principal=self.PRINCIPAL, monthly_payment=self.MONTHLY,
+            term_months=self.TERM, first_payment_date=None,
         ))
 
 

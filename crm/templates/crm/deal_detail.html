@@ -196,6 +196,15 @@ layout (main content left, amount + timeline right).
       </div>
     </div>
 
+    {# Repayments — amortised schedule; shows once a first payment date is set #}
+    {% if deal.first_payment_date %}
+      {% if repayment_schedule %}
+        {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule %}
+      {% else %}
+        {% include "crm/_repayment_schedule.html" with schedule=None empty_message="Select a priced quote to build the schedule." %}
+      {% endif %}
+    {% endif %}
+
     {# Documents #}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">

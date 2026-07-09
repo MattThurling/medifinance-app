@@ -317,6 +317,10 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         if deal.commission is not None:
             ctx["commission_display"] = f"£{deal.commission:,.2f}"
 
+        # Computed once here — the property walks selected_quote + participations.
+        if deal.first_payment_date:
+            ctx["repayment_schedule"] = deal.repayment_schedule
+
         ctx["notes"] = deal.notes.select_related("author")
         return ctx
 
@@ -788,7 +792,11 @@ class PortalApplicationCompleteView(_PortalStepMixin, View):
     def get(self, request, pk):
         from django.shortcuts import render
         deal = self.get_deal(pk)
-        return render(request, "crm/portal_application_complete.html", {"deal": deal})
+        return render(
+            request,
+            "crm/portal_application_complete.html",
+            {"deal": deal, "repayment_schedule": deal.repayment_schedule},
+        )
 
 
 class QuoteUpdateView(StaffRequiredMixin, UpdateView):
