@@ -6,9 +6,33 @@ EMAIL_BACKEND is configured (console in dev, Mailgun in prod).
 
 from __future__ import annotations
 
+import time
+from smtplib import SMTPDataError
+
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+
+
+def _send_with_retry(message: EmailMultiAlternatives) -> None:
+    """Send, retrying when the mailserver throttles.
+
+    The Mailtrap sandbox (dev email) allows roughly one send per second and
+    rejects the next with `550 Too many emails per second` — which happens
+    whenever a flow sends two emails back-to-back (e.g. API deal create sends
+    the staff notification then the customer magic link). Any other failure
+    propagates unchanged.
+    """
+    attempts = 3
+    for attempt in range(attempts):
+        try:
+            message.send()
+            return
+        except SMTPDataError as exc:
+            throttled = exc.smtp_code == 550 and b"too many emails" in exc.smtp_error.lower()
+            if not throttled or attempt == attempts - 1:
+                raise
+            time.sleep(1.5)
 
 
 def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner_name: str, expires_at) -> None:
@@ -30,7 +54,7 @@ def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner
         to=[to_email],
     )
     message.attach_alternative(html_body, "text/html")
-    message.send()
+    _send_with_retry(message)
 
 
 def send_new_deal_notification_email(
@@ -66,7 +90,7 @@ def send_new_deal_notification_email(
         to=settings.NOTIFY_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
-    message.send()
+    _send_with_retry(message)
 
 
 def send_customer_application_submitted_email(
@@ -98,7 +122,7 @@ def send_customer_application_submitted_email(
         to=settings.NOTIFY_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
-    message.send()
+    _send_with_retry(message)
 
 
 def send_supplier_invoice_submitted_email(
@@ -130,7 +154,7 @@ def send_supplier_invoice_submitted_email(
         to=settings.NOTIFY_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
-    message.send()
+    _send_with_retry(message)
 
 
 def send_commission_invoice_request_email(
@@ -168,7 +192,7 @@ def send_commission_invoice_request_email(
         to=settings.ACCOUNTS_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
-    message.send()
+    _send_with_retry(message)
 
 
 def send_supplier_invoice_request_email(
@@ -214,4 +238,4 @@ def send_supplier_invoice_request_email(
         to=[to_email],
     )
     message.attach_alternative(html_body, "text/html")
-    message.send()
+    _send_with_retry(message)
