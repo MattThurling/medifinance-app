@@ -233,6 +233,11 @@ EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))    # seconds
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Medifinance <{EMAIL_HOST_USER}>")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
+# Seconds during which a repeat POST /api/deals/ (same introducer + customer
+# email) returns the existing deal instead of creating a new one. Defaults to
+# 24 hours; dev sets 10 so repeated demo submissions create real deals.
+API_DEAL_DEDUP_SECONDS = int(os.getenv("API_DEAL_DEDUP_SECONDS", "86400"))
+
 # Comma-separated list of staff addresses notified about new API-created deals.
 NOTIFY_EMAILS = [
     e.strip() for e in os.getenv("NOTIFY_EMAILS", "mnthurling@gmail.com").split(",") if e.strip()

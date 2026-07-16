@@ -22,6 +22,7 @@ import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
@@ -41,14 +42,14 @@ from .models import Contact, Deal, Document, Participation, Quote, RateBand
 # Per-token rate limits for POST /api/deals/. Counts deals created by this
 # ApiKey in the rolling window — dedup'd repeats don't count, so a partner
 # safely retrying the same payload never trips the limit.
-# Demo settings: limits loosened and dedup shortened to seconds so repeated
-# demo submissions create real deals.
+# Demo settings: limits loosened so repeated demo submissions create real deals.
 RATE_LIMIT_HOUR_MAX = 500
 RATE_LIMIT_DAY_MAX = 2500
 
 # Window during which a repeat (introducer + customer email) returns the
-# existing deal instead of creating a new one.
-DEDUP_WINDOW = timedelta(seconds=10)
+# existing deal instead of creating a new one. Configured via the
+# API_DEAL_DEDUP_SECONDS env var (24h default; 10s on dev for demos).
+DEDUP_WINDOW = timedelta(seconds=settings.API_DEAL_DEDUP_SECONDS)
 
 logger = logging.getLogger(__name__)
 
