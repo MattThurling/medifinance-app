@@ -17,13 +17,15 @@ from django.template.loader import render_to_string
 def _send_with_retry(message: EmailMultiAlternatives) -> None:
     """Send, retrying when the mailserver throttles.
 
-    The Mailtrap sandbox (dev email) allows roughly one send per second and
-    rejects the next with `550 Too many emails per second` — which happens
-    whenever a flow sends two emails back-to-back (e.g. API deal create sends
-    the staff notification then the customer magic link). Any other failure
-    propagates unchanged.
+    The Mailtrap sandbox (dev email) rate-limits sends and rejects the excess
+    with `550 Too many emails per second` — which happens whenever a flow
+    sends two emails back-to-back (e.g. API deal create sends the staff
+    notification then the customer magic link). Observed behaviour is that
+    rejected attempts keep the penalty window open, so retries back off
+    exponentially (2s, 4s, 8s) rather than at a fixed short interval. Any
+    other failure propagates unchanged.
     """
-    attempts = 3
+    attempts = 4
     for attempt in range(attempts):
         try:
             message.send()
@@ -32,7 +34,7 @@ def _send_with_retry(message: EmailMultiAlternatives) -> None:
             throttled = exc.smtp_code == 550 and b"too many emails" in exc.smtp_error.lower()
             if not throttled or attempt == attempts - 1:
                 raise
-            time.sleep(1.5)
+            time.sleep(2 * 2 ** attempt)
 
 
 def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner_name: str, expires_at) -> None:
