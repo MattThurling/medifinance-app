@@ -238,6 +238,11 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 # 24 hours; dev sets 10 so repeated demo submissions create real deals.
 API_DEAL_DEDUP_SECONDS = int(os.getenv("API_DEAL_DEDUP_SECONDS", "86400"))
 
+# Per-key rolling limits on new (non-dedup'd) deals via POST /api/deals/.
+# Production-safe defaults; dev sets them high for demos.
+API_DEAL_RATE_LIMIT_HOUR = int(os.getenv("API_DEAL_RATE_LIMIT_HOUR", "5"))
+API_DEAL_RATE_LIMIT_DAY = int(os.getenv("API_DEAL_RATE_LIMIT_DAY", "25"))
+
 # Comma-separated list of staff addresses notified about new API-created deals.
 NOTIFY_EMAILS = [
     e.strip() for e in os.getenv("NOTIFY_EMAILS", "mnthurling@gmail.com").split(",") if e.strip()

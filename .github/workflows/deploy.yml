@@ -105,8 +105,9 @@ jobs:
           # backend (emails -> Cloud Run logs).
           if [ "$SUFFIX" = "dev" ]; then
             ENVVARS="${ENVVARS}|EMAIL_HOST=sandbox.smtp.mailtrap.io|EMAIL_PORT=2525|EMAIL_USE_SSL=0|EMAIL_USE_TLS=1"
-            # Demo-friendly dedup: repeat submissions create real deals after 10s.
-            ENVVARS="${ENVVARS}|API_DEAL_DEDUP_SECONDS=10"
+            # Demo-friendly API safeguards: repeat submissions create real
+            # deals after 10s, and the per-key rate limits are loosened.
+            ENVVARS="${ENVVARS}|API_DEAL_DEDUP_SECONDS=10|API_DEAL_RATE_LIMIT_HOUR=500|API_DEAL_RATE_LIMIT_DAY=2500"
             SECRETS="${SECRETS},EMAIL_HOST_USER=mailtrap-user:latest,EMAIL_HOST_PASSWORD=mailtrap-password:latest"
           elif [ "${{ vars.EMAIL_ENABLED }}" = "true" ]; then
             SECRETS="${SECRETS},EMAIL_HOST_PASSWORD=email-host-password:latest"
