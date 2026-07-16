@@ -39,14 +39,16 @@ from . import pricing
 from .models import Contact, Deal, Document, Participation, Quote, RateBand
 
 # Per-token rate limits for POST /api/deals/. Counts deals created by this
-# ApiKey in the rolling window — dedup'd repeats (same customer in 24h) don't
-# count, so a partner safely retrying the same payload never trips the limit.
-RATE_LIMIT_HOUR_MAX = 5
-RATE_LIMIT_DAY_MAX = 25
+# ApiKey in the rolling window — dedup'd repeats don't count, so a partner
+# safely retrying the same payload never trips the limit.
+# Demo settings: limits loosened and dedup shortened to seconds so repeated
+# demo submissions create real deals.
+RATE_LIMIT_HOUR_MAX = 500
+RATE_LIMIT_DAY_MAX = 2500
 
 # Window during which a repeat (introducer + customer email) returns the
 # existing deal instead of creating a new one.
-DEDUP_WINDOW = timedelta(hours=24)
+DEDUP_WINDOW = timedelta(seconds=10)
 
 logger = logging.getLogger(__name__)
 
