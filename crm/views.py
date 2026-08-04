@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import OuterRef, ProtectedError, Q, Subquery, Sum
+from django.db.models import Case, F, OuterRef, ProtectedError, Q, Subquery, Sum, Value, When
+from django.db.models.functions import Coalesce, Greatest, Lower
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -56,9 +57,19 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+def _latest(model, ts_field, **filters):
+    """Subquery for the newest `ts_field` of a deal's related `model` rows."""
+    return Subquery(
+        model.objects.filter(deal=OuterRef("pk"), **filters)
+        .order_by(f"-{ts_field}")
+        .values(ts_field)[:1]
+    )
+
+
 def _deal_summaries(qs):
-    """Annotate deals with their current stage code and funded total so list
-    pages don't have to fire one query per row for the Deal properties."""
+    """Annotate deals with their current stage code, funded total and latest
+    activity so list pages don't have to fire one query per row for the Deal
+    properties."""
     latest_stage = (
         Stage.objects.filter(deal=OuterRef("pk")).order_by("-occurred_at", "-pk").values("name")[:1]
     )
@@ -71,7 +82,58 @@ def _deal_summaries(qs):
     return qs.annotate(
         current_stage_name=Subquery(latest_stage),
         funded_total=Subquery(funded),
+        last_stage_at=_latest(Stage, "occurred_at"),
+        last_note_at=_latest(Note, "datetime"),
+        last_participation_at=_latest(Participation, "created_at"),
+        last_proposal_at=_latest(Proposal, "created_at"),
+        last_quote_at=_latest(Quote, "created_at"),
+        last_document_at=_latest(
+            Document, "uploaded_at", status=Document.Status.PROVIDED, uploaded_at__isnull=False
+        ),
+        last_xero_at=_latest(XeroInvoice, "created_at"),
+    ).annotate(
+        # On SQLite, Greatest returns NULL if *any* argument is NULL, so each
+        # source is coalesced to created_at — which is also the fallback we
+        # want for deals with no activity yet.
+        last_activity_at=Greatest(
+            Coalesce("last_stage_at", "created_at"),
+            Coalesce("last_note_at", "created_at"),
+            Coalesce("last_participation_at", "created_at"),
+            Coalesce("last_proposal_at", "created_at"),
+            Coalesce("last_quote_at", "created_at"),
+            Coalesce("last_document_at", "created_at"),
+            Coalesce("last_xero_at", "created_at"),
+        ),
     )
+
+
+# Priority order for label ties — a stage change often creates sibling records
+# in the same instant, so it wins; the stage label itself is derived per row.
+_ACTIVITY_LABELS = [
+    ("last_stage_at", None),
+    ("last_note_at", "Note added"),
+    ("last_document_at", "Document uploaded"),
+    ("last_participation_at", "Supplier invoice added"),
+    ("last_proposal_at", "Proposal added"),
+    ("last_quote_at", "Quote added"),
+    ("last_xero_at", "Xero invoice raised"),
+]
+
+
+def _attach_activity_labels(deals):
+    """Set `last_activity_label` on each deal from `_deal_summaries` annotations."""
+    for d in deals:
+        d.last_activity_label = "Deal created"
+        for attr, label in _ACTIVITY_LABELS:
+            if d.last_activity_at is not None and getattr(d, attr) == d.last_activity_at:
+                if label is None:
+                    try:
+                        stage = Stage.Name(d.current_stage_name).label
+                    except ValueError:
+                        stage = d.current_stage_name or ""
+                    label = f"Stage: {stage}" if stage else "Stage changed"
+                d.last_activity_label = label
+                break
 
 
 class SearchableListView(ListView):
@@ -93,6 +155,37 @@ class SearchableListView(ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["q"] = self.request.GET.get("q", "")
+        return ctx
+
+
+class SortableListMixin:
+    """Whitelist-based `?sort=` handling. `sort_fields` maps keys to ORM
+    expressions; prefix the query value with '-' for descending. Views call
+    `apply_sort(qs)` explicitly so ordering happens after any annotations."""
+
+    sort_fields: dict = {}
+    default_sort = ""
+
+    def get_sort(self) -> str:
+        sort = self.request.GET.get("sort", "")
+        if sort.lstrip("-") not in self.sort_fields:
+            return self.default_sort
+        return sort
+
+    def apply_sort(self, qs):
+        sort = self.get_sort()
+        if not sort:
+            return qs
+        expr = self.sort_fields[sort.lstrip("-")]
+        if sort.startswith("-"):
+            ordering = expr.desc(nulls_last=True)
+        else:
+            ordering = expr.asc(nulls_last=True)
+        return qs.order_by(ordering, "-created_at", "-pk")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["sort"] = self.get_sort()
         return ctx
 
 
@@ -261,7 +354,7 @@ class ContactDeleteView(StaffRequiredMixin, ProtectedDeleteMixin, DeleteView):
 
 # --- Deal -------------------------------------------------------------------
 
-class DealListView(StaffRequiredMixin, SearchableListView):
+class DealListView(SortableListMixin, StaffRequiredMixin, SearchableListView):
     model = Deal
     search_fields = [
         "name",
@@ -271,11 +364,54 @@ class DealListView(StaffRequiredMixin, SearchableListView):
         "customer__email",
         "organisation__name",
     ]
+    default_sort = "-created"
+    sort_fields = {
+        "name": Lower("name"),
+        # Pipeline order (choice declaration order), not alphabetical-by-code.
+        "stage": Case(
+            *[
+                When(current_stage_name=code, then=Value(i))
+                for i, (code, _label) in enumerate(Stage.Name.choices)
+            ]
+        ),
+        "funded": F("funded_total"),
+        "owner": Lower(Coalesce("owner__first_name", Value(""))),
+        "created": F("created_at"),
+        "activity": F("last_activity_at"),
+    }
 
     def get_queryset(self):
-        return _deal_summaries(
+        qs = _deal_summaries(
             super().get_queryset().select_related("owner", "customer", "organisation")
         )
+        qs = self._apply_filters(qs)
+        return self.apply_sort(qs)
+
+    def _apply_filters(self, qs):
+        stage = self.request.GET.get("stage", "")
+        if stage in Stage.Name.values:
+            qs = qs.filter(current_stage_name=stage)
+        owner = self.request.GET.get("owner", "")
+        if owner == "me":
+            qs = qs.filter(owner=self.request.user)
+        elif owner == "none":
+            qs = qs.filter(owner__isnull=True)
+        elif owner.isdigit():
+            qs = qs.filter(owner_id=owner)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        _attach_activity_labels(ctx["object_list"])
+        ctx["stage_choices"] = Stage.Name.choices
+        ctx["stage_filter"] = self.request.GET.get("stage", "")
+        ctx["owner_choices"] = (
+            get_user_model()
+            .objects.filter(is_active=True, role__in=[Role.ADMIN, Role.ASSOCIATE])
+            .order_by("first_name", "last_name")
+        )
+        ctx["owner_filter"] = self.request.GET.get("owner", "")
+        return ctx
 
 
 class DealDetailView(StaffRequiredMixin, DetailView):

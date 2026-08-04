@@ -5,7 +5,8 @@
 
 {% block content %}
 <div class="flex items-center justify-between gap-4 mb-4">
-  <form method="get" class="flex-1">
+  <form method="get" class="flex flex-wrap items-center gap-2 flex-1">
+    <input type="hidden" name="sort" value="{{ sort }}" />
     <div class="join w-full max-w-md">
       <input
         type="search"
@@ -16,6 +17,20 @@
       />
       <button class="btn btn-sm join-item">Search</button>
     </div>
+    <select name="stage" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+      <option value="">All stages</option>
+      {% for code, label in stage_choices %}
+        <option value="{{ code }}" {% if stage_filter == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+      <option value="">All owners</option>
+      <option value="me" {% if owner_filter == "me" %}selected{% endif %}>My deals</option>
+      <option value="none" {% if owner_filter == "none" %}selected{% endif %}>Unowned</option>
+      {% for u in owner_choices %}
+        <option value="{{ u.pk }}" {% if owner_filter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
+      {% endfor %}
+    </select>
   </form>
   <a href="{% url 'crm:deal_create' %}" class="btn btn-primary btn-sm">
     {% icon "plus" class="h-4 w-4" %}
@@ -28,12 +43,13 @@
     <table class="table table-xs">
       <thead>
         <tr>
-          <th>Deal</th>
-          <th>Stage</th>
-          <th>Funded</th>
+          {% include "_th_sort.html" with key="name" label="Deal" %}
+          {% include "_th_sort.html" with key="stage" label="Stage" %}
+          {% include "_th_sort.html" with key="funded" label="Funded" %}
           <th>Customer</th>
           <th>Organisation</th>
-          <th>Owner</th>
+          {% include "_th_sort.html" with key="owner" label="Owner" %}
+          {% include "_th_sort.html" with key="activity" label="Last activity" %}
           <th class="w-1"></th>
         </tr>
       </thead>
@@ -58,6 +74,10 @@
               {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
             </td>
             <td class="opacity-80">{{ d.owner.full_name }}</td>
+            <td class="whitespace-nowrap text-xs">
+              <span title="{{ d.last_activity_at|date:'j M Y, H:i' }}">{{ d.last_activity_at|timesince }} ago</span>
+              <span class="opacity-60">— {{ d.last_activity_label }}</span>
+            </td>
             <td class="text-right whitespace-nowrap">
               <a href="{% url 'crm:deal_update' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit deal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
               <a href="{% url 'crm:deal_delete' d.pk %}" class="btn btn-ghost btn-xs btn-square text-error" title="Delete deal">{% icon "circle-x" class="h-3.5 w-3.5" %}</a>
@@ -65,8 +85,8 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="7" class="text-center opacity-60 py-8">
-              {% if q %}No deals match “{{ q }}”.{% else %}No deals yet.{% endif %}
+            <td colspan="8" class="text-center opacity-60 py-8">
+              {% if q or stage_filter or owner_filter %}No deals match the current filters.{% else %}No deals yet.{% endif %}
             </td>
           </tr>
         {% endfor %}

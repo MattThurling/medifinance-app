@@ -1,0 +1,22 @@
+{% comment %}
+Sortable table header cell. First click sorts ascending, second descending.
+Preserves the query string (search/filters) and resets to page 1 via
+Django 5.1+ {% querystring %}. Expects `sort` in context (SortableListMixin).
+
+Usage:
+    {% include "_th_sort.html" with key="name" label="Deal" %}
+{% endcomment %}
+{% load icons %}
+<th>
+  {% if sort == key %}
+    <a href="{% querystring sort="-"|add:key page=None %}" class="inline-flex items-center gap-1 link link-hover">
+      {{ label }} {% icon "chevron-up" class="h-3 w-3" %}
+    </a>
+  {% elif sort == "-"|add:key %}
+    <a href="{% querystring sort=key page=None %}" class="inline-flex items-center gap-1 link link-hover">
+      {{ label }} {% icon "chevron-down" class="h-3 w-3" %}
+    </a>
+  {% else %}
+    <a href="{% querystring sort=key page=None %}" class="link link-hover opacity-80">{{ label }}</a>
+  {% endif %}
+</th>

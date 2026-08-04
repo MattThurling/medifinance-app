@@ -486,6 +486,7 @@ class Stage(TimestampedModel):
 
     class Meta:
         ordering = ["-occurred_at", "-pk"]
+        indexes = [models.Index(fields=["deal", "-occurred_at"], name="crm_stage_deal_occurred")]
 
     def __str__(self) -> str:
         return f"{self.deal} → {self.get_name_display()} ({self.occurred_at:%d %b %Y})"
@@ -866,6 +867,7 @@ class Note(TimestampedModel):
 
     class Meta:
         ordering = ["-datetime"]
+        indexes = [models.Index(fields=["deal", "-datetime"], name="crm_note_deal_datetime")]
 
     def __str__(self) -> str:
         return f"{self.get_type_display()} — {self.datetime:%Y-%m-%d %H:%M}"
