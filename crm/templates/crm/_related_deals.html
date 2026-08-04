@@ -1,0 +1,52 @@
+{% load humanize crm_extras %}
+{% comment %}
+Related-deals table for contact/organisation pages. Expects `deals` annotated
+by views._deal_summaries; set show_customer/show_organisation for the column
+linking to the "other" side of the deal.
+{% endcomment %}
+{% if deals %}
+  <div class="overflow-x-auto">
+    <table class="table table-xs">
+      <thead>
+        <tr>
+          <th>Deal</th>
+          <th>Stage</th>
+          <th>Funded</th>
+          {% if show_organisation %}<th>Organisation</th>{% endif %}
+          {% if show_customer %}<th>Customer</th>{% endif %}
+          <th>Owner</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deals %}
+          <tr>
+            <td>
+              <a href="{{ d.get_absolute_url }}" class="link link-hover font-medium">{{ d.name }}</a>
+            </td>
+            <td>
+              {% if d.current_stage_name %}
+                {{ d.current_stage_name|stage_display }}
+              {% else %}<span class="opacity-60">—</span>{% endif %}
+            </td>
+            <td class="whitespace-nowrap">
+              {% if d.funded_total is not None %}£{{ d.funded_total|floatformat:2|intcomma }}{% else %}<span class="opacity-60">—</span>{% endif %}
+            </td>
+            {% if show_organisation %}
+              <td>
+                {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
+              </td>
+            {% endif %}
+            {% if show_customer %}
+              <td>
+                {% if d.customer %}<a href="{{ d.customer.get_absolute_url }}" class="link link-hover">{{ d.customer }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
+              </td>
+            {% endif %}
+            <td class="opacity-80">{{ d.owner.full_name }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="opacity-60 text-sm">No deals yet.</p>
+{% endif %}

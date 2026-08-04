@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import ProtectedError, Q
+from django.db.models import OuterRef, ProtectedError, Q, Subquery, Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -54,6 +54,24 @@ from .models import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _deal_summaries(qs):
+    """Annotate deals with their current stage code and funded total so list
+    pages don't have to fire one query per row for the Deal properties."""
+    latest_stage = (
+        Stage.objects.filter(deal=OuterRef("pk")).order_by("-occurred_at", "-pk").values("name")[:1]
+    )
+    funded = (
+        Participation.objects.filter(deal=OuterRef("pk"))
+        .values("deal")
+        .annotate(total=Sum("amount"))
+        .values("total")[:1]
+    )
+    return qs.annotate(
+        current_stage_name=Subquery(latest_stage),
+        funded_total=Subquery(funded),
+    )
 
 
 class SearchableListView(ListView):
@@ -111,7 +129,9 @@ class OrganisationDetailView(StaffRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["contacts"] = self.object.contacts.all()
-        ctx["deals"] = Deal.objects.filter(organisation=self.object).select_related("owner", "customer")
+        ctx["deals"] = _deal_summaries(
+            Deal.objects.filter(organisation=self.object).select_related("owner", "customer")
+        )
         ctx["notes"] = self.object.notes.select_related("author")
         return ctx
 
@@ -160,7 +180,7 @@ class ContactDetailView(StaffRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["deals"] = self.object.deals.select_related("owner").all()
+        ctx["deals"] = _deal_summaries(self.object.deals.select_related("owner", "organisation"))
         ctx["notes"] = self.object.notes.select_related("author")
         return ctx
 
@@ -253,17 +273,8 @@ class DealListView(StaffRequiredMixin, SearchableListView):
     ]
 
     def get_queryset(self):
-        # Annotate each deal with its current stage code so the list page
-        # doesn't have to fire one query per row.
-        from django.db.models import OuterRef, Subquery
-        latest_stage = (
-            Stage.objects.filter(deal=OuterRef("pk")).order_by("-occurred_at", "-pk").values("name")[:1]
-        )
-        return (
-            super()
-            .get_queryset()
-            .select_related("owner", "customer", "organisation")
-            .annotate(current_stage_name=Subquery(latest_stage))
+        return _deal_summaries(
+            super().get_queryset().select_related("owner", "customer", "organisation")
         )
 
 
@@ -295,8 +306,8 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             deal.stage_events.select_related("organisation").order_by("occurred_at", "pk")
         )
 
-        # Applicants = the lead (customer) plus any co-applicants
-        applicants = [deal.customer, *deal.co_applicants.all()]
+        # Applicants = the lead (customer, if set) plus any co-applicants
+        applicants = [a for a in (deal.customer, *deal.co_applicants.all()) if a]
         ctx["applicants"] = applicants
 
         # Other contacts in the deal's organisation that staff can attach as applicants
@@ -950,11 +961,12 @@ class ProposalUpdateView(StaffRequiredMixin, UpdateView):
     form_class = ProposalForm
 
     # Map a new Proposal.Status -> the Stage.Name to emit when status flips to it.
+    # WITHDRAWN deliberately absent: withdrawing one proposal doesn't move the
+    # deal's stage — the proposal's own status records it.
     _STATUS_TO_STAGE = {
         Proposal.Status.SUBMITTED: Stage.Name.PROPOSAL_SUBMITTED,
         Proposal.Status.APPROVED: Stage.Name.PROPOSAL_APPROVED,
         Proposal.Status.DECLINED: Stage.Name.PROPOSAL_DECLINED,
-        Proposal.Status.WITHDRAWN: Stage.Name.PROPOSAL_WITHDRAWN,
     }
 
     def get_queryset(self):
@@ -1121,7 +1133,7 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
 
         Stage.objects.create(
             deal=participation.deal,
-            name=Stage.Name.INVOICE_REQUESTED,
+            name=Stage.Name.SUPPLIER_INVOICE_REQUESTED,
             organisation=participation.organisation,
             set_by=request.user,
         )
@@ -1229,7 +1241,7 @@ class SubmitParticipationInvoiceView(View):
             deal = participation.deal
             Stage.objects.create(
                 deal=deal,
-                name=Stage.Name.INVOICE_RECEIVED,
+                name=Stage.Name.SUPPLIER_INVOICE_RECEIVED,
                 organisation=participation.organisation,
                 # No set_by — the supplier isn't a logged-in user.
             )

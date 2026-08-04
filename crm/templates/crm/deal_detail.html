@@ -48,6 +48,9 @@ layout (main content left, amount + timeline right).
       {% if deal.selected_quote.repayment_profile %}
         <p>Repayment profile: {{ deal.selected_quote.repayment_profile }}</p>
       {% endif %}
+      {% if deal.mf_invoice_number %}
+        <p>MF invoice: {{ deal.mf_invoice_number }}</p>
+      {% endif %}
     </div>
   </div>
 

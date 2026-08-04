@@ -109,8 +109,12 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
             "flat_fee",
             "commission",
             "document_fee",
+            "mf_invoice_number",
             "first_payment_date",
         ]
+        labels = {
+            "mf_invoice_number": "MF invoice number",
+        }
         widgets = {
             "first_payment_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         }

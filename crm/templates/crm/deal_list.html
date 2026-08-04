@@ -1,5 +1,5 @@
 {% extends "_app_layout.html" %}
-{% load icons crm_extras %}
+{% load icons humanize crm_extras %}
 
 {% block title %}Deals · Medifinance CRM{% endblock %}
 
@@ -30,6 +30,7 @@
         <tr>
           <th>Deal</th>
           <th>Stage</th>
+          <th>Funded</th>
           <th>Customer</th>
           <th>Organisation</th>
           <th>Owner</th>
@@ -47,6 +48,9 @@
                 {{ d.current_stage_name|stage_display }}
               {% else %}<span class="opacity-60">—</span>{% endif %}
             </td>
+            <td class="whitespace-nowrap">
+              {% if d.funded_total is not None %}£{{ d.funded_total|floatformat:2|intcomma }}{% else %}<span class="opacity-60">—</span>{% endif %}
+            </td>
             <td>
               <a href="{{ d.customer.get_absolute_url }}" class="link link-hover">{{ d.customer }}</a>
             </td>
@@ -61,7 +65,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="6" class="text-center opacity-60 py-8">
+            <td colspan="7" class="text-center opacity-60 py-8">
               {% if q %}No deals match “{{ q }}”.{% else %}No deals yet.{% endif %}
             </td>
           </tr>

@@ -195,6 +195,10 @@ class Deal(TimestampedModel):
     commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     document_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
+    # Medifinance's own commission invoice to the funder. A deal is only
+    # considered mf_invoiced when this is set.
+    mf_invoice_number = models.CharField(max_length=32, blank=True)
+
     first_payment_date = models.DateField(
         null=True, blank=True,
         help_text="Date the first repayment falls due.",
@@ -449,14 +453,15 @@ class Stage(TimestampedModel):
         INFO_RECEIVED = "info_received", "Info Received"
         PROPOSAL_SUBMITTED = "proposal_submitted", "Proposal Submitted"
         PROPOSAL_APPROVED = "proposal_approved", "Proposal Approved"
-        DOCUMENTS_OUT = "documents_out", "Documents Out"
-        AWAITING_PAYOUT = "awaiting_payout", "Awaiting Payout"
-        DEAL_LIVE = "deal_live", "Deal Live"
-        COMMISSION_INVOICE_REQUESTED = "commission_invoice_requested", "Commission Invoice Requested"
-        INVOICE_REQUESTED = "invoice_requested", "Invoice Requested"
-        INVOICE_RECEIVED = "invoice_received", "Invoice Received"
         PROPOSAL_DECLINED = "proposal_declined", "Proposal Declined"
-        PROPOSAL_WITHDRAWN = "proposal_withdrawn", "Proposal Withdrawn"
+        DOCUMENTS_OUT = "documents_out", "Documents Out"
+        SUPPLIER_INVOICE_REQUESTED = "supplier_invoice_requested", "Supplier Invoice Requested"
+        SUPPLIER_INVOICE_RECEIVED = "supplier_invoice_received", "Supplier Invoice Received"
+        MF_INVOICED = "mf_invoiced", "MF Invoiced"
+        DEAL_LIVE = "deal_live", "Deal Live"
+        DORMANT = "dormant", "Dormant"
+        LOST = "lost", "Lost"
+        SETTLED = "settled", "Settled"
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="stage_events")
     name = models.CharField(max_length=32, choices=Name.choices)

@@ -88,7 +88,7 @@ class SupplierInvoiceSubmitTests(TestCase):
             Stage.objects.filter(deal=self.deal).count(), stage_count_before + 1,
         )
         latest = Stage.objects.filter(deal=self.deal).order_by("-occurred_at", "-pk").first()
-        self.assertEqual(latest.name, Stage.Name.INVOICE_RECEIVED)
+        self.assertEqual(latest.name, Stage.Name.SUPPLIER_INVOICE_RECEIVED)
 
     def test_valid_post_notifies_staff(self):
         link = self._issue_link()

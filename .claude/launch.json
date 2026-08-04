@@ -4,8 +4,8 @@
     {
       "name": "django",
       "runtimeExecutable": "/Users/matt/Desktop/MEDIFINANCE/medifinance-app/.venv/bin/python",
-      "runtimeArgs": ["manage.py", "runserver", "127.0.0.1:8000"],
-      "port": 8000
+      "runtimeArgs": ["manage.py", "runserver", "127.0.0.1:8001"],
+      "port": 8001
     }
   ]
 }

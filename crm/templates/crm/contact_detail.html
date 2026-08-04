@@ -57,18 +57,7 @@
       <h2 class="card-title flex items-center gap-2">{% icon "handshake" %} Deals</h2>
       <a href="{% url 'crm:deal_create' %}?customer={{ contact.pk }}" class="btn btn-ghost btn-xs">New deal</a>
     </div>
-    {% if deals %}
-      <ul class="divide-y">
-        {% for d in deals %}
-          <li class="py-2 flex items-center justify-between">
-            <a href="{{ d.get_absolute_url }}" class="link link-hover">{{ d.name }}</a>
-            <span class="text-sm opacity-60">Owner: {{ d.owner.full_name }}</span>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p class="opacity-60 text-sm">No deals yet.</p>
-    {% endif %}
+    {% include "crm/_related_deals.html" with deals=deals show_organisation=True %}
   </div>
 </div>
 
