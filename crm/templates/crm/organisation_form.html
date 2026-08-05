@@ -3,6 +3,7 @@
 {% block title %}{% if object %}Edit {{ object.name }}{% else %}New organisation{% endif %} · Medifinance CRM{% endblock %}
 
 {% block content %}
+{% url 'crm:user_search' as user_search_url %}
 <div class="max-w-xl">
   <p class="text-sm opacity-60 mb-1">
     <a href="{% url 'crm:organisation_list' %}" class="link link-hover">Organisations</a>
@@ -43,6 +44,8 @@
         {% include "_field.html" with field=form.email %}
         {% include "_field.html" with field=form.phone %}
       </div>
+
+      {% include "crm/_combobox.html" with name="owner" label="Owner" search_url=user_search_url placeholder="Search staff…" selected_id=owner_selected_id selected_label=owner_selected_label errors=form.owner.errors %}
 
       <div class="card-actions justify-end mt-2">
         <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:organisation_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>

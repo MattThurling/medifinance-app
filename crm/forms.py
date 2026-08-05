@@ -51,7 +51,16 @@ class DaisyUIFormMixin:
             w.attrs["class"] = f"{existing} {base}".strip()
 
 
-class OrganisationForm(DaisyUIFormMixin, forms.ModelForm):
+class OwnerInitialFormMixin:
+    """Defaults `owner` to the logged-in staff member on create forms."""
+
+    def __init__(self, *args, current_user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if current_user is not None and not self.instance.pk:
+            self.fields["owner"].initial = current_user
+
+
+class OrganisationForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Organisation
         fields = [
@@ -67,14 +76,15 @@ class OrganisationForm(DaisyUIFormMixin, forms.ModelForm):
             "url",
             "email",
             "phone",
+            "owner",
         ]
         labels = {"url": "Website"}
 
 
-class ContactForm(DaisyUIFormMixin, forms.ModelForm):
+class ContactForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Contact
-        fields = ["title", "first_name", "last_name", "email", "phone", "organisations"]
+        fields = ["title", "first_name", "last_name", "email", "phone", "organisations", "owner"]
 
     def selected_organisations(self):
         """Orgs to render as chips on the form. On a bound (POSTed) form we
@@ -96,7 +106,7 @@ class ContactForm(DaisyUIFormMixin, forms.ModelForm):
         return []
 
 
-class DealForm(DaisyUIFormMixin, forms.ModelForm):
+class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Deal
         fields = [
@@ -118,11 +128,6 @@ class DealForm(DaisyUIFormMixin, forms.ModelForm):
         widgets = {
             "first_payment_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         }
-
-    def __init__(self, *args, current_user=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        if current_user is not None and not self.instance.pk:
-            self.fields["owner"].initial = current_user
 
 
 class SupplierInvoiceForm(DaisyUIFormMixin, forms.ModelForm):

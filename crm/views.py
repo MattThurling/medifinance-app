@@ -189,6 +189,51 @@ class SortableListMixin:
         return ctx
 
 
+class OwnerFilterMixin:
+    """Whitelist-based `?owner=` filtering shared by the deal, contact and
+    organisation lists: `me`, `none`, or a user pk. Views call
+    `apply_owner_filter(qs)` explicitly, alongside their other filters."""
+
+    def apply_owner_filter(self, qs):
+        owner = self.request.GET.get("owner", "")
+        if owner == "me":
+            qs = qs.filter(owner=self.request.user)
+        elif owner == "none":
+            qs = qs.filter(owner__isnull=True)
+        elif owner.isdigit():
+            qs = qs.filter(owner_id=owner)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["owner_choices"] = (
+            get_user_model()
+            .objects.filter(is_active=True, role__in=[Role.ADMIN, Role.ASSOCIATE])
+            .order_by("first_name", "last_name")
+        )
+        ctx["owner_filter"] = self.request.GET.get("owner", "")
+        return ctx
+
+
+class _OwnerFormMixin:
+    """Passes the logged-in user to the form (owner default on create) and
+    supplies the owner-combobox selection context."""
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["current_user"] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        owner_id = ctx["form"]["owner"].value()
+        ctx["owner_selected_id"] = owner_id or ""
+        ctx["owner_selected_label"] = (
+            get_user_model().objects.filter(pk=owner_id).first() if owner_id else ""
+        )
+        return ctx
+
+
 class ProtectedDeleteMixin:
     """Convert ProtectedError into a friendly redirect with a flash message."""
 
@@ -205,7 +250,7 @@ class ProtectedDeleteMixin:
 
 # --- Organisation -----------------------------------------------------------
 
-class OrganisationListView(StaffRequiredMixin, SearchableListView):
+class OrganisationListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, SearchableListView):
     model = Organisation
     search_fields = [
         "name",
@@ -214,10 +259,24 @@ class OrganisationListView(StaffRequiredMixin, SearchableListView):
         "companies_house_number",
         "hubspot_id",
     ]
+    default_sort = "name"
+    sort_fields = {
+        "name": Lower("name"),
+        "owner": Lower(Coalesce("owner__first_name", Value(""))),
+        "created": F("created_at"),
+    }
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related("owner")
+        qs = self.apply_owner_filter(qs)
+        return self.apply_sort(qs)
 
 
 class OrganisationDetailView(StaffRequiredMixin, DetailView):
     model = Organisation
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("owner")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -229,7 +288,7 @@ class OrganisationDetailView(StaffRequiredMixin, DetailView):
         return ctx
 
 
-class OrganisationCreateView(StaffRequiredMixin, CreateView):
+class OrganisationCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
     model = Organisation
     form_class = OrganisationForm
 
@@ -237,7 +296,7 @@ class OrganisationCreateView(StaffRequiredMixin, CreateView):
         return self.object.get_absolute_url()
 
 
-class OrganisationUpdateView(StaffRequiredMixin, UpdateView):
+class OrganisationUpdateView(StaffRequiredMixin, _OwnerFormMixin, UpdateView):
     model = Organisation
     form_class = OrganisationForm
 
@@ -257,19 +316,32 @@ class OrganisationDeleteView(StaffRequiredMixin, ProtectedDeleteMixin, DeleteVie
 
 # --- Contact ----------------------------------------------------------------
 
-class ContactListView(StaffRequiredMixin, SearchableListView):
+class ContactListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, SearchableListView):
     model = Contact
     search_fields = ["first_name", "last_name", "email", "hubspot_id", "organisations__name"]
+    default_sort = "name"
+    sort_fields = {
+        "name": Lower(Coalesce("last_name", Value(""))),
+        "email": Lower("email"),
+        "owner": Lower(Coalesce("owner__first_name", Value(""))),
+        "created": F("created_at"),
+    }
 
     def get_queryset(self):
-        return super().get_queryset().prefetch_related("organisations")
+        qs = super().get_queryset().select_related("owner").prefetch_related("organisations")
+        qs = self.apply_owner_filter(qs)
+        return self.apply_sort(qs)
 
 
 class ContactDetailView(StaffRequiredMixin, DetailView):
     model = Contact
 
     def get_queryset(self):
-        return super().get_queryset().select_related("user").prefetch_related("organisations")
+        return (
+            super().get_queryset()
+            .select_related("user", "owner")
+            .prefetch_related("organisations")
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -278,7 +350,7 @@ class ContactDetailView(StaffRequiredMixin, DetailView):
         return ctx
 
 
-class ContactCreateView(StaffRequiredMixin, CreateView):
+class ContactCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
     """Create a contact. Accepts `?organisation=<pk>` to prefill + lock the org FK
     (from an organisation's detail page), or `?deal=<pk>` to attach the new contact
     to that deal as a co-applicant (org locked to the deal's customer's org)."""
@@ -338,7 +410,7 @@ class ContactCreateView(StaffRequiredMixin, CreateView):
         return self.object.get_absolute_url()
 
 
-class ContactUpdateView(StaffRequiredMixin, UpdateView):
+class ContactUpdateView(StaffRequiredMixin, _OwnerFormMixin, UpdateView):
     model = Contact
     form_class = ContactForm
 
@@ -354,7 +426,7 @@ class ContactDeleteView(StaffRequiredMixin, ProtectedDeleteMixin, DeleteView):
 
 # --- Deal -------------------------------------------------------------------
 
-class DealListView(SortableListMixin, StaffRequiredMixin, SearchableListView):
+class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, SearchableListView):
     model = Deal
     search_fields = [
         "name",
@@ -391,26 +463,13 @@ class DealListView(SortableListMixin, StaffRequiredMixin, SearchableListView):
         stage = self.request.GET.get("stage", "")
         if stage in Stage.Name.values:
             qs = qs.filter(current_stage_name=stage)
-        owner = self.request.GET.get("owner", "")
-        if owner == "me":
-            qs = qs.filter(owner=self.request.user)
-        elif owner == "none":
-            qs = qs.filter(owner__isnull=True)
-        elif owner.isdigit():
-            qs = qs.filter(owner_id=owner)
-        return qs
+        return self.apply_owner_filter(qs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         _attach_activity_labels(ctx["object_list"])
         ctx["stage_choices"] = Stage.Name.choices
         ctx["stage_filter"] = self.request.GET.get("stage", "")
-        ctx["owner_choices"] = (
-            get_user_model()
-            .objects.filter(is_active=True, role__in=[Role.ADMIN, Role.ASSOCIATE])
-            .order_by("first_name", "last_name")
-        )
-        ctx["owner_filter"] = self.request.GET.get("owner", "")
         return ctx
 
 
@@ -480,22 +539,8 @@ class DealOverviewView(DealDetailView):
     template_name = "crm/deal_overview.html"
 
 
-class _DealFormMixin:
+class _DealFormMixin(_OwnerFormMixin):
     form_class = DealForm
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["current_user"] = self.request.user
-        return kwargs
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        owner_id = ctx["form"]["owner"].value()
-        ctx["owner_selected_id"] = owner_id or ""
-        ctx["owner_selected_label"] = (
-            get_user_model().objects.filter(pk=owner_id).first() if owner_id else ""
-        )
-        return ctx
 
     def get_success_url(self):
         return self.object.get_absolute_url()

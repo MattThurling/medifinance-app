@@ -61,6 +61,15 @@ class Organisation(TimestampedModel):
     )
     phone = models.CharField(max_length=32, blank=True, help_text="Main phone number for the organisation.")
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="owned_organisations",
+        null=True,
+        blank=True,
+        help_text="Staff member responsible for this organisation. Optional.",
+    )
+
     hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
 
     class Meta:
@@ -128,6 +137,16 @@ class Contact(TimestampedModel):
         null=True,
         blank=True,
         related_name="contact",
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="owned_contacts",
+        null=True,
+        blank=True,
+        help_text="Staff member responsible for this contact — not the contact's "
+                  "own portal login (that's `user`).",
     )
 
     hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)

@@ -34,6 +34,11 @@
         <span class="opacity-60">Phone</span> {{ organisation.phone }}
       </p>
     {% endif %}
+    {% if organisation.owner %}
+      <p class="text-sm mt-1">
+        <span class="opacity-60">Owner</span> {{ organisation.owner.full_name }}
+      </p>
+    {% endif %}
   </div>
   <div class="flex gap-2 shrink-0">
     <a href="{% url 'crm:organisation_update' organisation.pk %}" class="btn btn-sm">Edit</a>

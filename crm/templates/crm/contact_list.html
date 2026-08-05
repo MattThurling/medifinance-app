@@ -5,7 +5,8 @@
 
 {% block content %}
 <div class="flex items-center justify-between gap-4 mb-4">
-  <form method="get" class="flex-1">
+  <form method="get" class="flex flex-wrap items-center gap-2 flex-1">
+    <input type="hidden" name="sort" value="{{ sort }}" />
     <div class="join w-full max-w-md">
       <input
         type="search"
@@ -16,6 +17,14 @@
       />
       <button class="btn btn-sm join-item">Search</button>
     </div>
+    <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+      <option value="">All owners</option>
+      <option value="me" {% if owner_filter == "me" %}selected{% endif %}>My contacts</option>
+      <option value="none" {% if owner_filter == "none" %}selected{% endif %}>Unowned</option>
+      {% for u in owner_choices %}
+        <option value="{{ u.pk }}" {% if owner_filter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
+      {% endfor %}
+    </select>
   </form>
   <a href="{% url 'crm:contact_create' %}" class="btn btn-primary btn-sm">
     {% icon "plus" class="h-4 w-4" %}
@@ -28,10 +37,11 @@
     <table class="table table-xs">
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Email</th>
+          {% include "_th_sort.html" with key="name" label="Name" %}
+          {% include "_th_sort.html" with key="email" label="Email" %}
           <th>Phone</th>
           <th>Organisation</th>
+          {% include "_th_sort.html" with key="owner" label="Owner" %}
           <th class="w-1"></th>
         </tr>
       </thead>
@@ -46,6 +56,7 @@
             <td>
               {% for o in c.organisations.all %}<a href="{{ o.get_absolute_url }}" class="link link-hover">{{ o.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="opacity-50">—</span>{% endfor %}
             </td>
+            <td class="opacity-80">{{ c.owner.full_name|default:"—" }}</td>
             <td class="text-right whitespace-nowrap">
               <a href="{% url 'crm:contact_update' c.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit contact">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
               <a href="{% url 'crm:contact_delete' c.pk %}" class="btn btn-ghost btn-xs btn-square text-error" title="Delete contact">{% icon "circle-x" class="h-3.5 w-3.5" %}</a>
@@ -53,8 +64,8 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5" class="text-center opacity-60 py-8">
-              {% if q %}No contacts match “{{ q }}”.{% else %}No contacts yet.{% endif %}
+            <td colspan="6" class="text-center opacity-60 py-8">
+              {% if q or owner_filter %}No contacts match the current filters.{% else %}No contacts yet.{% endif %}
             </td>
           </tr>
         {% endfor %}

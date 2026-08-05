@@ -4,6 +4,7 @@
 
 {% block content %}
 {% url 'crm:organisation_search' as organisation_search_url %}
+{% url 'crm:user_search' as user_search_url %}
 <div class="max-w-xl">
   <p class="text-sm opacity-60 mb-1">
     {% if parent_deal %}
@@ -66,6 +67,8 @@
           <p class="text-error text-sm mt-1">{{ form.organisations.errors|join:", " }}</p>
         {% endif %}
       </div>
+
+      {% include "crm/_combobox.html" with name="owner" label="Owner" search_url=user_search_url placeholder="Search staff…" selected_id=owner_selected_id selected_label=owner_selected_label errors=form.owner.errors %}
 
       <div class="card-actions justify-end mt-2">
         <a href="{% if parent_deal %}{{ parent_deal.get_absolute_url }}{% elif parent_organisation %}{{ parent_organisation.get_absolute_url }}{% elif object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>

@@ -5,7 +5,8 @@
 
 {% block content %}
 <div class="flex items-center justify-between gap-4 mb-4">
-  <form method="get" class="flex-1">
+  <form method="get" class="flex flex-wrap items-center gap-2 flex-1">
+    <input type="hidden" name="sort" value="{{ sort }}" />
     <div class="join w-full max-w-md">
       <input
         type="search"
@@ -16,6 +17,14 @@
       />
       <button class="btn btn-sm join-item">Search</button>
     </div>
+    <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+      <option value="">All owners</option>
+      <option value="me" {% if owner_filter == "me" %}selected{% endif %}>My organisations</option>
+      <option value="none" {% if owner_filter == "none" %}selected{% endif %}>Unowned</option>
+      {% for u in owner_choices %}
+        <option value="{{ u.pk }}" {% if owner_filter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
+      {% endfor %}
+    </select>
   </form>
   <a href="{% url 'crm:organisation_create' %}" class="btn btn-primary btn-sm">
     {% icon "plus" class="h-4 w-4" %}
@@ -28,8 +37,9 @@
     <table class="table table-xs">
       <thead>
         <tr>
-          <th>Name</th>
+          {% include "_th_sort.html" with key="name" label="Name" %}
           <th>Contacts</th>
+          {% include "_th_sort.html" with key="owner" label="Owner" %}
           <th>HubSpot ID</th>
           <th class="w-1"></th>
         </tr>
@@ -41,6 +51,7 @@
               <a href="{{ org.get_absolute_url }}" class="link link-hover font-medium">{{ org.name }}</a>
             </td>
             <td>{{ org.contacts.count }}</td>
+            <td class="opacity-80">{{ org.owner.full_name|default:"—" }}</td>
             <td>
               {% if org.hubspot_id %}
                 <a href="{{ org.hubspot_url }}" target="_blank" rel="noopener" class="link link-hover">{{ org.hubspot_id }}</a>
@@ -55,8 +66,8 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="4" class="text-center opacity-60 py-8">
-              {% if q %}No organisations match “{{ q }}”.{% else %}No organisations yet.{% endif %}
+            <td colspan="5" class="text-center opacity-60 py-8">
+              {% if q or owner_filter %}No organisations match the current filters.{% else %}No organisations yet.{% endif %}
             </td>
           </tr>
         {% endfor %}

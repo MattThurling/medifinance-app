@@ -1,0 +1,93 @@
+"""Staff ownership of contacts and organisations: create/edit forms, detail
+display, and the PROTECT constraint on the owning user."""
+
+from django.db.models import ProtectedError
+from django.test import TestCase
+from django.urls import reverse
+
+from crm.models import Contact, Organisation
+
+from .factories import make_associate, make_contact, make_organisation
+
+
+class OwnerFormTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = make_associate()
+        cls.colleague = make_associate()
+
+    def setUp(self):
+        self.client.force_login(self.staff)
+
+
+class ContactOwnerTests(OwnerFormTestCase):
+    def test_create_form_defaults_owner_to_current_user(self):
+        response = self.client.get(reverse("crm:contact_create"))
+        self.assertEqual(response.context["form"]["owner"].value(), self.staff.pk)
+        self.assertEqual(response.context["owner_selected_id"], self.staff.pk)
+
+    def test_create_persists_owner(self):
+        response = self.client.post(reverse("crm:contact_create"), {
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "owner": self.colleague.pk,
+        })
+        contact = Contact.objects.get(last_name="Doe")
+        self.assertRedirects(response, contact.get_absolute_url())
+        self.assertEqual(contact.owner, self.colleague)
+
+    def test_edit_can_clear_owner(self):
+        contact = make_contact(owner=self.staff)
+        response = self.client.post(
+            reverse("crm:contact_update", args=[contact.pk]),
+            {"first_name": contact.first_name, "last_name": contact.last_name},
+        )
+        contact.refresh_from_db()
+        self.assertRedirects(response, contact.get_absolute_url())
+        self.assertIsNone(contact.owner)
+
+    def test_detail_shows_owner(self):
+        owner = make_associate(first_name="Nora", last_name="Field")
+        contact = make_contact(owner=owner)
+        self.assertContains(self.client.get(contact.get_absolute_url()), "Nora Field")
+
+
+class OrganisationOwnerTests(OwnerFormTestCase):
+    def test_create_form_defaults_owner_to_current_user(self):
+        response = self.client.get(reverse("crm:organisation_create"))
+        self.assertEqual(response.context["form"]["owner"].value(), self.staff.pk)
+
+    def test_create_persists_owner(self):
+        response = self.client.post(reverse("crm:organisation_create"), {
+            "name": "Owned Ltd",
+            "owner": self.colleague.pk,
+        })
+        org = Organisation.objects.get(name="Owned Ltd")
+        self.assertRedirects(response, org.get_absolute_url())
+        self.assertEqual(org.owner, self.colleague)
+
+    def test_edit_can_clear_owner(self):
+        org = make_organisation(owner=self.staff)
+        response = self.client.post(
+            reverse("crm:organisation_update", args=[org.pk]), {"name": org.name},
+        )
+        org.refresh_from_db()
+        self.assertRedirects(response, org.get_absolute_url())
+        self.assertIsNone(org.owner)
+
+    def test_detail_shows_owner(self):
+        owner = make_associate(first_name="Nora", last_name="Field")
+        org = make_organisation(owner=owner)
+        self.assertContains(self.client.get(org.get_absolute_url()), "Nora Field")
+
+
+class OwnerProtectTests(OwnerFormTestCase):
+    def test_deleting_user_who_owns_contact_is_protected(self):
+        make_contact(owner=self.colleague)
+        with self.assertRaises(ProtectedError):
+            self.colleague.delete()
+
+    def test_deleting_user_who_owns_organisation_is_protected(self):
+        make_organisation(owner=self.colleague)
+        with self.assertRaises(ProtectedError):
+            self.colleague.delete()

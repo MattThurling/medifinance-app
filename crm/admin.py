@@ -27,7 +27,9 @@ class RateBandInline(admin.TabularInline):
 @admin.register(Organisation)
 class OrganisationAdmin(admin.ModelAdmin):
     inlines = [RateBandInline]
-    list_display = ("name", "companies_house_number", "email", "phone", "hubspot_id", "created_at")
+    list_display = ("name", "owner", "companies_house_number", "email", "phone", "hubspot_id", "created_at")
+    list_select_related = ("owner",)
+    list_filter = ("owner",)
     search_fields = (
         "name",
         "legal_name",
@@ -37,16 +39,17 @@ class OrganisationAdmin(admin.ModelAdmin):
         "phone",
         "hubspot_id",
     )
+    autocomplete_fields = ("owner",)
     readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
-    list_display = ("__str__", "email", "user", "hubspot_id", "created_at")
-    list_select_related = ("user",)
-    list_filter = ("organisations",)
+    list_display = ("__str__", "email", "owner", "user", "hubspot_id", "created_at")
+    list_select_related = ("owner", "user")
+    list_filter = ("owner", "organisations")
     search_fields = ("first_name", "last_name", "email", "hubspot_id", "organisations__name")
-    autocomplete_fields = ("organisations", "user")
+    autocomplete_fields = ("organisations", "user", "owner")
     readonly_fields = ("created_at", "updated_at")
 
 
