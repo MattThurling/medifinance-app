@@ -523,12 +523,32 @@ class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
     WINDOW_CHOICES = (3, 6, 12, 24)  # months
     DEFAULT_WINDOW = 12
 
+    # Python-side equivalents of DealListView.sort_fields — attribute getters
+    # rather than ORM expressions, since this list is sorted in memory. Rows
+    # whose key is None go last in both directions, like the mixin's
+    # nulls_last ordering.
+    SORT_KEYS = {
+        "name": lambda d: d.name.lower(),
+        "type": lambda d: d.type or None,
+        "ends": lambda d: d.maturity_date,
+        "funded": lambda d: d.funded_total,
+        "owner": lambda d: (d.owner.first_name or "").lower() if d.owner else "",
+        "activity": lambda d: d.last_activity_at,
+    }
+    default_sort = "ends"
+
     def get_window(self) -> int:
         try:
             window = int(self.request.GET.get("window", ""))
         except ValueError:
             return self.DEFAULT_WINDOW
         return window if window in self.WINDOW_CHOICES else self.DEFAULT_WINDOW
+
+    def get_sort(self) -> str:
+        sort = self.request.GET.get("sort", "")
+        if sort.lstrip("-") not in self.SORT_KEYS:
+            return self.default_sort
+        return sort
 
     def _live_deals(self):
         qs = _deal_summaries(
@@ -546,12 +566,17 @@ class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
             d for d in deals
             if d.maturity_date is not None and d.maturity_date <= horizon
         ]
-        maturing.sort(key=lambda d: d.maturity_date)
-        return maturing
+        sort = self.get_sort()
+        keyfn = self.SORT_KEYS[sort.lstrip("-")]
+        valued = [d for d in maturing if keyfn(d) is not None]
+        nulled = [d for d in maturing if keyfn(d) is None]
+        valued.sort(key=keyfn, reverse=sort.startswith("-"))
+        return valued + nulled
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         _attach_activity_labels(ctx["object_list"])
+        ctx["sort"] = self.get_sort()
         ctx["window"] = self.get_window()
         ctx["window_choices"] = self.WINDOW_CHOICES
         ctx["no_maturity_count"] = self.no_maturity_count

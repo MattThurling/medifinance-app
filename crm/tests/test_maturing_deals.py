@@ -10,7 +10,7 @@ from django.utils import timezone
 from crm.models import Stage
 from crm.pricing import add_months
 
-from .factories import make_associate, make_deal, make_quote
+from .factories import make_associate, make_deal, make_participation, make_quote
 
 
 def _names(response):
@@ -94,6 +94,24 @@ class MaturingListTests(TestCase):
         _live_deal(name="Theirs", term_end_date=self.today + timedelta(days=30), owner=other)
         self.assertEqual(_names(self.get(owner="me")), ["Mine"])
         self.assertEqual(_names(self.get(owner=other.pk)), ["Theirs"])
+
+    def test_sortable_columns(self):
+        alpha = _live_deal(name="Alpha", term_end_date=self.today + timedelta(days=60), owner=self.staff)
+        beta = _live_deal(name="Beta", term_end_date=self.today + timedelta(days=30), owner=self.staff)
+        # Default: soonest term end first.
+        self.assertEqual(_names(self.get()), ["Beta", "Alpha"])
+        self.assertEqual(_names(self.get(sort="-ends")), ["Alpha", "Beta"])
+        self.assertEqual(_names(self.get(sort="name")), ["Alpha", "Beta"])
+        self.assertEqual(_names(self.get(sort="-name")), ["Beta", "Alpha"])
+        # Unknown keys fall back to the default sort.
+        self.assertEqual(_names(self.get(sort="bogus")), ["Beta", "Alpha"])
+
+    def test_sort_puts_unset_values_last_both_directions(self):
+        funded = _live_deal(name="Funded", term_end_date=self.today + timedelta(days=60), owner=self.staff)
+        make_participation(funded, amount="5000.00")
+        _live_deal(name="Unfunded", term_end_date=self.today + timedelta(days=30), owner=self.staff)
+        self.assertEqual(_names(self.get(sort="funded")), ["Funded", "Unfunded"])
+        self.assertEqual(_names(self.get(sort="-funded")), ["Funded", "Unfunded"])
 
     def test_derived_maturity_appears_without_explicit_date(self):
         deal = make_deal(name="Quoted", owner=self.staff,

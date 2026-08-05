@@ -7,9 +7,10 @@
 <div class="flex items-center justify-between gap-4 mb-1">
   <h1 class="text-xl font-semibold">Maturing deals</h1>
 </div>
-<p class="text-sm opacity-60 mb-4">Live deals whose finance term ends soon — call the client before it does.</p>
+<p class="text-sm opacity-60 mb-4">Live deals whose finance term ends soon.</p>
 
 <form method="get" class="flex flex-wrap items-center gap-2 mb-4">
+  <input type="hidden" name="sort" value="{{ sort }}" />
   <select name="window" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
     {% for months in window_choices %}
       <option value="{{ months }}" {% if window == months %}selected{% endif %}>Within {{ months }} months</option>
@@ -30,14 +31,14 @@
     <table class="table table-xs">
       <thead>
         <tr>
-          <th>Deal</th>
-          <th>Type</th>
-          <th>Term ends</th>
-          <th>Funded</th>
+          {% include "_th_sort.html" with key="name" label="Deal" %}
+          {% include "_th_sort.html" with key="type" label="Type" %}
+          {% include "_th_sort.html" with key="ends" label="Term ends" %}
+          {% include "_th_sort.html" with key="funded" label="Funded" %}
           <th>Customer</th>
           <th>Organisation</th>
-          <th>Owner</th>
-          <th>Last activity</th>
+          {% include "_th_sort.html" with key="owner" label="Owner" %}
+          {% include "_th_sort.html" with key="activity" label="Last activity" %}
         </tr>
       </thead>
       <tbody>
