@@ -116,6 +116,7 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
         model = Deal
         fields = [
             "name",
+            "type",
             "customer",
             "organisation",
             "owner",
@@ -133,6 +134,10 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
         widgets = {
             "first_payment_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         }
+
+    def clean_type(self):
+        # Normalise the cleared select to NULL so "unset" is one state, not two.
+        return self.cleaned_data.get("type") or None
 
 
 class SupplierInvoiceForm(DaisyUIFormMixin, forms.ModelForm):

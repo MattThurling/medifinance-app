@@ -462,6 +462,7 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
     default_sort = "-created"
     sort_fields = {
         "name": Lower("name"),
+        "type": F("type"),
         # Pipeline order (choice declaration order), not alphabetical-by-code.
         "stage": Case(
             *[
@@ -486,6 +487,11 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         stage = self.request.GET.get("stage", "")
         if stage in Stage.Name.values:
             qs = qs.filter(current_stage_name=stage)
+        deal_type = self.request.GET.get("type", "")
+        if deal_type == "none":
+            qs = qs.filter(Q(type__isnull=True) | Q(type=""))
+        elif deal_type in Deal.Type.values:
+            qs = qs.filter(type=deal_type)
         return self.apply_owner_filter(qs)
 
     def get_context_data(self, **kwargs):
@@ -493,6 +499,8 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         _attach_activity_labels(ctx["object_list"])
         ctx["stage_choices"] = Stage.Name.choices
         ctx["stage_filter"] = self.request.GET.get("stage", "")
+        ctx["type_choices"] = Deal.Type.choices
+        ctx["type_filter"] = self.request.GET.get("type", "")
         return ctx
 
 

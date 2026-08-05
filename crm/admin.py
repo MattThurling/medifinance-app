@@ -97,9 +97,9 @@ class ParticipationInline(admin.StackedInline):
 
 @admin.register(Deal)
 class DealAdmin(admin.ModelAdmin):
-    list_display = ("name", "owner", "customer", "hubspot_id", "created_at")
+    list_display = ("name", "type", "owner", "customer", "hubspot_id", "created_at")
     list_select_related = ("owner", "customer", "organisation")
-    list_filter = ("owner",)
+    list_filter = ("type", "owner")
     search_fields = (
         "name",
         "hubspot_id",

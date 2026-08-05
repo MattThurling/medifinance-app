@@ -23,6 +23,13 @@
         <option value="{{ code }}" {% if stage_filter == code %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
+    <select name="type" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+      <option value="">All types</option>
+      <option value="none" {% if type_filter == "none" %}selected{% endif %}>No type</option>
+      {% for code, label in type_choices %}
+        <option value="{{ code }}" {% if type_filter == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
     <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
       <option value="">All owners</option>
       <option value="me" {% if owner_filter == "me" %}selected{% endif %}>My deals</option>
@@ -44,6 +51,7 @@
       <thead>
         <tr>
           {% include "_th_sort.html" with key="name" label="Deal" %}
+          {% include "_th_sort.html" with key="type" label="Type" %}
           {% include "_th_sort.html" with key="stage" label="Stage" %}
           {% include "_th_sort.html" with key="funded" label="Funded" %}
           <th>Customer</th>
@@ -59,6 +67,7 @@
             <td>
               <a href="{{ d.get_absolute_url }}" class="link link-hover font-medium">{{ d.name }}</a>
             </td>
+            <td class="opacity-80">{{ d.get_type_display|default:"—" }}</td>
             <td>
               {% if d.current_stage_name %}
                 {{ d.current_stage_name|stage_display }}
@@ -85,8 +94,8 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="8" class="text-center opacity-60 py-8">
-              {% if q or stage_filter or owner_filter %}No deals match the current filters.{% else %}No deals yet.{% endif %}
+            <td colspan="9" class="text-center opacity-60 py-8">
+              {% if q or stage_filter or type_filter or owner_filter %}No deals match the current filters.{% else %}No deals yet.{% endif %}
             </td>
           </tr>
         {% endfor %}

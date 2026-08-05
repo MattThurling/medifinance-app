@@ -39,6 +39,9 @@ layout (main content left, amount + timeline right).
     <div class="mt-5 text-sm space-y-1">
       <p>Lead: {% if deal.customer %}<a href="{{ deal.customer.get_absolute_url }}" class="link link-hover">{{ deal.customer }}</a>{% else %}<span class="opacity-60 italic">not set</span>{% endif %}</p>
       <p>Owner: {{ deal.owner.full_name }}</p>
+      {% if deal.type %}
+        <p>Type: {{ deal.get_type_display }}</p>
+      {% endif %}
       {% if deal.introducer %}
         <p>Introducer: <a href="{{ deal.introducer.get_absolute_url }}" class="link link-hover">{{ deal.introducer.name }}</a></p>
       {% endif %}

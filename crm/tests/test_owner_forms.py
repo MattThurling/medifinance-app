@@ -1,13 +1,14 @@
 """Staff ownership of contacts and organisations: create/edit forms, detail
-display, and the PROTECT constraint on the owning user."""
+display, and the PROTECT constraint on the owning user. Also the small
+choice fields that ride the same forms (organisation sector, deal type)."""
 
 from django.db.models import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 
-from crm.models import Contact, Organisation
+from crm.models import Contact, Deal, Organisation
 
-from .factories import make_associate, make_contact, make_organisation
+from .factories import make_associate, make_contact, make_deal, make_organisation
 
 
 class OwnerFormTestCase(TestCase):
@@ -108,6 +109,36 @@ class OrganisationSectorTests(OwnerFormTestCase):
     def test_detail_omits_sector_line_when_unset(self):
         org = make_organisation()
         self.assertNotContains(self.client.get(org.get_absolute_url()), ">Sector<")
+
+
+class DealTypeTests(OwnerFormTestCase):
+    def test_create_persists_type(self):
+        response = self.client.post(reverse("crm:deal_create"), {
+            "name": "CT Scanner",
+            "type": Deal.Type.ASSET_FINANCE,
+            "owner": self.staff.pk,
+        })
+        deal = Deal.objects.get(name="CT Scanner")
+        self.assertRedirects(response, deal.get_absolute_url())
+        self.assertEqual(deal.type, Deal.Type.ASSET_FINANCE)
+
+    def test_edit_clearing_type_stores_null(self):
+        deal = make_deal(owner=self.staff, type=Deal.Type.COMMERCIAL_FINANCE)
+        response = self.client.post(
+            reverse("crm:deal_update", args=[deal.pk]),
+            {"name": deal.name, "owner": self.staff.pk, "type": ""},
+        )
+        deal.refresh_from_db()
+        self.assertRedirects(response, deal.get_absolute_url())
+        self.assertIsNone(deal.type)
+
+    def test_detail_shows_type_label(self):
+        deal = make_deal(owner=self.staff, type=Deal.Type.COMMERCIAL_FINANCE)
+        self.assertContains(self.client.get(deal.get_absolute_url()), "Commercial Finance")
+
+    def test_detail_omits_type_line_when_unset(self):
+        deal = make_deal(owner=self.staff)
+        self.assertNotContains(self.client.get(deal.get_absolute_url()), "Type:")
 
 
 class OwnerProtectTests(OwnerFormTestCase):

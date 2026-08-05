@@ -29,6 +29,10 @@
 
       {% include "_field.html" with field=form.name %}
 
+      <div class="max-w-xs">
+        {% include "_field.html" with field=form.type %}
+      </div>
+
       {% if parent_contact %}
         <div class="form-control mb-4">
           <label class="label"><span class="label-text">Customer</span></label>

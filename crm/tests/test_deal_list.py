@@ -1,5 +1,5 @@
 """Deal list: last-activity annotation/labels, sortable columns, and
-stage/owner filters — and that they all compose with search + pagination."""
+stage/type/owner filters — and that they all compose with search + pagination."""
 
 from datetime import timedelta
 
@@ -9,7 +9,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from crm.models import Note, Stage
+from crm.models import Deal, Note, Stage
 
 from .factories import (
     make_associate,
@@ -117,6 +117,11 @@ class SortTests(DealListTestCase):
         self.assertEqual(_names(self.get(sort="-activity")), ["Alpha", "Beta"])
         self.assertEqual(_names(self.get(sort="activity")), ["Beta", "Alpha"])
 
+    def test_sort_by_type_puts_untyped_last_both_directions(self):
+        Deal.objects.filter(pk=self.beta.pk).update(type=Deal.Type.ASSET_FINANCE)
+        self.assertEqual(_names(self.get(sort="type")), ["Beta", "Alpha"])
+        self.assertEqual(_names(self.get(sort="-type")), ["Beta", "Alpha"])
+
     def test_unknown_sort_falls_back_to_default(self):
         response = self.get(sort="bogus")
         self.assertEqual(response.status_code, 200)
@@ -156,6 +161,36 @@ class FilterTests(DealListTestCase):
         # Header links keep the search/filter params.
         self.assertContains(response, "stage=application")
         self.assertContains(response, "q=Mine")
+
+
+class TypeFilterTests(DealListTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.asset = make_deal(owner=cls.staff, name="Asset", type=Deal.Type.ASSET_FINANCE)
+        cls.commercial = make_deal(owner=cls.staff, name="Commercial", type=Deal.Type.COMMERCIAL_FINANCE)
+        cls.null_type = make_deal(owner=cls.staff, name="Null")
+        cls.blank_type = make_deal(owner=cls.staff, name="Blank", type="")
+
+    def test_type_filter(self):
+        self.assertEqual(_names(self.get(type="asset_finance")), ["Asset"])
+        self.assertEqual(_names(self.get(type="commercial_finance")), ["Commercial"])
+
+    def test_none_matches_null_and_blank(self):
+        self.assertEqual(_names(self.get(type="none")), ["Blank", "Null"])
+
+    def test_unknown_type_ignored(self):
+        self.assertEqual(len(_names(self.get(type="garbage"))), 4)
+
+    def test_composes_with_search_and_owner(self):
+        make_deal(name="Asset too", type=Deal.Type.ASSET_FINANCE)
+        response = self.get(q="Asset", type="asset_finance", owner="me")
+        self.assertEqual(_names(response), ["Asset"])
+        # Header links keep the filter params.
+        self.assertContains(response, "type=asset_finance")
+
+    def test_type_column_shows_display_label(self):
+        self.assertContains(self.get(), "Commercial Finance")
 
 
 class QueryCountTests(DealListTestCase):

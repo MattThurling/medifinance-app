@@ -194,7 +194,18 @@ class Contact(TimestampedModel):
 
 
 class Deal(TimestampedModel):
+    class Type(models.TextChoices):
+        ASSET_FINANCE = "asset_finance", "Asset Finance"
+        COMMERCIAL_FINANCE = "commercial_finance", "Commercial Finance"
+
     name = models.CharField(max_length=255)
+    type = models.CharField(
+        max_length=32,
+        choices=Type.choices,
+        null=True,
+        blank=True,
+        help_text="The kind of finance this deal is for. Optional.",
+    )
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,

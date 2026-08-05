@@ -24,6 +24,7 @@ than being hidden, so the structure stays predictable.
     <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Deal</h2>
     <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
       <dt class="opacity-60">Name</dt>                <dd>{{ deal.name }}</dd>
+      <dt class="opacity-60">Type</dt>                <dd>{{ deal.get_type_display|default:"—" }}</dd>
       <dt class="opacity-60">Owner</dt>               <dd>{{ deal.owner.full_name|default:"—" }}</dd>
       <dt class="opacity-60">Lead</dt>                <dd>{{ deal.customer|default:"—" }}</dd>
       <dt class="opacity-60">Organisation</dt>        <dd>{% if deal.organisation %}{{ deal.organisation.name }}{% else %}—{% endif %}</dd>
