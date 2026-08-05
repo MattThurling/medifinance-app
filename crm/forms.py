@@ -155,7 +155,12 @@ class SupplierInvoiceForm(DaisyUIFormMixin, forms.ModelForm):
 
 
 class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
-    """Staff: create / edit a Participation (supplier) on a Deal. `deal` is set by the view."""
+    """Staff: create / edit a Participation (supplier) on a Deal. `deal` is set by the view.
+
+    On Commercial Finance deals a participation is just a funded amount — the
+    supplier/invoice fields are dropped entirely so posted values are ignored,
+    not merely hidden.
+    """
 
     class Meta:
         model = Participation
@@ -170,6 +175,12 @@ class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, deal=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if deal is not None and deal.is_commercial_finance:
+            for field in ("organisation", "invoice_number", "invoice_contact", "invoice"):
+                del self.fields[field]
 
 
 class QuoteForm(DaisyUIFormMixin, forms.ModelForm):

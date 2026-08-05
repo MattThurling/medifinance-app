@@ -1232,6 +1232,9 @@ class ParticipationCreateView(StaffRequiredMixin, CreateView):
         form.instance.deal = self.parent_deal
         return super().form_valid(form)
 
+    def get_form_kwargs(self):
+        return super().get_form_kwargs() | {"deal": self.parent_deal}
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["parent_deal"] = self.parent_deal
@@ -1247,6 +1250,9 @@ class ParticipationUpdateView(StaffRequiredMixin, UpdateView):
 
     def get_queryset(self):
         return super().get_queryset().select_related("deal", "organisation", "invoice_contact")
+
+    def get_form_kwargs(self):
+        return super().get_form_kwargs() | {"deal": self.object.deal}
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

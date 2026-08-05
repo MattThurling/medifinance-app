@@ -302,6 +302,10 @@ class Deal(TimestampedModel):
         return reverse("crm:deal_detail", args=[self.pk])
 
     @property
+    def is_commercial_finance(self) -> bool:
+        return self.type == Deal.Type.COMMERCIAL_FINANCE
+
+    @property
     def hubspot_url(self) -> str | None:
         return _hubspot_url("0-3", self.hubspot_id)
 

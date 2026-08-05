@@ -61,12 +61,12 @@ layout (main content left, amount + timeline right).
   <div class="lg:col-start-3 lg:row-start-1">
     <div class="card bg-neutral text-neutral-content shadow w-full">
       <div class="card-body items-center text-center">
-        <p class="text-sm opacity-60">Asset Finance</p>
+        <p class="text-sm opacity-60">{{ deal.get_type_display|default:"Asset Finance" }}</p>
         <p class="text-4xl font-semibold">{% if amount_pounds %}£{{ amount_pounds }}<span class="text-xl align-baseline">.{{ amount_pence }}</span>{% else %}—{% endif %}</p>
         {% with sq=deal.selected_quote %}
           {% if deal.funded_amount and sq.deposit or deal.funded_amount and sq.balloon %}
             <p class="text-xs opacity-70 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-              <span class="inline-flex items-center gap-1" title="Suppliers total">
+              <span class="inline-flex items-center gap-1" title="Funded total">
                 {% icon "sigma" class="h-3.5 w-3.5" %} £{{ deal.funded_amount|floatformat:2|intcomma }}
               </span>
               {% if sq.deposit %}
@@ -95,7 +95,45 @@ layout (main content left, amount + timeline right).
 
   {# ---- Quotes / Documents / Applicants / Suppliers / Proposals ---- #}
   <div class="lg:col-start-1 lg:col-span-2 lg:row-start-2 space-y-4">
-    {# Suppliers — Participation rows; sum of `amount` is the deal's funded amount #}
+    {# Suppliers / Funded amounts — Participation rows; sum of `amount` is the deal's funded amount. #}
+    {# Commercial Finance deals have no supplier or invoice — just amounts. #}
+    {% if deal.is_commercial_finance %}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "circle-pound-sterling" class="h-5 w-5 opacity-70" %} Funded amounts
+        </h2>
+        <table class="table table-xs w-full">
+          <thead>
+            <tr><th>Amount</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for p in deal.participations.all %}
+              <tr>
+                <td class="font-medium whitespace-nowrap">
+                  £{{ p.amount|floatformat:2|intcomma }}
+                  {% if p.description %}<span class="opacity-60 font-normal ml-2">{{ p.description }}</span>{% endif %}
+                </td>
+                <td class="text-right whitespace-nowrap">
+                  <a href="{% url 'crm:participation_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit funded amount">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+                  <form method="post" action="{% url 'crm:participation_delete' p.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove funded amount">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="2" class="opacity-60">No funded amounts yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <a href="{% url 'crm:participation_create' %}?deal={{ deal.pk }}"
+           class="btn btn-circle btn-xs btn-outline mt-3" title="Add funded amount" aria-label="Add funded amount">
+          {% icon "plus" class="h-3.5 w-3.5" %}
+        </a>
+      </div>
+    </div>
+    {% else %}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">
         <h2 class="card-title text-base">
@@ -145,6 +183,7 @@ layout (main content left, amount + timeline right).
         </a>
       </div>
     </div>
+    {% endif %}
 
     {# Quotes #}
     <div class="card bg-base-100 shadow w-full">
