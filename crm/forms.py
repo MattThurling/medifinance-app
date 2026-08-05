@@ -127,12 +127,14 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
             "document_fee",
             "mf_invoice_number",
             "first_payment_date",
+            "term_end_date",
         ]
         labels = {
             "mf_invoice_number": "MF invoice number",
         }
         widgets = {
             "first_payment_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "term_end_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         }
 
     def clean_type(self):

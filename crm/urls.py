@@ -26,6 +26,7 @@ urlpatterns = [
 
     # Deals
     path("deals/", views.DealListView.as_view(), name="deal_list"),
+    path("deals/maturing/", views.DealMaturingListView.as_view(), name="deal_maturing"),
     path("deals/new/", views.DealCreateView.as_view(), name="deal_create"),
     path("deals/<int:pk>/", views.DealDetailView.as_view(), name="deal_detail"),
     path("deals/<int:pk>/overview/", views.DealOverviewView.as_view(), name="deal_overview"),

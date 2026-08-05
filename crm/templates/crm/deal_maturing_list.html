@@ -1,0 +1,93 @@
+{% extends "_app_layout.html" %}
+{% load icons humanize %}
+
+{% block title %}Maturing deals · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between gap-4 mb-1">
+  <h1 class="text-xl font-semibold">Maturing deals</h1>
+</div>
+<p class="text-sm opacity-60 mb-4">Live deals whose finance term ends soon — call the client before it does.</p>
+
+<form method="get" class="flex flex-wrap items-center gap-2 mb-4">
+  <select name="window" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+    {% for months in window_choices %}
+      <option value="{{ months }}" {% if window == months %}selected{% endif %}>Within {{ months }} months</option>
+    {% endfor %}
+  </select>
+  <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+    <option value="">All owners</option>
+    <option value="me" {% if owner_filter == "me" %}selected{% endif %}>My deals</option>
+    <option value="none" {% if owner_filter == "none" %}selected{% endif %}>Unowned</option>
+    {% for u in owner_choices %}
+      <option value="{{ u.pk }}" {% if owner_filter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<div class="card bg-base-100 shadow">
+  <div class="overflow-x-auto">
+    <table class="table table-xs">
+      <thead>
+        <tr>
+          <th>Deal</th>
+          <th>Type</th>
+          <th>Term ends</th>
+          <th>Funded</th>
+          <th>Customer</th>
+          <th>Organisation</th>
+          <th>Owner</th>
+          <th>Last activity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in object_list %}
+          <tr>
+            <td>
+              <a href="{{ d.get_absolute_url }}" class="link link-hover font-medium">{{ d.name }}</a>
+            </td>
+            <td class="opacity-80">{{ d.get_type_display|default:"—" }}</td>
+            <td class="whitespace-nowrap">
+              {{ d.maturity_date|date:"j M Y" }}
+              {% if d.maturity_date < today %}
+                <span class="badge badge-error badge-sm ml-1">Overdue</span>
+              {% else %}
+                <span class="opacity-60">— in {{ d.maturity_date|timeuntil }}</span>
+              {% endif %}
+            </td>
+            <td class="whitespace-nowrap">
+              {% if d.funded_total is not None %}£{{ d.funded_total|floatformat:2|intcomma }}{% else %}<span class="opacity-60">—</span>{% endif %}
+            </td>
+            <td>
+              {% if d.customer %}<a href="{{ d.customer.get_absolute_url }}" class="link link-hover">{{ d.customer }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
+            </td>
+            <td>
+              {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
+            </td>
+            <td class="opacity-80">{{ d.owner.full_name }}</td>
+            <td class="whitespace-nowrap text-xs">
+              <span title="{{ d.last_activity_at|date:'j M Y, H:i' }}">{{ d.last_activity_at|timesince }} ago</span>
+              <span class="opacity-60">— {{ d.last_activity_label }}</span>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="text-center opacity-60 py-8">
+              No live deals mature within {{ window }} months.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if no_maturity_count %}
+  <p class="text-xs opacity-60 mt-3">
+    {{ no_maturity_count }} live deal{{ no_maturity_count|pluralize }} ha{{ no_maturity_count|pluralize:"s,ve" }} no term data —
+    set a term end date (or first payment date + selected quote) on the deal to include {{ no_maturity_count|pluralize:"it,them" }} here.
+  </p>
+{% endif %}
+
+{% include "_pagination.html" with page_obj=page_obj %}
+{% endblock %}

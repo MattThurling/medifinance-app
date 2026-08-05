@@ -48,6 +48,9 @@ layout (main content left, amount + timeline right).
       {% if deal.first_payment_date %}
         <p>First payment: {{ deal.first_payment_date|date:"j M Y" }}</p>
       {% endif %}
+      {% if deal.maturity_date %}
+        <p>Term ends: {{ deal.maturity_date|date:"j M Y" }}</p>
+      {% endif %}
       {% if deal.selected_quote.repayment_profile %}
         <p>Repayment profile: {{ deal.selected_quote.repayment_profile }}</p>
       {% endif %}

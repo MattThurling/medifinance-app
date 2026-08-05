@@ -11,6 +11,7 @@ from django.db.models.functions import Coalesce, Greatest, Lower
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
@@ -37,6 +38,7 @@ from .forms import (
     QuoteSelectionForm,
     StageForm,
 )
+from . import pricing
 from .models import (
     Contact,
     Deal,
@@ -501,6 +503,59 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         ctx["stage_filter"] = self.request.GET.get("stage", "")
         ctx["type_choices"] = Deal.Type.choices
         ctx["type_filter"] = self.request.GET.get("type", "")
+        return ctx
+
+
+class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
+    """Live deals whose finance term ends within a chosen window — the
+    call-before-it-matures worklist for refinance / upgrade business.
+
+    Maturity comes from `Deal.maturity_date` (explicit `term_end_date`, else
+    derived from the selected quote), which can't be expressed in portable
+    ORM SQL — so the live subset is filtered and sorted in Python. That set
+    is a few hundred rows, well within a single page's budget.
+    """
+
+    model = Deal
+    template_name = "crm/deal_maturing_list.html"
+    paginate_by = 50
+
+    WINDOW_CHOICES = (3, 6, 12, 24)  # months
+    DEFAULT_WINDOW = 12
+
+    def get_window(self) -> int:
+        try:
+            window = int(self.request.GET.get("window", ""))
+        except ValueError:
+            return self.DEFAULT_WINDOW
+        return window if window in self.WINDOW_CHOICES else self.DEFAULT_WINDOW
+
+    def _live_deals(self):
+        qs = _deal_summaries(
+            Deal.objects.select_related(
+                "owner", "customer", "organisation", "selected_quote"
+            )
+        ).filter(current_stage_name=Stage.Name.DEAL_LIVE)
+        return self.apply_owner_filter(qs)
+
+    def get_queryset(self):
+        horizon = pricing.add_months(timezone.localdate(), self.get_window())
+        deals = list(self._live_deals())
+        self.no_maturity_count = sum(1 for d in deals if d.maturity_date is None)
+        maturing = [
+            d for d in deals
+            if d.maturity_date is not None and d.maturity_date <= horizon
+        ]
+        maturing.sort(key=lambda d: d.maturity_date)
+        return maturing
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        _attach_activity_labels(ctx["object_list"])
+        ctx["window"] = self.get_window()
+        ctx["window_choices"] = self.WINDOW_CHOICES
+        ctx["no_maturity_count"] = self.no_maturity_count
+        ctx["today"] = timezone.localdate()
         return ctx
 
 

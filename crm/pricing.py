@@ -136,7 +136,7 @@ def flat_rate(
     return flat.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _add_months(d: date, months: int) -> date:
+def add_months(d: date, months: int) -> date:
     """`d` shifted forward by `months`, clamping to the last day of the target
     month (31 Jan + 1 month = 28/29 Feb)."""
     total = d.month - 1 + months
@@ -180,7 +180,7 @@ def repayment_schedule(
         balance = balance + interest - payment
         rows.append({
             "number": number,
-            "due_date": _add_months(first_payment_date, number - 1),
+            "due_date": add_months(first_payment_date, number - 1),
             "payment": payment,
             "interest": interest,
             "principal": payment - interest,

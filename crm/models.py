@@ -1,5 +1,5 @@
 import secrets
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
@@ -256,6 +256,12 @@ class Deal(TimestampedModel):
         null=True, blank=True,
         help_text="Date the first repayment falls due.",
     )
+    term_end_date = models.DateField(
+        null=True, blank=True,
+        help_text="When the finance term ends. Migrated from HubSpot for "
+                  "historical deals; leave blank to derive it from the first "
+                  "payment date + selected quote's term.",
+    )
 
     # Customer's chosen quote, picked via the portal application
     selected_quote = models.ForeignKey(
@@ -334,6 +340,20 @@ class Deal(TimestampedModel):
     def current_stage(self) -> "Stage | None":
         """Latest stage event for this deal (None if there are no events yet)."""
         return self.stage_events.first()
+
+    @property
+    def maturity_date(self) -> "date | None":
+        """When this deal's finance term ends. The explicit `term_end_date`
+        (set by staff or the HubSpot migration) wins; otherwise derived as the
+        selected quote's final payment date. None when neither is available."""
+        if self.term_end_date:
+            return self.term_end_date
+        quote = self.selected_quote
+        if self.first_payment_date is None or quote is None:
+            return None
+        from . import pricing  # avoid circular import; pricing imports RateBand
+
+        return pricing.add_months(self.first_payment_date, quote.term - 1)
 
     @property
     def repayment_schedule(self) -> "list[dict] | None":

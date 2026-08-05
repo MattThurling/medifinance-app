@@ -67,9 +67,15 @@
               </a>
             </li>
             <li>
-              <a href="{% url 'crm:deal_list' %}" class="{% if 'deal' in request.resolver_match.url_name %}menu-active{% endif %}">
+              <a href="{% url 'crm:deal_list' %}" class="{% if 'deal' in request.resolver_match.url_name and request.resolver_match.url_name != 'deal_maturing' %}menu-active{% endif %}">
                 {% icon "handshake" %}
                 Deals
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'crm:deal_maturing' %}" class="{% if request.resolver_match.url_name == 'deal_maturing' %}menu-active{% endif %}">
+                {% icon "calendar-clock" %}
+                Maturing
               </a>
             </li>
             <li>

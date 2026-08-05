@@ -91,6 +91,7 @@ than being hidden, so the structure stays predictable.
       <dt class="opacity-60">Document fee</dt>        <dd>{% if deal.document_fee is not None %}£{{ deal.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Flat fee</dt>            <dd>{% if deal.flat_fee is not None %}£{{ deal.flat_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">First payment date</dt>  <dd>{% if deal.first_payment_date %}{{ deal.first_payment_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Term ends</dt>           <dd>{% if deal.maturity_date %}{{ deal.maturity_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
     </dl>
   </section>
 
