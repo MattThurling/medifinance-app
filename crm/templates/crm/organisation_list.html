@@ -25,6 +25,13 @@
         <option value="{{ u.pk }}" {% if owner_filter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
       {% endfor %}
     </select>
+    <select name="sector" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+      <option value="">All sectors</option>
+      <option value="none" {% if sector_filter == "none" %}selected{% endif %}>No sector</option>
+      {% for code, label in sector_choices %}
+        <option value="{{ code }}" {% if sector_filter == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
   </form>
   <a href="{% url 'crm:organisation_create' %}" class="btn btn-primary btn-sm">
     {% icon "plus" class="h-4 w-4" %}
@@ -38,6 +45,7 @@
       <thead>
         <tr>
           {% include "_th_sort.html" with key="name" label="Name" %}
+          {% include "_th_sort.html" with key="sector" label="Sector" %}
           <th>Contacts</th>
           {% include "_th_sort.html" with key="owner" label="Owner" %}
           <th>HubSpot ID</th>
@@ -50,6 +58,7 @@
             <td>
               <a href="{{ org.get_absolute_url }}" class="link link-hover font-medium">{{ org.name }}</a>
             </td>
+            <td class="opacity-80">{{ org.get_sector_display|default:"—" }}</td>
             <td>{{ org.contacts.count }}</td>
             <td class="opacity-80">{{ org.owner.full_name|default:"—" }}</td>
             <td>
@@ -66,8 +75,8 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5" class="text-center opacity-60 py-8">
-              {% if q or owner_filter %}No organisations match the current filters.{% else %}No organisations yet.{% endif %}
+            <td colspan="6" class="text-center opacity-60 py-8">
+              {% if q or owner_filter or sector_filter %}No organisations match the current filters.{% else %}No organisations yet.{% endif %}
             </td>
           </tr>
         {% endfor %}

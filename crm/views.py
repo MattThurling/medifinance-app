@@ -215,6 +215,25 @@ class OwnerFilterMixin:
         return ctx
 
 
+class SectorFilterMixin:
+    """Whitelist-based `?sector=` filtering: a Sector code or `none`. Views
+    call `apply_sector_filter(qs)` explicitly, alongside their other filters."""
+
+    def apply_sector_filter(self, qs):
+        sector = self.request.GET.get("sector", "")
+        if sector == "none":
+            qs = qs.filter(Q(sector__isnull=True) | Q(sector=""))
+        elif sector in Organisation.Sector.values:
+            qs = qs.filter(sector=sector)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["sector_choices"] = Organisation.Sector.choices
+        ctx["sector_filter"] = self.request.GET.get("sector", "")
+        return ctx
+
+
 class _OwnerFormMixin:
     """Passes the logged-in user to the form (owner default on create) and
     supplies the owner-combobox selection context."""
@@ -250,7 +269,9 @@ class ProtectedDeleteMixin:
 
 # --- Organisation -----------------------------------------------------------
 
-class OrganisationListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, SearchableListView):
+class OrganisationListView(
+    SortableListMixin, OwnerFilterMixin, SectorFilterMixin, StaffRequiredMixin, SearchableListView
+):
     model = Organisation
     search_fields = [
         "name",
@@ -262,6 +283,7 @@ class OrganisationListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMix
     default_sort = "name"
     sort_fields = {
         "name": Lower("name"),
+        "sector": F("sector"),
         "owner": Lower(Coalesce("owner__first_name", Value(""))),
         "created": F("created_at"),
     }
@@ -269,6 +291,7 @@ class OrganisationListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMix
     def get_queryset(self):
         qs = super().get_queryset().select_related("owner")
         qs = self.apply_owner_filter(qs)
+        qs = self.apply_sector_filter(qs)
         return self.apply_sort(qs)
 
 

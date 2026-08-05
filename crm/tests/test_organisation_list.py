@@ -1,8 +1,10 @@
-"""Organisation list: sortable columns and the owner filter — and that they
-compose with search."""
+"""Organisation list: sortable columns and the owner/sector filters — and
+that they compose with search."""
 
 from django.test import TestCase
 from django.urls import reverse
+
+from crm.models import Organisation
 
 from .factories import make_associate, make_organisation
 
@@ -53,6 +55,12 @@ class SortTests(OrganisationListTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(_names(response), ["Acme", "Zenith"])
 
+    def test_sort_by_sector_puts_unset_last(self):
+        self.zenith.sector = Organisation.Sector.DENTAL
+        self.zenith.save()
+        self.assertEqual(_names(self.get(sort="sector")), ["Zenith", "Acme"])
+        self.assertEqual(_names(self.get(sort="-sector")), ["Zenith", "Acme"])
+
 
 class FilterTests(OrganisationListTestCase):
     @classmethod
@@ -77,3 +85,35 @@ class FilterTests(OrganisationListTestCase):
     def test_owner_column_rendered(self):
         make_organisation(name="Named Ltd", owner=make_associate(first_name="Nora", last_name="Field"))
         self.assertContains(self.get(), "Nora Field")
+
+
+class SectorFilterTests(OrganisationListTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.dental = make_organisation(name="Dental Ltd", sector=Organisation.Sector.DENTAL)
+        cls.vets = make_organisation(name="Vets Ltd", sector=Organisation.Sector.VETERINARY)
+        cls.null_sector = make_organisation(name="Null Ltd")
+        cls.blank_sector = make_organisation(name="Blank Ltd", sector="")
+
+    def test_sector_filter(self):
+        self.assertEqual(_names(self.get(sector="dental")), ["Dental Ltd"])
+        self.assertEqual(_names(self.get(sector="veterinary")), ["Vets Ltd"])
+
+    def test_none_matches_null_and_blank(self):
+        self.assertEqual(_names(self.get(sector="none")), ["Blank Ltd", "Null Ltd"])
+
+    def test_unknown_sector_ignored(self):
+        self.assertEqual(len(_names(self.get(sector="garbage"))), 4)
+
+    def test_composes_with_search_and_owner(self):
+        self.dental.owner = self.staff
+        self.dental.save()
+        make_organisation(name="Dental Too", sector=Organisation.Sector.DENTAL)
+        response = self.get(q="Dental", sector="dental", owner="me")
+        self.assertEqual(_names(response), ["Dental Ltd"])
+        self.assertContains(response, "sector=dental")
+
+    def test_sector_column_shows_display_label(self):
+        make_organisation(name="Physio Ltd", sector=Organisation.Sector.PHYSIO_CHIRO)
+        self.assertContains(self.get(), "Physio/Chiro")

@@ -27,9 +27,9 @@ class RateBandInline(admin.TabularInline):
 @admin.register(Organisation)
 class OrganisationAdmin(admin.ModelAdmin):
     inlines = [RateBandInline]
-    list_display = ("name", "owner", "companies_house_number", "email", "phone", "hubspot_id", "created_at")
+    list_display = ("name", "sector", "owner", "companies_house_number", "email", "phone", "hubspot_id", "created_at")
     list_select_related = ("owner",)
-    list_filter = ("owner",)
+    list_filter = ("sector", "owner")
     search_fields = (
         "name",
         "legal_name",

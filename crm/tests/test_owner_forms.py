@@ -81,6 +81,35 @@ class OrganisationOwnerTests(OwnerFormTestCase):
         self.assertContains(self.client.get(org.get_absolute_url()), "Nora Field")
 
 
+class OrganisationSectorTests(OwnerFormTestCase):
+    def test_create_persists_sector(self):
+        response = self.client.post(reverse("crm:organisation_create"), {
+            "name": "Toothy Ltd",
+            "sector": Organisation.Sector.DENTAL,
+        })
+        org = Organisation.objects.get(name="Toothy Ltd")
+        self.assertRedirects(response, org.get_absolute_url())
+        self.assertEqual(org.sector, Organisation.Sector.DENTAL)
+
+    def test_edit_clearing_sector_stores_null(self):
+        org = make_organisation(sector=Organisation.Sector.DENTAL)
+        response = self.client.post(
+            reverse("crm:organisation_update", args=[org.pk]),
+            {"name": org.name, "sector": ""},
+        )
+        org.refresh_from_db()
+        self.assertRedirects(response, org.get_absolute_url())
+        self.assertIsNone(org.sector)
+
+    def test_detail_shows_sector_label(self):
+        org = make_organisation(sector=Organisation.Sector.PHYSIO_CHIRO)
+        self.assertContains(self.client.get(org.get_absolute_url()), "Physio/Chiro")
+
+    def test_detail_omits_sector_line_when_unset(self):
+        org = make_organisation()
+        self.assertNotContains(self.client.get(org.get_absolute_url()), ">Sector<")
+
+
 class OwnerProtectTests(OwnerFormTestCase):
     def test_deleting_user_who_owns_contact_is_protected(self):
         make_contact(owner=self.colleague)

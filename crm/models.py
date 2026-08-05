@@ -28,6 +28,21 @@ class TimestampedModel(models.Model):
 
 
 class Organisation(TimestampedModel):
+    class Sector(models.TextChoices):
+        DENTAL = "dental", "Dental"
+        DENTAL_LAB = "dental_lab", "Dental Lab"
+        DOCTORS = "doctors", "Doctors"
+        PHARMACY = "pharmacy", "Pharmacy"
+        VETERINARY = "veterinary", "Veterinary"
+        PHYSIO_CHIRO = "physio_chiro", "Physio/Chiro"
+        COSMETIC = "cosmetic", "Cosmetic"
+        OPTICAL = "optical", "Optical"
+        HEARING = "hearing", "Hearing"
+        HAIR_CLINIC = "hair_clinic", "Hair Clinic"
+        EDUCATION = "education", "Education"
+        NON_HEALTHCARE = "non_healthcare", "Non-healthcare profession"
+        OTHER = "other", "Other"
+
     name = models.CharField(
         max_length=255,
         help_text="The everyday name staff use to find this org.",
@@ -68,6 +83,14 @@ class Organisation(TimestampedModel):
         null=True,
         blank=True,
         help_text="Staff member responsible for this organisation. Optional.",
+    )
+
+    sector = models.CharField(
+        max_length=32,
+        choices=Sector.choices,
+        null=True,
+        blank=True,
+        help_text="The profession/sector this organisation operates in. Optional.",
     )
 
     hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)

@@ -76,9 +76,14 @@ class OrganisationForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm)
             "url",
             "email",
             "phone",
+            "sector",
             "owner",
         ]
         labels = {"url": "Website"}
+
+    def clean_sector(self):
+        # Normalise the cleared select to NULL so "unset" is one state, not two.
+        return self.cleaned_data.get("sector") or None
 
 
 class ContactForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):

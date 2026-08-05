@@ -26,6 +26,9 @@
         {% include "_field.html" with field=form.trading_name %}
         {% include "_field.html" with field=form.companies_house_number %}
       </div>
+      <div class="max-w-xs">
+        {% include "_field.html" with field=form.sector %}
+      </div>
 
       <div class="divider text-xs opacity-60 mt-2 mb-2">Address</div>
       {% include "_field.html" with field=form.address_line1 %}
