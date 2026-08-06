@@ -197,6 +197,10 @@ class Deal(TimestampedModel):
     class Type(models.TextChoices):
         ASSET_FINANCE = "asset_finance", "Asset Finance"
         COMMERCIAL_FINANCE = "commercial_finance", "Commercial Finance"
+        BUSINESS_LOANS = "business_loans", "Business Loans"
+        STRUCTURED_FINANCE = "structured_finance", "Structured Finance"
+        KMC_ASSOCIATES = "kmc_associates", "KMC Associates"
+        SHORT_TERM_FINANCE = "short_term_finance", "Short Term Finance"
 
     name = models.CharField(max_length=255)
     type = models.CharField(
