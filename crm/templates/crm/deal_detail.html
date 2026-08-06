@@ -57,6 +57,9 @@ layout (main content left, amount + timeline right).
       {% if deal.mf_invoice_number %}
         <p>MF invoice: {{ deal.mf_invoice_number }}</p>
       {% endif %}
+      {% if deal.hubspot_url %}
+        <p>HubSpot: <a href="{{ deal.hubspot_url }}" target="_blank" rel="noopener" class="link link-hover">{{ deal.hubspot_id }}</a></p>
+      {% endif %}
     </div>
   </div>
 

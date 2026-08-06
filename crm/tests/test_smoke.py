@@ -86,6 +86,12 @@ class StaffPagesRenderTests(TestCase):
         self._assert_get_ok(reverse("crm:deal_update", args=[self.deal.pk]))
         self._assert_get_ok(reverse("crm:deal_delete", args=[self.deal.pk]))
 
+    def test_deal_detail_links_hubspot_record(self):
+        self.deal.hubspot_id = "123456789"
+        self.deal.save(update_fields=["hubspot_id"])
+        response = self.client.get(reverse("crm:deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, "record/0-3/123456789")
+
     def test_quote_proposal_participation_create_pages(self):
         self._assert_get_ok(reverse("crm:quote_create") + f"?deal={self.deal.pk}")
         self._assert_get_ok(reverse("crm:quote_update", args=[self.quote.pk]))
