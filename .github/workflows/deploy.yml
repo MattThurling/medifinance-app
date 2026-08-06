@@ -55,9 +55,11 @@ jobs:
           if [ "${{ github.ref_name }}" = "main" ]; then
             echo "service=medifinance-prod" >> "$GITHUB_OUTPUT"
             echo "suffix=prod"             >> "$GITHUB_OUTPUT"
+            echo "domain=app.medifinance.co.uk" >> "$GITHUB_OUTPUT"
           else
             echo "service=medifinance-dev"  >> "$GITHUB_OUTPUT"
             echo "suffix=dev"              >> "$GITHUB_OUTPUT"
+            echo "domain=app-dev.medifinance.co.uk" >> "$GITHUB_OUTPUT"
           fi
 
       - id: auth
@@ -93,8 +95,11 @@ jobs:
         run: |
           SUFFIX="${{ steps.target.outputs.suffix }}"
 
+          # Traffic arrives via the global load balancer on the custom domain;
+          # direct *.run.app access is blocked by the ingress setting below.
+          DOMAIN="${{ steps.target.outputs.domain }}"
           SECRETS="DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest"
-          ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=.run.app|DJANGO_CSRF_TRUSTED_ORIGINS=https://*.run.app|HUBSPOT_PORTAL_ID=3378161"
+          ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=${DOMAIN}|DJANGO_CSRF_TRUSTED_ORIGINS=https://${DOMAIN}|HUBSPOT_PORTAL_ID=3378161"
 
           # Dev email goes to the Mailtrap Sandbox (caught in the shared inbox,
           # never delivered) — credentials live in the mailtrap-user /
@@ -139,6 +144,7 @@ jobs:
             --image "$IMAGE" \
             --region "$REGION" \
             --allow-unauthenticated \
+            --ingress internal-and-cloud-load-balancing \
             --add-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
             --set-secrets "$SECRETS" \
             --set-env-vars "^|^${ENVVARS}"

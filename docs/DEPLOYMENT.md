@@ -221,10 +221,9 @@ Watch the run in the repo's **Actions** tab. When green, get the URL:
 gcloud run services describe medifinance-dev --region "$REGION" --format='value(status.url)'
 ```
 
-That `https://medifinance-dev-….run.app` URL **is your test domain** — Cloud Run
-assigns it automatically with managed HTTPS. No DNS, no domain purchase, no
-verification. It's already covered by `DJANGO_ALLOWED_HOSTS=.run.app`, so it
-works on first deploy.
+> **Note:** since the load-balancer setup (step 10), the `*.run.app` URL no
+> longer serves traffic — ingress is restricted to the LB, and the dev site
+> lives at `https://app-dev.medifinance.co.uk`.
 
 Promote to production by merging into `main`:
 
@@ -250,13 +249,87 @@ gcloud run jobs execute createsuperuser-dev --region "$REGION" --wait
 
 Then log in and change the password. (The custom User model uses email as the login, which `--noinput` reads from `DJANGO_SUPERUSER_EMAIL`.)
 
-## 10. Custom domain (later)
+## 10. Custom domains (global load balancer)
 
-```bash
-gcloud run domain-mappings create --service medifinance-prod --domain crm.medifinance.co.uk --region "$REGION"
+`gcloud run domain-mappings` is **not available in europe-west2**, so custom
+domains are served by a **global external Application Load Balancer** in front
+of both Cloud Run services:
+
+- `app.medifinance.co.uk` → `medifinance-prod`
+- `app-dev.medifinance.co.uk` → `medifinance-dev`
+
+One static IP, host-based routing, two Google-managed certificates (one per
+hostname so they provision independently), and a port-80 listener that 301s to
+HTTPS. Cost: ~£15–18/mo (forwarding rules).
+
+```
+A records (registrar)          ┌─ app.medifinance.co.uk ────→ medifinance-prod-backend → NEG → medifinance-prod
+app, app-dev → static IP ─→ LB ┤
+  :80 → 301 https              └─ app-dev.medifinance.co.uk → medifinance-dev-backend  → NEG → medifinance-dev
 ```
 
-Then add the domain to the prod service's env: append it to `DJANGO_ALLOWED_HOSTS` (e.g. `.run.app,crm.medifinance.co.uk`) and `DJANGO_CSRF_TRUSTED_ORIGINS` (`https://*.run.app,https://crm.medifinance.co.uk`) in `.github/workflows/deploy.yml`.
+The resources were created with (repeat `dev` block for `prod`):
+
+```bash
+gcloud services enable compute.googleapis.com
+
+# Static IP — this is what the registrar A records point at
+gcloud compute addresses create medifinance-lb-ip --global --ip-version=IPV4
+gcloud compute addresses describe medifinance-lb-ip --global --format='value(address)'
+
+# Serverless NEG + backend service per Cloud Run service
+gcloud compute network-endpoint-groups create medifinance-dev-neg \
+  --region="$REGION" --network-endpoint-type=serverless --cloud-run-service=medifinance-dev
+gcloud compute backend-services create medifinance-dev-backend --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend medifinance-dev-backend --global \
+  --network-endpoint-group=medifinance-dev-neg --network-endpoint-group-region="$REGION"
+
+# URL map: default → prod, host rules per domain
+gcloud compute url-maps create medifinance-lb --default-service=medifinance-prod-backend
+gcloud compute url-maps add-path-matcher medifinance-lb --path-matcher-name=prod \
+  --default-service=medifinance-prod-backend --new-hosts=app.medifinance.co.uk
+gcloud compute url-maps add-path-matcher medifinance-lb --path-matcher-name=dev \
+  --default-service=medifinance-dev-backend --new-hosts=app-dev.medifinance.co.uk
+
+# Google-managed certs (provision only after DNS points at the LB IP)
+gcloud compute ssl-certificates create medifinance-app-cert     --domains=app.medifinance.co.uk     --global
+gcloud compute ssl-certificates create medifinance-app-dev-cert --domains=app-dev.medifinance.co.uk --global
+
+# HTTPS listener
+gcloud compute target-https-proxies create medifinance-https-proxy \
+  --url-map=medifinance-lb --ssl-certificates=medifinance-app-cert,medifinance-app-dev-cert
+gcloud compute forwarding-rules create medifinance-https-rule --global \
+  --load-balancing-scheme=EXTERNAL_MANAGED --address=medifinance-lb-ip \
+  --target-https-proxy=medifinance-https-proxy --ports=443
+
+# HTTP → HTTPS redirect (redirect-only URL map, imported from YAML)
+cat > /tmp/http-redirect.yaml <<'YAML'
+name: medifinance-http-redirect
+defaultUrlRedirect:
+  httpsRedirect: true
+  redirectResponseCode: MOVED_PERMANENTLY_DEFAULT
+YAML
+gcloud compute url-maps import medifinance-http-redirect --global --source=/tmp/http-redirect.yaml
+gcloud compute target-http-proxies create medifinance-http-proxy --url-map=medifinance-http-redirect
+gcloud compute forwarding-rules create medifinance-http-rule --global \
+  --load-balancing-scheme=EXTERNAL_MANAGED --address=medifinance-lb-ip \
+  --target-http-proxy=medifinance-http-proxy --ports=80
+```
+
+**DNS** (external registrar): two A records, `app` and `app-dev`, both pointing
+at the static IP. Certificates flip from `PROVISIONING` to `ACTIVE` 15–60 min
+after DNS propagates:
+
+```bash
+gcloud compute ssl-certificates list --format='table(name,managed.status,managed.domainStatus)'
+```
+
+**Ingress lockdown**: the workflow deploys with
+`--ingress internal-and-cloud-load-balancing`, so the `*.run.app` URLs return
+403 and all traffic must come through the LB. `DJANGO_ALLOWED_HOSTS` /
+`DJANGO_CSRF_TRUSTED_ORIGINS` are set to exactly the per-env custom domain.
+Anything that used a `run.app` URL directly (e.g. the ACME demo site's API
+calls) must use the custom domain instead.
 
 ## Email
 
@@ -297,7 +370,7 @@ Rotating the password later: `gcloud secrets versions add email-host-password --
 
 ## Notes & gotchas
 
-- **`DJANGO_ALLOWED_HOSTS=.run.app`** (leading dot) matches any Cloud Run URL, so the first deploy works before you know the exact hostname. `CSRF_TRUSTED_ORIGINS` uses `https://*.run.app`.
+- **`DJANGO_ALLOWED_HOSTS`** is exactly the per-env custom domain (see step 10); direct `*.run.app` access is blocked at the ingress level anyway.
 - **Migrations** run as a Cloud Run *Job* before each service deploy — never on container start (avoids races across instances).
 - **Cost** is dominated by Cloud SQL. `db-f1-micro` is the cheapest; stop/scale via `gcloud sql instances patch`.
 - **Secrets** are referenced by name in the workflow, so rotating a value (`gcloud secrets versions add ...`) takes effect on the next deploy without code changes.
