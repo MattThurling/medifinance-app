@@ -391,18 +391,31 @@ openssl rand -hex 64 | gcloud secrets create docuseal-secret-key-base-dev --data
 
 # Pin a concrete docuseal/docuseal tag rather than :latest when deploying.
 gcloud run deploy docuseal-dev \
-  --image=docuseal/docuseal:2.1.8 \
+  --image=docuseal/docuseal:3.1.7 \
   --region="$REGION" --port=3000 --memory=1Gi --cpu=1 \
   --min-instances=0 --max-instances=1 \
+  --no-cpu-throttling \
   --allow-unauthenticated \
   --ingress=all \
   --add-cloudsql-instances="$SQL_CONN" \
   --set-secrets="DATABASE_URL=docuseal-database-url-dev:latest,SECRET_KEY_BASE=docuseal-secret-key-base-dev:latest,SMTP_USERNAME=mailtrap-user:latest,SMTP_PASSWORD=mailtrap-password:latest,GCS_CREDENTIALS=docuseal-gcs-credentials:latest" \
-  --set-env-vars="FORCE_SSL=true,GCS_PROJECT=${PROJECT_ID},GCS_BUCKET=${PROJECT_ID}-docuseal,SMTP_ADDRESS=sandbox.smtp.mailtrap.io,SMTP_PORT=2525,SMTP_FROM=info@medi-finance.co.uk"
+  --set-env-vars="HOST=<the service's own domain>,FORCE_SSL=true,GCS_PROJECT=${PROJECT_ID},GCS_BUCKET=${PROJECT_ID}-docuseal,SMTP_ADDRESS=sandbox.smtp.mailtrap.io,SMTP_PORT=2525,SMTP_FROM=info@medi-finance.co.uk"
 ```
 
 - `--max-instances=1` matters: DocuSeal runs its background jobs in-process;
   one instance avoids duplicate webhook deliveries. Ample for our volume.
+- `--no-cpu-throttling` matters too: those in-process jobs (embedded Redis +
+  Sidekiq) send the signature-request emails *after* the HTTP response; with
+  default throttling the CPU drops to ~zero between requests and the SMTP
+  send silently starves. Costs a little more (CPU billed while an instance
+  is warm), but the emails are the whole point.
+- `HOST` is the domain DocuSeal builds the emailed signing links from — the
+  service's run.app host until the LB hostname exists, then
+  `sign.medifinance.co.uk`. Without it, emails go out with no usable link.
+- The `DATABASE_URL` must use Rails' percent-encoded-socket form —
+  `postgres://USER:PASS@%2Fcloudsql%2FPROJECT%3AREGION%3AINSTANCE/docuseal_dev`.
+  Django's `?host=/cloudsql/…` style makes Rails' URI parser bail with
+  "the scheme postgres does not accept registry part".
 - **Prod SMTP**: the medi-finance.co.uk server uses implicit SSL on 465, but
   DocuSeal's env config only speaks STARTTLS — try
   `SMTP_ADDRESS=mail.medi-finance.co.uk,SMTP_PORT=587` (+
