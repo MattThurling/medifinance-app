@@ -76,6 +76,10 @@ def create_submission(
         "submitters": [submitter],
     }
     if message:
+        # A custom message replaces DocuSeal's whole email body — without the
+        # {{submitter.link}} placeholder the email would have no signing link.
+        if "{{submitter.link}}" not in message:
+            message = f"{message}\n\n{{{{submitter.link}}}}"
         payload["message"] = {"body": message}
     body = _request("POST", "/submissions", json=payload).json()
 

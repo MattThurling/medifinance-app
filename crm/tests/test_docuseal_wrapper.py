@@ -56,7 +56,9 @@ class WrapperTests(SimpleTestCase):
         payload = request.call_args.kwargs["json"]
         self.assertEqual(payload["template_id"], 7)
         self.assertTrue(payload["send_email"])
-        self.assertEqual(payload["message"], {"body": "Please sign"})
+        # The signing-link placeholder is appended: a custom message replaces
+        # DocuSeal's whole email body, which would otherwise drop the link.
+        self.assertEqual(payload["message"], {"body": "Please sign\n\n{{submitter.link}}"})
         self.assertEqual(payload["submitters"], [{
             "email": "jane@example.com",
             "name": "Jane Doe",
