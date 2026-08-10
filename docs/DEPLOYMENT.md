@@ -207,6 +207,8 @@ In the repo: **Settings → Secrets and variables → Actions → Variables** (n
 | `GS_BUCKET_NAME` | the documents bucket (`$DOCS_BUCKET`) — required for uploaded documents to persist |
 | `NOTIFY_EMAILS` | *(optional)* comma-separated staff addresses notified about new API-created deals. Defaults to `mnthurling@gmail.com`. |
 | `ACCOUNTS_EMAILS` | *(optional)* comma-separated accounts addresses notified when staff request a commission invoice from a deal. Defaults to `mnthurling@gmail.com`. |
+| `DOCUSEAL_ENABLED` | *(optional)* set to `true` after the DocuSeal setup (step 11) — wires `DOCUSEAL_URL` + the `docuseal-api-token-*` / `docuseal-webhook-secret-*` secrets into the app. Unset = the send-for-signature UI stays hidden. |
+| `DOCUSEAL_URL_DEV` | *(optional)* overrides the dev DocuSeal URL (e.g. the `*.run.app` address while `sign-dev.medifinance.co.uk` doesn't exist). Defaults to `https://sign-dev.medifinance.co.uk`. |
 
 ## 8. First deploy
 
@@ -330,6 +332,121 @@ gcloud compute ssl-certificates list --format='table(name,managed.status,managed
 `DJANGO_CSRF_TRUSTED_ORIGINS` are set to exactly the per-env custom domain.
 Anything that used a `run.app` URL directly (e.g. the ACME demo site's API
 calls) must use the custom domain instead.
+
+## 11. DocuSeal (e-signature)
+
+Self-hosted [DocuSeal](https://www.docuseal.com/) (free tier, official image)
+provides e-signing: staff send a deal document for signature from the deal
+page, the signer gets an email link to a DocuSeal-hosted signing page, and the
+signed PDF lands back on the Document via the `/webhooks/docuseal/` webhook.
+Same shape as the app: one Cloud Run service per env, a database on the
+existing Cloud SQL instance, files in GCS.
+
+Agreement **templates are built by hand in the DocuSeal UI** — give data
+fields the exact names `crm/docuseal.py::build_prefill_values()` emits
+("Customer Name", "Customer Email", "Organisation", "Deal Name", "Amount",
+"Date") and they're prefilled per deal. Dev and prod are separate DocuSeal
+databases, so templates must be created on each (ids differ — the app always
+lists templates via the API, never hardcodes ids).
+
+### 11a. Database (on the existing instance)
+
+```bash
+gcloud sql databases create docuseal_dev  --instance=medifinance-sql
+gcloud sql databases create docuseal_prod --instance=medifinance-sql
+
+# Same user/password as the app DBs; Rails accepts the unix-socket URL form.
+printf 'postgresql://medifinance:%s@/docuseal_dev?host=/cloudsql/%s' "$DB_PASS" "$SQL_CONN" \
+  | gcloud secrets create docuseal-database-url-dev --data-file=-
+printf 'postgresql://medifinance:%s@/docuseal_prod?host=/cloudsql/%s' "$DB_PASS" "$SQL_CONN" \
+  | gcloud secrets create docuseal-database-url-prod --data-file=-
+```
+
+### 11b. Storage (Cloud Run disk is ephemeral)
+
+DocuSeal wants a service-account key JSON *string* in `GCS_CREDENTIALS` (it
+can't use ambient ADC), so it gets its own SA + private bucket:
+
+```bash
+gcloud storage buckets create "gs://${PROJECT_ID}-docuseal" --location="$REGION" \
+  --uniform-bucket-level-access --public-access-prevention
+gcloud iam service-accounts create docuseal-storage
+gcloud storage buckets add-iam-policy-binding "gs://${PROJECT_ID}-docuseal" \
+  --member="serviceAccount:docuseal-storage@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role=roles/storage.objectAdmin
+gcloud iam service-accounts keys create /dev/stdout \
+  --iam-account="docuseal-storage@${PROJECT_ID}.iam.gserviceaccount.com" \
+  | gcloud secrets create docuseal-gcs-credentials --data-file=-
+```
+
+(If `GCS_CREDENTIALS` misbehaves, the fallback is GCS's S3 interoperability:
+an HMAC key + `S3_ENDPOINT=https://storage.googleapis.com` +
+`S3_ATTACHMENTS_BUCKET` + `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`.)
+
+### 11c. Cloud Run service (manual deploy — third-party image, no CI)
+
+```bash
+# One SECRET_KEY_BASE per env
+openssl rand -hex 64 | gcloud secrets create docuseal-secret-key-base-dev --data-file=-
+
+# Pin a concrete docuseal/docuseal tag rather than :latest when deploying.
+gcloud run deploy docuseal-dev \
+  --image=docuseal/docuseal:2.1.8 \
+  --region="$REGION" --port=3000 --memory=1Gi --cpu=1 \
+  --min-instances=0 --max-instances=1 \
+  --allow-unauthenticated \
+  --ingress=all \
+  --add-cloudsql-instances="$SQL_CONN" \
+  --set-secrets="DATABASE_URL=docuseal-database-url-dev:latest,SECRET_KEY_BASE=docuseal-secret-key-base-dev:latest,SMTP_USERNAME=mailtrap-user:latest,SMTP_PASSWORD=mailtrap-password:latest,GCS_CREDENTIALS=docuseal-gcs-credentials:latest" \
+  --set-env-vars="FORCE_SSL=true,GCS_PROJECT=${PROJECT_ID},GCS_BUCKET=${PROJECT_ID}-docuseal,SMTP_ADDRESS=sandbox.smtp.mailtrap.io,SMTP_PORT=2525,SMTP_FROM=info@medi-finance.co.uk"
+```
+
+- `--max-instances=1` matters: DocuSeal runs its background jobs in-process;
+  one instance avoids duplicate webhook deliveries. Ample for our volume.
+- **Prod SMTP**: the medi-finance.co.uk server uses implicit SSL on 465, but
+  DocuSeal's env config only speaks STARTTLS — try
+  `SMTP_ADDRESS=mail.medi-finance.co.uk,SMTP_PORT=587` (+
+  `SMTP_USERNAME=info@medi-finance.co.uk`, `SMTP_PASSWORD=email-host-password`
+  secret) first; if 587/STARTTLS isn't accepted, configure SMTP in DocuSeal's
+  admin UI (Settings → Email) which exposes more options.
+- **Ingress staging**: deploy with `--ingress=all` first and use the printed
+  `*.run.app` URL as `HOST` for setup. Once the LB host + cert are ACTIVE
+  (11d), redeploy prod with `--ingress=internal-and-cloud-load-balancing` and
+  `HOST=sign.medifinance.co.uk`. Dev can stay on `--ingress=all` with the
+  run.app URL permanently to skip a cert (set the `DOCUSEAL_URL_DEV` repo
+  variable to that URL).
+
+### 11d. Load balancer + DNS (prod; pattern from step 10)
+
+```bash
+gcloud compute network-endpoint-groups create docuseal-prod-neg \
+  --region="$REGION" --network-endpoint-type=serverless --cloud-run-service=docuseal-prod
+gcloud compute backend-services create docuseal-prod-backend --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend docuseal-prod-backend --global \
+  --network-endpoint-group=docuseal-prod-neg --network-endpoint-group-region="$REGION"
+gcloud compute url-maps add-path-matcher medifinance-lb --path-matcher-name=sign \
+  --default-service=docuseal-prod-backend --new-hosts=sign.medifinance.co.uk
+gcloud compute ssl-certificates create medifinance-sign-cert --domains=sign.medifinance.co.uk --global
+# The proxy takes the FULL cert list — listing only the new one would drop the others.
+gcloud compute target-https-proxies update medifinance-https-proxy \
+  --ssl-certificates=medifinance-app-cert,medifinance-app-dev-cert,medifinance-sign-cert
+```
+
+**DNS** (external registrar): an A record `sign` → the `medifinance-lb-ip`
+static IP. Cert goes ACTIVE 15–60 min after propagation.
+
+### 11e. DocuSeal console setup (per env)
+
+1. Open the instance URL, create the admin account (`info@medi-finance.co.uk`).
+2. Build the agreement templates (field names as above).
+3. **Settings → API**: copy the token →
+   `gcloud secrets create docuseal-api-token-dev --data-file=-` (and `-prod`).
+4. **Settings → Webhooks**: URL `https://app-dev.medifinance.co.uk/webhooks/docuseal/`
+   (prod: `app.`), subscribe to `form.viewed`, `form.completed`,
+   `form.declined`; **Add Secret** with key `X-Docuseal-Secret` and a generated
+   value → `gcloud secrets create docuseal-webhook-secret-dev --data-file=-`.
+5. Set the `DOCUSEAL_ENABLED=true` repo variable (and `DOCUSEAL_URL_DEV` if dev
+   stays on run.app) and re-run the deploy workflow.
 
 ## Email
 

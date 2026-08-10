@@ -274,17 +274,49 @@ layout (main content left, amount + timeline right).
           </thead>
           <tbody>
             {% for d in deal.documents.all %}
+              {% with sr=d.active_signature_request %}
               <tr>
-                <td>{{ d.name }}</td>
+                <td>
+                  {{ d.name }}
+                  {% if sr %}
+                    {% if sr.status == "sent" %}<span class="badge badge-info badge-xs" title="Sent to {{ sr.signer_email }}">Sent for signing</span>
+                    {% elif sr.status == "opened" %}<span class="badge badge-warning badge-xs" title="Opened by {{ sr.signer_email }}">Opened</span>
+                    {% elif sr.status == "completed" %}<span class="badge badge-success badge-xs" title="Signed by {{ sr.signer_email }}">Signed</span>
+                    {% elif sr.status == "declined" %}<span class="badge badge-error badge-xs" title="{{ sr.decline_reason|default:'Declined' }}">Declined</span>
+                    {% endif %}
+                  {% endif %}
+                </td>
                 <td class="text-right whitespace-nowrap">
                   {% if d.is_provided %}
                     <a href="{% url 'crm:document_download' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="View document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
+                    {% if sr.status == "completed" and sr.audit_log_file %}
+                      <a href="{% url 'crm:signature_audit_download' sr.pk %}" class="btn btn-ghost btn-xs btn-square" title="Signature audit log">{% icon "shield-check" class="h-3.5 w-3.5" %}</a>
+                    {% endif %}
                   {% else %}
-                    <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
-                    <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
-                      {% csrf_token %}
-                      <input id="upload-{{ d.pk }}" type="file" name="file" onchange="this.form.submit()" />
-                    </form>
+                    {% if sr.is_active %}
+                      <form method="post" action="{% url 'crm:signature_resend' sr.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Re-send for signature">{% icon "rotate-cw" class="h-3.5 w-3.5" %}</button>
+                      </form>
+                      <form method="post" action="{% url 'crm:signature_void' sr.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Void signature request">{% icon "ban" class="h-3.5 w-3.5" %}</button>
+                      </form>
+                    {% else %}
+                      {% if sr.status == "declined" %}
+                        <form method="post" action="{% url 'crm:signature_resend' sr.pk %}" class="inline">
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Re-send for signature">{% icon "rotate-cw" class="h-3.5 w-3.5" %}</button>
+                        </form>
+                      {% elif docuseal_configured %}
+                        <a href="{% url 'crm:document_sign' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="Send for e-signature">{% icon "pen-line" class="h-3.5 w-3.5" %}</a>
+                      {% endif %}
+                      <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
+                      <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
+                        {% csrf_token %}
+                        <input id="upload-{{ d.pk }}" type="file" name="file" onchange="this.form.submit()" />
+                      </form>
+                    {% endif %}
                   {% endif %}
                   <form method="post" action="{% url 'crm:document_delete' d.pk %}" class="inline">
                     {% csrf_token %}
@@ -292,6 +324,7 @@ layout (main content left, amount + timeline right).
                   </form>
                 </td>
               </tr>
+              {% endwith %}
             {% empty %}
               <tr><td colspan="2" class="opacity-60">No documents requested yet.</td></tr>
             {% endfor %}

@@ -75,7 +75,12 @@ urlpatterns = [
     path("documents/<int:pk>/download/", views.DocumentDownloadView.as_view(), name="document_download"),
     path("documents/<int:pk>/delete/", views.DocumentDeleteView.as_view(), name="document_delete"),
 
-    # DocuSeal — inbound webhook (secret-header auth, no session)
+    # DocuSeal e-signing — send a document for signature, manage the request
+    path("documents/<int:pk>/sign/", views.SignatureRequestCreateView.as_view(), name="document_sign"),
+    path("signatures/<int:pk>/resend/", views.SignatureRequestResendView.as_view(), name="signature_resend"),
+    path("signatures/<int:pk>/void/", views.SignatureRequestVoidView.as_view(), name="signature_void"),
+    path("signatures/<int:pk>/audit/", views.SignatureAuditDownloadView.as_view(), name="signature_audit_download"),
+    # Inbound webhook (secret-header auth, no session)
     path("webhooks/docuseal/", views.DocuSealWebhookView.as_view(), name="docuseal_webhook"),
 
     # Xero — OAuth flow + status page + raise-invoice on a deal

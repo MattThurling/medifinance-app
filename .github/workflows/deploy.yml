@@ -125,6 +125,20 @@ jobs:
             SECRETS="${SECRETS},XERO_CLIENT_ID=xero-client-id:latest,XERO_CLIENT_SECRET=xero-client-secret:latest"
           fi
 
+          # DocuSeal e-signing — points the app at the environment's DocuSeal
+          # instance (sign / sign-dev). Token + webhook secret must be in
+          # Secret Manager when DOCUSEAL_ENABLED=true; without them the
+          # send-for-signature UI stays hidden. DOCUSEAL_URL_DEV can override
+          # the dev URL (e.g. a *.run.app address before the LB host exists).
+          if [ "${{ vars.DOCUSEAL_ENABLED }}" = "true" ]; then
+            if [ "$SUFFIX" = "dev" ]; then
+              ENVVARS="${ENVVARS}|DOCUSEAL_URL=${{ vars.DOCUSEAL_URL_DEV || 'https://sign-dev.medifinance.co.uk' }}"
+            else
+              ENVVARS="${ENVVARS}|DOCUSEAL_URL=https://sign.medifinance.co.uk"
+            fi
+            SECRETS="${SECRETS},DOCUSEAL_API_TOKEN=docuseal-api-token-${SUFFIX}:latest,DOCUSEAL_WEBHOOK_SECRET=docuseal-webhook-secret-${SUFFIX}:latest"
+          fi
+
           # Uploaded documents go to a private GCS bucket when GS_BUCKET_NAME is set;
           # otherwise they'd land on the container filesystem and vanish on restart.
           if [ -n "${{ vars.GS_BUCKET_NAME }}" ]; then

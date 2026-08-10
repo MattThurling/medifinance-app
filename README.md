@@ -61,6 +61,26 @@ Then visit:
 npm run build:css
 ```
 
+## E-signing locally (optional)
+
+Documents are sent for e-signature via a self-hosted [DocuSeal](https://www.docuseal.com/)
+instance. Without one configured the feature simply stays hidden. To work on it:
+
+```bash
+docker run -d --name docuseal -p 3000:3000 -v ~/.docuseal:/data docuseal/docuseal
+```
+
+1. Open <http://localhost:3000>, create the admin account and build a test
+   template (field names matching `crm/docuseal.py::build_prefill_values`).
+2. In `.env`: `DOCUSEAL_URL=http://localhost:3000`, `DOCUSEAL_API_TOKEN=` (from
+   Settings → API) and `DOCUSEAL_WEBHOOK_SECRET=dev-secret`.
+3. In the DocuSeal console, add a webhook to
+   `http://host.docker.internal:8000/webhooks/docuseal/` with a secret header
+   `X-Docuseal-Secret: dev-secret` (Docker Desktop reaches the host's
+   `runserver` via `host.docker.internal`).
+4. No SMTP needed: after sending a document for signature from a deal page,
+   open the submission in the DocuSeal UI and copy the signing link.
+
 ## Roles
 
 | Role      | What it gets                                              |

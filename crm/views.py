@@ -39,6 +39,7 @@ from .forms import (
     RateBandForm,
     RateLookupForm,
     RateUploadForm,
+    SignatureRequestForm,
     SupplierInvoiceForm,
     XeroInvoiceForm,
     QuoteForm,
@@ -607,6 +608,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             "stage_events",
             "co_applicants",
             "documents",
+            "documents__signature_requests",
             "participations__organisation",
             "xero_invoices",
         )
@@ -648,6 +650,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             ctx["repayment_schedule"] = deal.repayment_schedule
 
         ctx["notes"] = deal.notes.select_related("author")
+        ctx["docuseal_configured"] = docuseal.is_configured()
         return ctx
 
 
@@ -1774,6 +1777,158 @@ class DocuSealWebhookView(View):
         sr.signer_ip = submitter.get("ip") or data.get("ip") or None
         sr.signer_user_agent = (submitter.get("ua") or data.get("ua") or "")[:512]
         sr.save()
+
+
+class SignatureRequestCreateView(StaffRequiredMixin, View):
+    """Staff: send a requested document off for e-signature."""
+
+    template_name = "crm/signature_request_form.html"
+
+    def dispatch(self, request, *args, pk=None, **kwargs):
+        self.doc = get_object_or_404(Document.objects.select_related("deal__customer"), pk=pk)
+        if not docuseal.is_configured():
+            messages.error(request, "DocuSeal isn't configured on this environment yet.")
+            return redirect(self.doc.deal.get_absolute_url())
+        if self.doc.is_provided:
+            messages.error(request, f"“{self.doc.name}” already has a file — nothing to sign.")
+            return redirect(self.doc.deal.get_absolute_url())
+        active = self.doc.active_signature_request
+        if active and active.is_active:
+            messages.info(request, f"“{self.doc.name}” is already out for signature with {active.signer_email}.")
+            return redirect(self.doc.deal.get_absolute_url())
+        return super().dispatch(request, *args, **kwargs)
+
+    def _signers(self):
+        deal = self.doc.deal
+        pks = [c.pk for c in (deal.customer, *deal.co_applicants.all()) if c]
+        return Contact.objects.filter(pk__in=pks)
+
+    def _form(self, data=None):
+        try:
+            templates = docuseal.list_templates()
+        except docuseal.DocuSealError as exc:
+            messages.error(self.request, f"Couldn't reach DocuSeal: {exc}")
+            return None
+        if not templates:
+            messages.error(self.request, "No templates exist on DocuSeal yet — build one there first.")
+            return None
+        customer = self.doc.deal.customer
+        initial = {
+            "signer": customer,
+            "signer_email": customer.email if customer else "",
+            "signer_name": customer.full_name if customer else "",
+        }
+        return SignatureRequestForm(data, initial=initial, templates=templates, signers=self._signers())
+
+    def get(self, request, **kwargs):
+        form = self._form()
+        if form is None:
+            return redirect(self.doc.deal.get_absolute_url())
+        return render(request, self.template_name, {"form": form, "doc": self.doc, "parent_deal": self.doc.deal})
+
+    def post(self, request, **kwargs):
+        form = self._form(request.POST)
+        if form is None:
+            return redirect(self.doc.deal.get_absolute_url())
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "doc": self.doc, "parent_deal": self.doc.deal})
+
+        template_id = int(form.cleaned_data["template"])
+        template_name = dict(form.fields["template"].choices).get(template_id, "")
+        try:
+            result = docuseal.create_submission(
+                template_id=template_id,
+                signer_email=form.cleaned_data["signer_email"],
+                signer_name=form.cleaned_data["signer_name"],
+                values=docuseal.build_prefill_values(self.doc.deal),
+                message=form.cleaned_data["message"] or None,
+            )
+        except docuseal.DocuSealError as exc:
+            messages.error(request, f"DocuSeal rejected the request: {exc}")
+            return render(request, self.template_name, {"form": form, "doc": self.doc, "parent_deal": self.doc.deal})
+
+        SignatureRequest.objects.create(
+            document=self.doc,
+            template_id=template_id,
+            template_name=template_name,
+            submission_id=result["submission_id"],
+            submitter_id=result["submitter_id"],
+            signer=form.cleaned_data["signer"],
+            signer_email=form.cleaned_data["signer_email"],
+            signer_name=form.cleaned_data["signer_name"],
+            created_by=request.user,
+        )
+        messages.success(request, f"“{self.doc.name}” sent to {form.cleaned_data['signer_email']} for signature.")
+        return redirect(self.doc.deal.get_absolute_url())
+
+
+class SignatureRequestVoidView(StaffRequiredMixin, View):
+    """Staff: cancel an in-flight signature request (POST only — inline)."""
+
+    def post(self, request, pk):
+        sr = get_object_or_404(SignatureRequest.objects.select_related("document__deal"), pk=pk)
+        if not sr.is_active:
+            messages.error(request, "Only a pending signature request can be voided.")
+            return redirect(sr.document.deal.get_absolute_url())
+        try:
+            docuseal.archive_submission(sr.submission_id)
+        except docuseal.DocuSealError as exc:
+            messages.error(request, f"Couldn't void on DocuSeal: {exc}")
+            return redirect(sr.document.deal.get_absolute_url())
+        sr.status = SignatureRequest.Status.VOIDED
+        sr.save(update_fields=["status", "updated_at"])
+        messages.success(request, f"Signature request for “{sr.document.name}” voided.")
+        return redirect(sr.document.deal.get_absolute_url())
+
+
+class SignatureRequestResendView(StaffRequiredMixin, View):
+    """Staff: re-send a pending or declined request — voids the old DocuSeal
+    submission and creates a fresh one to the same signer (POST only)."""
+
+    def post(self, request, pk):
+        old = get_object_or_404(SignatureRequest.objects.select_related("document__deal"), pk=pk)
+        deal = old.document.deal
+        if old.status == SignatureRequest.Status.COMPLETED:
+            messages.error(request, "That document has already been signed.")
+            return redirect(deal.get_absolute_url())
+        try:
+            if old.is_active:
+                docuseal.archive_submission(old.submission_id)
+            result = docuseal.create_submission(
+                template_id=old.template_id,
+                signer_email=old.signer_email,
+                signer_name=old.signer_name,
+                values=docuseal.build_prefill_values(deal),
+            )
+        except docuseal.DocuSealError as exc:
+            messages.error(request, f"Couldn't re-send via DocuSeal: {exc}")
+            return redirect(deal.get_absolute_url())
+        if old.is_active:
+            old.status = SignatureRequest.Status.VOIDED
+            old.save(update_fields=["status", "updated_at"])
+        SignatureRequest.objects.create(
+            document=old.document,
+            template_id=old.template_id,
+            template_name=old.template_name,
+            submission_id=result["submission_id"],
+            submitter_id=result["submitter_id"],
+            signer=old.signer,
+            signer_email=old.signer_email,
+            signer_name=old.signer_name,
+            created_by=request.user,
+        )
+        messages.success(request, f"“{old.document.name}” re-sent to {old.signer_email} for signature.")
+        return redirect(deal.get_absolute_url())
+
+
+class SignatureAuditDownloadView(StaffRequiredMixin, View):
+    """Stream the DocuSeal audit-log PDF for a completed signature request."""
+
+    def get(self, request, pk):
+        sr = get_object_or_404(SignatureRequest, pk=pk)
+        if not sr.audit_log_file:
+            raise Http404("No audit log has been stored for this signature request.")
+        return FileResponse(sr.audit_log_file.open("rb"), as_attachment=False, filename="audit-log.pdf")
 
 
 # --- Xero ------------------------------------------------------------------

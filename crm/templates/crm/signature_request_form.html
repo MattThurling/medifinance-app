@@ -1,0 +1,37 @@
+{% extends "_app_layout.html" %}
+
+{% block title %}Send for signature · {{ parent_deal.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <p class="text-sm opacity-60 mb-1">
+    <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
+    <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
+  </p>
+  <h1 class="text-2xl font-semibold mb-2">Send “{{ doc.name }}” for signature</h1>
+  <p class="text-sm opacity-70 mb-6">
+    The signer receives an email with a link to sign online. The signed PDF
+    lands back on this document automatically once they're done.
+  </p>
+
+  <form method="post" class="card bg-base-100 shadow">
+    <div class="card-body">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% include "_field.html" with field=form.template %}
+      {% include "_field.html" with field=form.signer %}
+      {% include "_field.html" with field=form.signer_email %}
+      {% include "_field.html" with field=form.signer_name %}
+      {% include "_field.html" with field=form.message %}
+
+      <div class="card-actions justify-end mt-4">
+        <a href="{{ parent_deal.get_absolute_url }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Send for signature</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
