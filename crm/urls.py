@@ -75,6 +75,9 @@ urlpatterns = [
     path("documents/<int:pk>/download/", views.DocumentDownloadView.as_view(), name="document_download"),
     path("documents/<int:pk>/delete/", views.DocumentDeleteView.as_view(), name="document_delete"),
 
+    # DocuSeal — inbound webhook (secret-header auth, no session)
+    path("webhooks/docuseal/", views.DocuSealWebhookView.as_view(), name="docuseal_webhook"),
+
     # Xero — OAuth flow + status page + raise-invoice on a deal
     path("xero/", views.XeroStatusView.as_view(), name="xero_status"),
     path("xero/connect/", views.XeroConnectView.as_view(), name="xero_connect"),

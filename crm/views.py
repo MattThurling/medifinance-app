@@ -1,18 +1,25 @@
+import json
 import logging
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Case, F, OuterRef, ProtectedError, Q, Subquery, Sum, Value, When
 from django.db.models.functions import Coalesce, Greatest, Lower
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
+from django.utils.decorators import method_decorator
+from django.utils.text import slugify
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from accounts.models import Role
@@ -38,7 +45,7 @@ from .forms import (
     QuoteSelectionForm,
     StageForm,
 )
-from . import pricing
+from . import docuseal, pricing
 from .models import (
     Contact,
     Deal,
@@ -50,6 +57,7 @@ from .models import (
     Proposal,
     Quote,
     RateBand,
+    SignatureRequest,
     Stage,
     XeroConnection,
     XeroInvoice,
@@ -1666,6 +1674,106 @@ class PortalDocumentsView(_PortalStepMixin, View):
                 "current_step": self.step,
             },
         )
+
+
+# --- DocuSeal e-signing ----------------------------------------------------
+
+@method_decorator(csrf_exempt, name="dispatch")
+class DocuSealWebhookView(View):
+    """Receives DocuSeal's form.* events and advances the matching
+    SignatureRequest. Auth is a shared secret header configured on the
+    DocuSeal console (no session, so CSRF is exempted).
+
+    Contract with DocuSeal's retry loop: 200 acknowledges (including events
+    we don't care about or can't match — retrying those can never help),
+    4xx means the request itself is bad, 502 asks for a retry (we couldn't
+    reach DocuSeal back to fetch the signed files)."""
+
+    def post(self, request):
+        if not settings.DOCUSEAL_WEBHOOK_SECRET:
+            return JsonResponse({"error": "unconfigured"}, status=503)
+        if not constant_time_compare(
+            request.headers.get("X-Docuseal-Secret", ""),
+            settings.DOCUSEAL_WEBHOOK_SECRET,
+        ):
+            return JsonResponse({"error": "forbidden"}, status=401)
+
+        try:
+            payload = json.loads(request.body)
+            event = payload["event_type"]
+            data = payload.get("data") or {}
+        except (ValueError, TypeError, KeyError):
+            return JsonResponse({"error": "bad_payload"}, status=400)
+
+        # form.* events carry the submitter (with its parent submission_id);
+        # submission.* events carry the submission itself.
+        submission_id = data.get("submission_id") if event.startswith("form.") else data.get("id")
+        if not submission_id:
+            return JsonResponse({"ok": True})
+
+        try:
+            with transaction.atomic():
+                sr = (
+                    SignatureRequest.objects
+                    .select_for_update()
+                    .select_related("document")
+                    .filter(submission_id=submission_id)
+                    .first()
+                )
+                if sr is None:
+                    logger.info("DocuSeal webhook %s for unknown submission %s", event, submission_id)
+                elif event in ("form.viewed", "form.started"):
+                    if sr.status == SignatureRequest.Status.SENT:
+                        sr.status = SignatureRequest.Status.OPENED
+                        sr.opened_at = timezone.now()
+                        sr.save(update_fields=["status", "opened_at", "updated_at"])
+                elif event == "form.declined":
+                    if sr.status not in (SignatureRequest.Status.COMPLETED, SignatureRequest.Status.VOIDED):
+                        sr.status = SignatureRequest.Status.DECLINED
+                        sr.declined_at = timezone.now()
+                        sr.decline_reason = data.get("decline_reason") or ""
+                        sr.save(update_fields=["status", "declined_at", "decline_reason", "updated_at"])
+                elif event in ("form.completed", "submission.completed"):
+                    self._handle_completed(sr, data)
+        except docuseal.DocuSealError as exc:
+            logger.error("DocuSeal webhook for submission %s: %s", submission_id, exc)
+            return JsonResponse({"error": "docuseal_unreachable"}, status=502)
+
+        return JsonResponse({"ok": True})
+
+    @staticmethod
+    def _handle_completed(sr: SignatureRequest, data: dict) -> None:
+        # Duplicate delivery (or form.completed followed by submission.completed)
+        # must be a no-op once the signed file is in.
+        if sr.status == SignatureRequest.Status.COMPLETED and sr.document.file:
+            return
+
+        # Verify-then-fetch: treat our own API call as the source of truth
+        # rather than the webhook body someone POSTed at us.
+        submission = docuseal.get_submission(sr.submission_id)
+        if submission.get("status") != "completed" and not submission.get("completed_at"):
+            logger.warning(
+                "DocuSeal sent a completed event for submission %s but the API says %r",
+                sr.submission_id, submission.get("status"),
+            )
+            return
+
+        files = docuseal.get_submission_documents(sr.submission_id)
+        if files:
+            pdf = docuseal.download_file(files[0]["url"])
+            base = slugify(sr.document.name) or "document"
+            sr.document.attach(ContentFile(pdf, name=f"{base}-signed.pdf"), by=None)
+
+        audit_url = submission.get("audit_log_url") or (data.get("submission") or {}).get("audit_log_url")
+        if audit_url and not sr.audit_log_file:
+            sr.audit_log_file.save("audit-log.pdf", ContentFile(docuseal.download_file(audit_url)), save=False)
+
+        submitter = (submission.get("submitters") or [{}])[0]
+        sr.status = SignatureRequest.Status.COMPLETED
+        sr.completed_at = timezone.now()
+        sr.signer_ip = submitter.get("ip") or data.get("ip") or None
+        sr.signer_user_agent = (submitter.get("ua") or data.get("ua") or "")[:512]
+        sr.save()
 
 
 # --- Xero ------------------------------------------------------------------
