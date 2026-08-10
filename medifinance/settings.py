@@ -216,6 +216,14 @@ XERO_SCOPES = (
 )
 
 
+# DocuSeal — self-hosted e-signature instance (one per environment). With
+# DOCUSEAL_URL unset the send-for-signature UI stays hidden and the feature
+# is dark; the webhook endpoint answers 503 until the secret is set.
+DOCUSEAL_URL = os.getenv("DOCUSEAL_URL", "")           # e.g. https://sign.medifinance.co.uk
+DOCUSEAL_API_TOKEN = os.getenv("DOCUSEAL_API_TOKEN", "").strip()
+DOCUSEAL_WEBHOOK_SECRET = os.getenv("DOCUSEAL_WEBHOOK_SECRET", "").strip()
+
+
 # Email — SMTP over SSL to the medi-finance.co.uk mail server (used in dev too).
 # Password comes from EMAIL_HOST_PASSWORD; if it's empty we fall back to the
 # console backend so local runs without credentials still work (emails print to

@@ -18,6 +18,7 @@ from crm.models import (
     Proposal,
     Quote,
     RateBand,
+    SignatureRequest,
 )
 
 User = get_user_model()
@@ -125,6 +126,18 @@ def make_participation(deal: Deal, *, organisation: Organisation | None = None,
 
 def make_document(deal: Deal, *, name: str = "Bank statements") -> Document:
     return Document.objects.create(deal=deal, name=name)
+
+
+def make_signature_request(document: Document, *, submission_id: int | None = None,
+                           **extra) -> SignatureRequest:
+    extra.setdefault("template_id", 1)
+    extra.setdefault("template_name", "Test agreement")
+    extra.setdefault("signer_email", f"signer-{_next()}@example.com")
+    return SignatureRequest.objects.create(
+        document=document,
+        submission_id=submission_id or _next() + 10_000,
+        **extra,
+    )
 
 
 def make_api_key(*, organisation: Organisation | None = None,
