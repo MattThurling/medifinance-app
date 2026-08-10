@@ -309,7 +309,7 @@ layout (main content left, amount + timeline right).
                           <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Re-send for signature">{% icon "rotate-cw" class="h-3.5 w-3.5" %}</button>
                         </form>
                       {% elif docuseal_configured %}
-                        <a href="{% url 'crm:document_sign' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="Send for e-signature">{% icon "pen-line" class="h-3.5 w-3.5" %}</a>
+                        <a href="{% url 'crm:document_sign' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="Send for e-signature">{% icon "signature" class="h-3.5 w-3.5" %}</a>
                       {% endif %}
                       <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
                       <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
