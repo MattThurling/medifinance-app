@@ -101,6 +101,18 @@ jobs:
           SECRETS="DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest"
           ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=${DOMAIN}|DJANGO_CSRF_TRUSTED_ORIGINS=https://${DOMAIN}|HUBSPOT_PORTAL_ID=3378161"
 
+          # INTERIM until the app/app-dev A records exist at the registrar:
+          # the LB certs can't provision without DNS, so dev stays reachable
+          # directly on its *.run.app URLs (both host forms) with open ingress.
+          # Once DNS is live and the certs are ACTIVE, delete this block (and
+          # the ${INGRESS} override below) to restore the LB-only lockdown.
+          INGRESS="internal-and-cloud-load-balancing"
+          if [ "$SUFFIX" = "dev" ]; then
+            INGRESS="all"
+            RUNAPP="medifinance-dev-3ibfasnqaq-nw.a.run.app,medifinance-dev-603222559250.europe-west2.run.app"
+            ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=${DOMAIN},${RUNAPP}|DJANGO_CSRF_TRUSTED_ORIGINS=https://${DOMAIN},https://medifinance-dev-3ibfasnqaq-nw.a.run.app,https://medifinance-dev-603222559250.europe-west2.run.app|HUBSPOT_PORTAL_ID=3378161"
+          fi
+
           # Dev email goes to the Mailtrap Sandbox (caught in the shared inbox,
           # never delivered) — credentials live in the mailtrap-user /
           # mailtrap-password secrets. Prod uses the real medi-finance.co.uk
@@ -158,7 +170,7 @@ jobs:
             --image "$IMAGE" \
             --region "$REGION" \
             --allow-unauthenticated \
-            --ingress internal-and-cloud-load-balancing \
+            --ingress "$INGRESS" \
             --add-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
             --set-secrets "$SECRETS" \
             --set-env-vars "^|^${ENVVARS}"
