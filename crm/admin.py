@@ -10,6 +10,7 @@ from .models import (
     Proposal,
     Quote,
     RateBand,
+    SignatureRequest,
     Stage,
 )
 
@@ -204,6 +205,23 @@ class DocumentAdmin(admin.ModelAdmin):
     search_fields = ("name", "deal__name")
     autocomplete_fields = ("deal", "uploaded_by")
     readonly_fields = ("uploaded_at", "created_at", "updated_at")
+
+
+@admin.register(SignatureRequest)
+class SignatureRequestAdmin(admin.ModelAdmin):
+    """Read-mostly — signature requests are driven by the app + DocuSeal webhooks."""
+
+    list_display = ("document", "signer_email", "status", "created_at", "completed_at", "created_by")
+    list_select_related = ("document", "document__deal", "created_by")
+    list_filter = ("status",)
+    search_fields = ("signer_email", "document__name", "document__deal__name")
+    autocomplete_fields = ("document", "signer", "created_by")
+    readonly_fields = (
+        "template_id", "template_name", "submission_id", "submitter_id",
+        "opened_at", "completed_at", "declined_at",
+        "signer_ip", "signer_user_agent", "audit_log_file",
+        "created_at", "updated_at",
+    )
 
 
 @admin.register(Note)

@@ -915,6 +915,77 @@ class Document(TimestampedModel):
         self.uploaded_by = by
         self.save()
 
+    @property
+    def active_signature_request(self):
+        """The signature request currently in play, if any. Voided/declined
+        requests don't count — a new one can be sent after those."""
+        for sr in self.signature_requests.all():  # ordered -created_at; prefetch-friendly
+            if sr.status not in (SignatureRequest.Status.VOIDED,):
+                return sr
+        return None
+
+
+def signature_audit_upload_path(instance: "SignatureRequest", filename: str) -> str:
+    return f"deals/{instance.document.deal_id}/documents/audit/{filename}"
+
+
+class SignatureRequest(TimestampedModel):
+    """A DocuSeal submission sent for e-signature against a Document.
+
+    The signed PDF lands on the Document itself via `doc.attach()` (so the
+    portal, downloads and storage behave like any upload); this row keeps the
+    DocuSeal linkage plus the audit trail of who signed, when and from where."""
+
+    class Status(models.TextChoices):
+        SENT = "sent", "Sent"
+        OPENED = "opened", "Opened"
+        COMPLETED = "completed", "Completed"
+        DECLINED = "declined", "Declined"
+        VOIDED = "voided", "Voided"
+
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="signature_requests")
+    template_id = models.PositiveIntegerField()
+    template_name = models.CharField(max_length=255, blank=True)
+    submission_id = models.PositiveIntegerField(unique=True)
+    submitter_id = models.PositiveIntegerField(null=True, blank=True)
+
+    signer = models.ForeignKey(
+        Contact,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="signature_requests",
+    )
+    # Snapshots — the Contact's details may change after sending.
+    signer_email = models.EmailField()
+    signer_name = models.CharField(max_length=255, blank=True)
+
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.SENT)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    declined_at = models.DateTimeField(null=True, blank=True)
+    decline_reason = models.TextField(blank=True)
+
+    signer_ip = models.GenericIPAddressField(null=True, blank=True)
+    signer_user_agent = models.CharField(max_length=512, blank=True)
+    audit_log_file = models.FileField(upload_to=signature_audit_upload_path, null=True, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="signature_requests_sent",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.document.name} → {self.signer_email} ({self.get_status_display()})"
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in (self.Status.SENT, self.Status.OPENED)
+
 
 class Note(TimestampedModel):
     """A note attached to a contact, organisation and/or deal.
