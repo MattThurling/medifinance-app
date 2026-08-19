@@ -45,20 +45,20 @@ class Organisation(TimestampedModel):
 
     name = models.CharField(
         max_length=255,
-        help_text="The everyday name staff use to find this org.",
+        help_text="The everyday name staff use to find this org",
     )
     legal_name = models.CharField(
         max_length=255, blank=True,
-        help_text="Registered Companies House name (used on contracts and credit checks).",
+        help_text="Registered Companies House name",
     )
     trading_name = models.CharField(
         max_length=255, blank=True,
-        help_text="“Trading as” name, when different from the legal name.",
+        help_text="When different",
     )
     companies_house_number = models.CharField(
         "Companies House number",
         max_length=10, blank=True, db_index=True,
-        help_text="UK CH number — 8 digits, or NI/SC/OC + 6 digits (LLPs).",
+        help_text="8 digits, or NI/SC/OC + 6 digits (LLPs)",
     )
 
     # UK structured address. All blank-allowed — fill in as you go.
@@ -68,13 +68,12 @@ class Organisation(TimestampedModel):
     address_county = models.CharField("County", max_length=100, blank=True, help_text="Optional")
     address_postcode = models.CharField("Postcode", max_length=10, blank=True)
 
-    url = models.URLField(max_length=255, blank=True, help_text="Homepage / website URL.")
+    url = models.URLField(max_length=255, blank=True, help_text="Homepage / website URL")
     email = models.EmailField(
         blank=True,
-        help_text="Shared / role inbox for the organisation (e.g. info@, reception@). "
-                  "Contacts may share this address.",
+        help_text="Shared / role inbox for the organisation",
     )
-    phone = models.CharField(max_length=32, blank=True, help_text="Main phone number for the organisation.")
+    phone = models.CharField(max_length=32, blank=True, help_text="Main number for the organisation")
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -82,7 +81,7 @@ class Organisation(TimestampedModel):
         related_name="owned_organisations",
         null=True,
         blank=True,
-        help_text="Staff member responsible for this organisation. Optional.",
+        help_text="Staff member responsible for this organisation. Optional",
     )
 
     sector = models.CharField(
@@ -90,7 +89,7 @@ class Organisation(TimestampedModel):
         choices=Sector.choices,
         null=True,
         blank=True,
-        help_text="The profession/sector this organisation operates in. Optional.",
+        help_text="The sector of operation. Optional",
     )
 
     hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
