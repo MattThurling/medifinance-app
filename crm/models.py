@@ -529,6 +529,10 @@ class Proposal(TimestampedModel):
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.SUBMITTED,
     )
+    notified_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the client was emailed the approval news for this proposal.",
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -546,6 +550,7 @@ class Stage(TimestampedModel):
         PROPOSAL_SUBMITTED = "proposal_submitted", "Proposal Submitted"
         PROPOSAL_APPROVED = "proposal_approved", "Proposal Approved"
         PROPOSAL_DECLINED = "proposal_declined", "Proposal Declined"
+        CLIENT_NOTIFIED = "client_notified", "Client Notified"
         DOCUMENTS_OUT = "documents_out", "Documents Out"
         SUPPLIER_INVOICE_REQUESTED = "supplier_invoice_requested", "Supplier Invoice Requested"
         SUPPLIER_INVOICE_RECEIVED = "supplier_invoice_received", "Supplier Invoice Received"

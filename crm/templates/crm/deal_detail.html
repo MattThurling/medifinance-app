@@ -429,6 +429,20 @@ layout (main content left, amount + timeline right).
                            onchange="this.form.submit()"
                            title="Mark as selected proposal" aria-label="Mark as selected proposal" />
                   </form>
+                  {% if deal.selected_proposal_id == p.pk and p.status == "approved" %}
+                    {% if p.notified_at %}
+                      <span class="badge badge-ghost badge-xs align-middle" title="Client notified">
+                        {% icon "mail-check" class="h-3 w-3" %} {{ p.notified_at|date:"j M Y" }}
+                      </span>
+                    {% else %}
+                      <form method="post" action="{% url 'crm:proposal_notify' p.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-xs btn-outline" title="Email the client the approval news">
+                          {% icon "mail" class="h-3.5 w-3.5" %} Notify
+                        </button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
                   <a href="{% url 'crm:proposal_update' p.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit proposal">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
                 </td>
               </tr>

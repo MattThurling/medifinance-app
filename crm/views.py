@@ -610,6 +610,8 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             "documents",
             "signature_requests",
             "participations__organisation",
+            "proposals__lender",
+            "proposals__contact",
             "xero_invoices",
         )
 
@@ -1500,6 +1502,71 @@ class RequestDealCommissionInvoiceView(StaffRequiredMixin, View):
         )
 
         messages.success(request, "Commission invoice request sent to accounts.")
+        return redirect(deal.get_absolute_url())
+
+
+class ProposalNotifyClientView(StaffRequiredMixin, View):
+    """Email the deal's customer the good news about an approved proposal.
+
+    Only allowed for the deal's selected proposal while it is Approved, and
+    only once — `Proposal.notified_at` records (and blocks repeating) the send.
+    """
+
+    def post(self, request, pk):
+        proposal = get_object_or_404(
+            Proposal.objects.select_related(
+                "deal", "deal__customer", "deal__selected_quote", "lender",
+            ),
+            pk=pk,
+        )
+        deal = proposal.deal
+
+        if proposal.status != Proposal.Status.APPROVED:
+            messages.error(request, "Only an approved proposal can be sent to the client.")
+            return redirect(deal.get_absolute_url())
+        if deal.selected_proposal_id != proposal.pk:
+            messages.error(
+                request,
+                "Mark this proposal as the deal's selected proposal before notifying the client.",
+            )
+            return redirect(deal.get_absolute_url())
+        if proposal.notified_at is not None:
+            messages.error(
+                request,
+                f"The client was already notified on {proposal.notified_at:%d %b %Y}.",
+            )
+            return redirect(deal.get_absolute_url())
+        if deal.customer is None or not deal.customer.email:
+            messages.error(
+                request,
+                "Can't notify the client: this deal's customer has no email address on file.",
+            )
+            return redirect(deal.get_absolute_url())
+
+        finance = deal.finance_amount
+        quote = deal.selected_quote
+        monthly = quote.monthly_payment if quote else None
+
+        from accounts.emails import send_proposal_approved_client_email
+        send_proposal_approved_client_email(
+            to_email=deal.customer.email,
+            contact_first_name=deal.customer.first_name,
+            lender_org_name=proposal.lender.name,
+            proposal_number=proposal.proposal_number,
+            finance_amount_display=f"£{finance:,.2f}" if finance is not None else "",
+            term_display=f"{quote.term} months" if quote else "",
+            monthly_payment_display=f"£{monthly:,.2f}" if monthly is not None else "",
+        )
+
+        proposal.notified_at = timezone.now()
+        proposal.save(update_fields=["notified_at", "updated_at"])
+        Stage.objects.create(
+            deal=deal,
+            name=Stage.Name.CLIENT_NOTIFIED,
+            organisation=proposal.lender,
+            set_by=request.user,
+        )
+        messages.success(request, f"Approval email sent to {deal.customer.email}.")
         return redirect(deal.get_absolute_url())
 
 

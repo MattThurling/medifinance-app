@@ -190,6 +190,13 @@ class CustomerCannotMutateStaffResourcesTests(TestCase):
         self.proposal.refresh_from_db()
         self.assertEqual(self.proposal.status, Proposal.Status.SUBMITTED)
 
+    def test_customer_cannot_notify_client_of_proposal(self):
+        url = reverse("crm:proposal_notify", args=[self.proposal.pk])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 403)
+        self.proposal.refresh_from_db()
+        self.assertIsNone(self.proposal.notified_at)
+
     def test_customer_cannot_issue_portal_link_for_someone_elses_deal(self):
         url = reverse("crm:deal_issue_portal_link", args=[self.deal.pk])
         response = self.client.post(url)

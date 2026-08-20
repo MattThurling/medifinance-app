@@ -53,6 +53,7 @@ urlpatterns = [
     path("proposals/new/", views.ProposalCreateView.as_view(), name="proposal_create"),
     path("proposals/<int:pk>/edit/", views.ProposalUpdateView.as_view(), name="proposal_update"),
     path("proposals/<int:pk>/select/", views.ProposalSelectView.as_view(), name="proposal_select"),
+    path("proposals/<int:pk>/notify/", views.ProposalNotifyClientView.as_view(), name="proposal_notify"),
 
     # Participations (suppliers) — created from a deal via `?deal=<pk>`; edit/delete by pk
     path("participations/new/", views.ParticipationCreateView.as_view(), name="participation_create"),

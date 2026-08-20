@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
+<body style="margin:0; padding:0; background:#f3f4f6; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6; padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px; background:#ffffff; border-radius:12px; overflow:hidden;">
+          <tr>
+            <td style="padding:24px 32px; border-bottom:1px solid #e5e7eb;">
+              <strong style="font-size:18px;">Medifinance</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              {% if contact_first_name %}
+                <p style="margin:0 0 16px;">Dear {{ contact_first_name }},</p>
+              {% endif %}
+
+              <p style="margin:0 0 16px;">
+                We're delighted to let you know that your finance application has been
+                approved by <strong>{{ lender_org_name }}</strong>.
+              </p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px; line-height:1.6;">
+                {% if proposal_number %}
+                  <tr><td style="color:#6b7280; padding-right:16px;">Reference</td><td>{{ proposal_number }}</td></tr>
+                {% endif %}
+                {% if finance_amount_display %}
+                  <tr><td style="color:#6b7280; padding-right:16px;">Finance amount</td><td>{{ finance_amount_display }}</td></tr>
+                {% endif %}
+                {% if term_display %}
+                  <tr><td style="color:#6b7280; padding-right:16px;">Term</td><td>{{ term_display }}</td></tr>
+                {% endif %}
+                {% if monthly_payment_display %}
+                  <tr><td style="color:#6b7280; padding-right:16px;">Monthly payment</td><td>{{ monthly_payment_display }}</td></tr>
+                {% endif %}
+              </table>
+
+              <p style="margin:0 0 16px;">
+                We'll be in touch shortly with the documents and next steps — if you have
+                any questions in the meantime, just reply to this email.
+              </p>
+
+              <p style="margin:0 0 16px;">Congratulations, and thank you for choosing Medifinance.</p>
+
+              <p style="margin:0;">The Medifinance Team</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px; background:#f9fafb; color:#6b7280; font-size:12px; text-align:center;">
+              Medifinance
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

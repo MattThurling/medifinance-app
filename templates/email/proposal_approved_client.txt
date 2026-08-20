@@ -1,0 +1,15 @@
+{% if contact_first_name %}Dear {{ contact_first_name }},
+
+{% endif %}We're delighted to let you know that your finance application has been approved by {{ lender_org_name }}.
+{% if proposal_number %}
+Reference: {{ proposal_number }}{% endif %}{% if finance_amount_display %}
+Finance amount: {{ finance_amount_display }}{% endif %}{% if term_display %}
+Term: {{ term_display }}{% endif %}{% if monthly_payment_display %}
+Monthly payment: {{ monthly_payment_display }}{% endif %}
+
+We'll be in touch shortly with the documents and next steps — if you have
+any questions in the meantime, just reply to this email.
+
+Congratulations, and thank you for choosing Medifinance.
+
+The Medifinance Team

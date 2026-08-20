@@ -241,3 +241,41 @@ def send_supplier_invoice_request_email(
     )
     message.attach_alternative(html_body, "text/html")
     _send_with_retry(message)
+
+
+def send_proposal_approved_client_email(
+    *,
+    to_email: str,
+    contact_first_name: str,
+    lender_org_name: str,
+    proposal_number: str,
+    finance_amount_display: str,
+    term_display: str,
+    monthly_payment_display: str,
+) -> None:
+    """Tell the client the good news that their finance has been approved.
+
+    Optional details (proposal number, finance amount, term, monthly payment)
+    are passed as "" when unknown and their lines are omitted from the body —
+    this is client-facing, so no "—" placeholders.
+    """
+    context = {
+        "contact_first_name": contact_first_name,
+        "lender_org_name": lender_org_name,
+        "proposal_number": proposal_number,
+        "finance_amount_display": finance_amount_display,
+        "term_display": term_display,
+        "monthly_payment_display": monthly_payment_display,
+    }
+    subject = f"Good news — your finance has been approved by {lender_org_name}"
+    text_body = render_to_string("email/proposal_approved_client.txt", context)
+    html_body = render_to_string("email/proposal_approved_client.html", context)
+
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[to_email],
+    )
+    message.attach_alternative(html_body, "text/html")
+    _send_with_retry(message)
