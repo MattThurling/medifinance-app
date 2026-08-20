@@ -1211,6 +1211,17 @@ class StageCreateView(StaffRequiredMixin, CreateView):
 
 
 # --- Proposal --------------------------------------------------------------
+# Map a Proposal.Status -> the Stage.Name to emit when a proposal is created
+# with, or its status flips to, that status. WITHDRAWN deliberately absent:
+# withdrawing one proposal doesn't move the deal's stage — the proposal's own
+# status records it.
+PROPOSAL_STATUS_TO_STAGE = {
+    Proposal.Status.SUBMITTED: Stage.Name.PROPOSAL_SUBMITTED,
+    Proposal.Status.APPROVED: Stage.Name.PROPOSAL_APPROVED,
+    Proposal.Status.DECLINED: Stage.Name.PROPOSAL_DECLINED,
+}
+
+
 # Proposals are managed in the context of a parent Deal (the broker shops the
 # deal to many lenders), same shape as Quote — no separate list/detail page.
 
@@ -1242,12 +1253,14 @@ class ProposalCreateView(StaffRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.deal = self.parent_deal
         response = super().form_valid(form)
-        Stage.objects.create(
-            deal=self.parent_deal,
-            name=Stage.Name.PROPOSAL_SUBMITTED,
-            organisation=self.object.lender,
-            set_by=self.request.user,
-        )
+        stage_name = PROPOSAL_STATUS_TO_STAGE.get(self.object.status)
+        if stage_name:
+            Stage.objects.create(
+                deal=self.parent_deal,
+                name=stage_name,
+                organisation=self.object.lender,
+                set_by=self.request.user,
+            )
         return response
 
     def get_context_data(self, **kwargs):
@@ -1263,15 +1276,6 @@ class ProposalUpdateView(StaffRequiredMixin, UpdateView):
     model = Proposal
     form_class = ProposalForm
 
-    # Map a new Proposal.Status -> the Stage.Name to emit when status flips to it.
-    # WITHDRAWN deliberately absent: withdrawing one proposal doesn't move the
-    # deal's stage — the proposal's own status records it.
-    _STATUS_TO_STAGE = {
-        Proposal.Status.SUBMITTED: Stage.Name.PROPOSAL_SUBMITTED,
-        Proposal.Status.APPROVED: Stage.Name.PROPOSAL_APPROVED,
-        Proposal.Status.DECLINED: Stage.Name.PROPOSAL_DECLINED,
-    }
-
     def get_queryset(self):
         return super().get_queryset().select_related("deal", "lender", "contact")
 
@@ -1285,7 +1289,7 @@ class ProposalUpdateView(StaffRequiredMixin, UpdateView):
         response = super().form_valid(form)
         new_status = self.object.status
         if old_status != new_status:
-            stage_name = self._STATUS_TO_STAGE.get(new_status)
+            stage_name = PROPOSAL_STATUS_TO_STAGE.get(new_status)
             if stage_name:
                 Stage.objects.create(
                     deal=self.object.deal,
