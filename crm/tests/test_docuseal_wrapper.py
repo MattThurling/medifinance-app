@@ -98,9 +98,14 @@ class WrapperTests(SimpleTestCase):
 class PrefillValuesTests(TestCase):
     def test_prefill_draws_from_deal_and_customer(self):
         deal = factories.make_deal(name="MRI scanner refinance")
+        deal.customer.home_address_line1 = "1 Harley Street"
+        deal.customer.home_address_city = "London"
+        deal.customer.home_address_postcode = "W1G 9QD"
+        deal.customer.save()
         values = docuseal.build_prefill_values(deal)
         self.assertEqual(values["Deal Name"], "MRI scanner refinance")
-        self.assertEqual(values["Customer Name"], deal.customer.full_name)
+        self.assertEqual(values["Client Name"], deal.customer.full_name)
+        self.assertEqual(values["Client Address"], "1 Harley Street, London, W1G 9QD")
         self.assertEqual(values["Customer Email"], deal.customer.email)
         self.assertEqual(values["Organisation"], deal.organisation.name)
         self.assertIn("Date", values)
@@ -110,5 +115,6 @@ class PrefillValuesTests(TestCase):
         deal = factories.make_deal()
         deal.customer = None
         values = docuseal.build_prefill_values(deal)
-        self.assertEqual(values["Customer Name"], "")
+        self.assertEqual(values["Client Name"], "")
+        self.assertEqual(values["Client Address"], "")
         self.assertEqual(values["Customer Email"], "")

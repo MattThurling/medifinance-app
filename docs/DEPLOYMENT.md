@@ -344,8 +344,8 @@ existing Cloud SQL instance, files in GCS.
 
 Agreement **templates are built by hand in the DocuSeal UI** — give data
 fields the exact names `crm/docuseal.py::build_prefill_values()` emits
-("Customer Name", "Customer Email", "Organisation", "Deal Name", "Amount",
-"Date") and they're prefilled per deal. Dev and prod are separate DocuSeal
+("Client Name", "Client Address", "Customer Email", "Organisation",
+"Deal Name", "Amount", "Date") and they're prefilled per deal. Dev and prod are separate DocuSeal
 databases, so templates must be created on each (ids differ — the app always
 lists templates via the API, never hardcodes ids).
 

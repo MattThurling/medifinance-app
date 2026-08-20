@@ -184,6 +184,18 @@ class Contact(TimestampedModel):
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
 
+    @property
+    def one_line_address(self) -> str:
+        """Comma-joined non-empty home address parts, for single-line form fields."""
+        parts = [
+            self.home_address_line1,
+            self.home_address_line2,
+            self.home_address_city,
+            self.home_address_county,
+            self.home_address_postcode,
+        ]
+        return ", ".join(p for p in parts if p)
+
     def get_absolute_url(self) -> str:
         return reverse("crm:contact_detail", args=[self.pk])
 

@@ -120,13 +120,14 @@ def download_file(url: str) -> bytes:
 
 def build_prefill_values(deal) -> dict:
     """Field values every template can draw on. The convention: DocuSeal
-    template fields must be named exactly like these keys ("Customer Name",
+    template fields must be named exactly like these keys ("Client Name",
     "Amount", …) to get prefilled; fields a template doesn't have are ignored.
     """
     customer = deal.customer
     values = {
         "Deal Name": deal.name,
-        "Customer Name": customer.full_name if customer else "",
+        "Client Name": customer.full_name if customer else "",
+        "Client Address": customer.one_line_address if customer else "",
         "Customer Email": customer.email if customer else "",
         "Organisation": deal.organisation.name if deal.organisation else "",
         "Date": timezone.now().date().strftime("%d/%m/%Y"),
