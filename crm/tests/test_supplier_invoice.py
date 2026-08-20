@@ -17,10 +17,73 @@ from crm.models import ParticipationInvoiceLink, Stage
 
 from .factories import (
     make_associate,
+    make_contact,
     make_deal,
     make_organisation,
     make_participation,
+    make_proposal,
 )
+
+
+class OrganisationFormalNameTests(TestCase):
+    """formal_name is the client name used on formal correspondence
+    (e.g. the supplier invoice request email)."""
+
+    def test_legal_name_alone(self):
+        org = make_organisation(name="Everyday", legal_name="Legal Ltd")
+        self.assertEqual(org.formal_name, "Legal Ltd")
+
+    def test_legal_plus_trading(self):
+        org = make_organisation(
+            name="Everyday", legal_name="Legal Ltd", trading_name="Smile Dental",
+        )
+        self.assertEqual(org.formal_name, "Legal Ltd trading as Smile Dental")
+
+    def test_identical_legal_and_trading_not_repeated(self):
+        org = make_organisation(
+            name="Everyday", legal_name="Legal Ltd", trading_name="Legal Ltd",
+        )
+        self.assertEqual(org.formal_name, "Legal Ltd")
+
+    def test_falls_back_to_name(self):
+        org = make_organisation(name="Everyday", trading_name="Smile Dental")
+        self.assertEqual(org.formal_name, "Everyday")
+
+
+class RequestSupplierInvoiceEmailTests(TestCase):
+    """Staff 'request invoice' action — the email must name the client by its
+    formal (legal/trading) name and carry the shared Reply-To address."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = make_associate()
+        client_org = make_organisation(
+            name="Client Co", legal_name="Client Co Ltd", trading_name="Smiles",
+        )
+        cls.deal = make_deal(owner=cls.staff, organisation=client_org)
+        cls.deal.selected_proposal = make_proposal(cls.deal)
+        cls.deal.save(update_fields=["selected_proposal"])
+        supplier = make_organisation(name="Acme Supplies")
+        cls.participation = make_participation(
+            cls.deal, organisation=supplier, amount="5000",
+        )
+        cls.participation.invoice_contact = make_contact(
+            organisation=supplier, email="billing@acme.example",
+        )
+        cls.participation.save(update_fields=["invoice_contact"])
+
+    def test_email_uses_formal_client_name_and_reply_to(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("crm:participation_request_invoice", args=[self.participation.pk]),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, ["billing@acme.example"])
+        self.assertIn("Client Co Ltd trading as Smiles", message.subject)
+        self.assertIn("Client Co Ltd trading as Smiles", message.body)
+        self.assertEqual(message.reply_to, ["info@medifinance.co.uk"])
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp(), NOTIFY_EMAILS=["staff@medi-finance.co.uk"])

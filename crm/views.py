@@ -1437,7 +1437,7 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
             link_url=full_url,
             contact_first_name=(contact.first_name or "").strip(),
             lead_contact_name=str(participation.deal.customer),
-            client_org_name=client_org.name,
+            client_org_name=client_org.formal_name,
             client_org_address=client_org.display_address,
             lender_org_name=selected.lender.name,
             lender_org_address=selected.lender.display_address,

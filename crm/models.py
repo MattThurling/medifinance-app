@@ -108,6 +108,17 @@ class Organisation(TimestampedModel):
         return _hubspot_url("0-2", self.hubspot_id)
 
     @property
+    def formal_name(self) -> str:
+        """Name for formal correspondence: the registered legal name, plus
+        'trading as <trading name>' when both are set (and differ). Orgs with
+        no legal name fall back to the everyday name, then the trading name."""
+        if self.legal_name:
+            if self.trading_name and self.trading_name != self.legal_name:
+                return f"{self.legal_name} trading as {self.trading_name}"
+            return self.legal_name
+        return self.name or self.trading_name
+
+    @property
     def display_address(self) -> str:
         """Newline-joined non-empty address lines, suitable for email/PDF bodies."""
         parts = [
