@@ -98,7 +98,7 @@
                 {% if xero_connected %}
                   <form method="post" action="{% url 'crm:xero_sync' %}" class="p-0">
                     {% csrf_token %}
-                    <button type="submit" class="p-2" title="Sync invoice statuses from Xero"
+                    <button type="submit" class="p-2 cursor-pointer" title="Sync invoice statuses from Xero"
                             aria-label="Sync invoice statuses from Xero">
                       {% icon "refresh-cw" class="h-4 w-4" %}
                     </button>
