@@ -2076,7 +2076,16 @@ class XeroCallbackView(FinanceRequiredMixin, View):
             messages.error(request, "Xero didn't return any organisations for this account.")
             return redirect("crm:xero_status")
 
+        # A grant can carry several orgs (e.g. authorised at different times) —
+        # the one just approved is the newest, so don't blindly take the first.
+        tenants.sort(key=lambda t: t.get("createdDateUtc") or "", reverse=True)
         tenant = tenants[0]
+        if len(tenants) > 1:
+            messages.info(
+                request,
+                f"Your Xero login has {len(tenants)} organisations authorised "
+                f"for this app — using the most recently authorised.",
+            )
         XeroConnection.objects.all().delete()  # only one connection at a time
         XeroConnection.objects.create(
             tenant_id=tenant["tenantId"],
@@ -2092,10 +2101,24 @@ class XeroCallbackView(FinanceRequiredMixin, View):
 
 
 class XeroDisconnectView(FinanceRequiredMixin, View):
-    """Drop the stored tokens locally. Doesn't revoke server-side at Xero —
-    staff can do that from their Xero developer dashboard."""
+    """Revoke the grant at Xero (dropping every org authorised under it), then
+    forget the tokens locally. Without the server-side revocation the org
+    stays in Xero's connected apps and piles up on reconnect."""
 
     def post(self, request):
+        from . import xero as xero_helpers
+
+        conn = XeroConnection.objects.first()
+        if conn is not None:
+            try:
+                xero_helpers.revoke_connection(conn)
+            except Exception:
+                messages.warning(
+                    request,
+                    "Xero didn't confirm the revocation — the connection was "
+                    "cleared locally, but check this app under Connected apps "
+                    "in Xero if the organisation still shows there.",
+                )
         XeroConnection.objects.all().delete()
         messages.success(request, "Xero disconnected.")
         return redirect("crm:xero_status")

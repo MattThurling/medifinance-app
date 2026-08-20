@@ -17,6 +17,7 @@ from django.utils import timezone
 
 AUTHORIZE_URL = "https://login.xero.com/identity/connect/authorize"
 TOKEN_URL = "https://identity.xero.com/connect/token"
+REVOCATION_URL = "https://identity.xero.com/connect/revocation"
 CONNECTIONS_URL = "https://api.xero.com/connections"
 API_BASE = "https://api.xero.com/api.xro/2.0"
 
@@ -78,6 +79,20 @@ def refresh_tokens(connection) -> None:
     connection.expires_at = timezone.now() + timedelta(seconds=int(payload.get("expires_in", 1800)))
     connection.scopes = payload.get("scope", connection.scopes)
     connection.save(update_fields=["access_token", "refresh_token", "expires_at", "scopes"])
+
+
+def revoke_connection(connection) -> None:
+    """Server-side disconnect: revoke the grant's refresh token at Xero.
+    This drops *every* organisation authorised under the grant — without it a
+    'disconnect' only forgets our copy of the tokens and the org stays listed
+    in Xero's connected apps, resurfacing on the next connect."""
+    r = requests.post(
+        REVOCATION_URL,
+        data={"token": connection.refresh_token},
+        auth=(settings.XERO_CLIENT_ID, settings.XERO_CLIENT_SECRET),
+        timeout=15,
+    )
+    r.raise_for_status()
 
 
 def get_active_connection():
