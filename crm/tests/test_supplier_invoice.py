@@ -170,6 +170,21 @@ class SupplierInvoiceSubmitTests(TestCase):
         self.assertIn("INV-007", message.body)
         self.assertIn(self.deal.get_absolute_url(), message.body)
 
+    def test_missing_invoice_number_is_rejected(self):
+        # The deal page links to the PDF via the invoice number — without one
+        # there is nothing to click, so the upload form requires it.
+        link = self._issue_link()
+        response = self.client.post(
+            self._url(link.token),
+            {"invoice": SimpleUploadedFile("inv.pdf", b"%PDF-INV", content_type="application/pdf")},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This field is required")
+        self.participation.refresh_from_db()
+        self.assertFalse(self.participation.invoice)
+        link.refresh_from_db()
+        self.assertFalse(link.is_consumed)
+
     def test_consumed_token_cannot_be_reused_for_post(self):
         link = self._issue_link()
         link.consume()

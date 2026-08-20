@@ -149,6 +149,13 @@ class SupplierInvoiceForm(DaisyUIFormMixin, forms.ModelForm):
         model = Participation
         fields = ["invoice_number", "invoice"]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Optional on the model (staff may create a Participation before the
+        # invoice exists), but required here: the deal page renders the invoice
+        # number as the download link, so without one there is nothing to click.
+        self.fields["invoice_number"].required = True
+
     def clean_invoice(self):
         f = self.cleaned_data.get("invoice")
         if not f:
