@@ -24,14 +24,14 @@ class UserAdmin(BaseUserAdmin):
     model = User
 
     ordering = ("email",)
-    list_display = ("email", "full_name", "role", "is_active", "is_staff", "date_joined")
-    list_filter = ("role", "is_active", "is_staff", "is_superuser")
+    list_display = ("email", "full_name", "role", "is_finance", "is_active", "is_staff", "date_joined")
+    list_filter = ("role", "is_finance", "is_active", "is_staff", "is_superuser")
     search_fields = ("email", "first_name", "last_name", "hubspot_id")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (_("Personal info"), {"fields": ("first_name", "last_name")}),
-        (_("Role"), {"fields": ("role",)}),
+        (_("Role"), {"fields": ("role", "is_finance")}),
         (
             _("Permissions"),
             {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")},

@@ -210,7 +210,9 @@ XERO_CLIENT_SECRET = os.getenv("XERO_CLIENT_SECRET", "")
 XERO_SCOPES = (
     "openid profile email "
     "offline_access "
-    "accounting.transactions "
+    # Granular invoice scope — apps registered on Xero's granular-scopes model
+    # reject the broad accounting.transactions scope with invalid_scope.
+    "accounting.invoices "
     "accounting.contacts "
     "accounting.settings.read"
 )

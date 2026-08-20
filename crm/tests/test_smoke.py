@@ -110,6 +110,9 @@ class StaffPagesRenderTests(TestCase):
         self._assert_get_ok(reverse("crm:rate_upload"))
 
     def test_xero_status_page(self):
+        # Needs the finance flag on top of staff; the shared cls.staff stays
+        # unflagged so the other pages smoke-test the Xero-hidden branch.
+        self.client.force_login(make_associate(is_finance=True))
         self._assert_get_ok(reverse("crm:xero_status"))
 
 

@@ -42,3 +42,35 @@ class UserManagerTests(TestCase):
         user = User.objects.create_user(email="a@example.com", password="secret123")
         self.assertNotEqual(user.password, "secret123")
         self.assertTrue(user.check_password("secret123"))
+
+
+class FinanceMemberTests(TestCase):
+    """`is_finance_member` = staff role AND the is_finance flag; nothing else."""
+
+    def test_defaults_off(self):
+        user = User.objects.create_user(email="a@example.com", password="x")
+        self.assertFalse(user.is_finance)
+        self.assertFalse(user.is_finance_member)
+
+    def test_unflagged_staff_are_not_finance_members(self):
+        for role in (Role.ADMIN, Role.ASSOCIATE):
+            user = User.objects.create_user(
+                email=f"{role}@example.com", password="x", role=role,
+            )
+            self.assertFalse(user.is_finance_member)
+
+    def test_flagged_staff_are_finance_members(self):
+        for role in (Role.ADMIN, Role.ASSOCIATE):
+            user = User.objects.create_user(
+                email=f"fin-{role}@example.com", password="x", role=role,
+                is_finance=True,
+            )
+            self.assertTrue(user.is_finance_member)
+
+    def test_flagged_customer_is_not_a_finance_member(self):
+        user = User.objects.create_user(
+            email="cust@example.com", password="x", role=Role.CUSTOMER,
+            is_finance=True,
+        )
+        self.assertTrue(user.is_finance)
+        self.assertFalse(user.is_finance_member)

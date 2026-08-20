@@ -510,7 +510,8 @@ layout (main content left, amount + timeline right).
     </div>
     {% endif %}
 
-    {# Xero invoices raised against this deal #}
+    {# Xero invoices raised against this deal — finance users only #}
+    {% if user.is_finance_member %}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">
         <h2 class="card-title text-base">
@@ -546,6 +547,7 @@ layout (main content left, amount + timeline right).
         </div>
       </div>
     </div>
+    {% endif %}
 
     {% include "crm/_notes.html" with note_parent_field="deal" note_parent=deal %}
   </div>

@@ -84,8 +84,8 @@ class StaffUrlAccessMatrixTests(TestCase):
             reverse("crm:organisation_search"),
             reverse("crm:user_search"),
             reverse("crm:quote_rate_options"),
-            # Xero status (the Connect button needs creds, but the page renders)
-            reverse("crm:xero_status"),
+            # Xero URLs are NOT here — they need the finance flag on top of a
+            # staff role; see FinanceUrlAccessMatrixTests below.
         ]
 
     def test_anonymous_blocked_from_staff_urls(self):
@@ -126,6 +126,99 @@ class StaffUrlAccessMatrixTests(TestCase):
                     response.status_code, (200, 302),
                     f"admin GET {url} expected 200/302, got {response.status_code}",
                 )
+
+
+class FinanceUrlAccessMatrixTests(TestCase):
+    """The Xero integration needs `User.is_finance` on top of a staff role.
+    Strict gating: an admin without the flag gets 403 like everyone else, and
+    the nav item / deal-detail card render only for finance users."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.associate = make_associate()
+        cls.admin = make_admin()
+        cls.customer = make_customer()
+        cls.finance_associate = make_associate(is_finance=True)
+        cls.finance_admin = make_admin(is_finance=True)
+        cls.deal = make_deal(owner=cls.associate)
+
+    def _finance_get_urls(self):
+        return [
+            reverse("crm:xero_status"),
+            reverse("crm:xero_connect"),
+            reverse("crm:xero_callback"),
+            reverse("crm:deal_raise_invoice", args=[self.deal.pk]),
+        ]
+
+    def _assert_all_403(self, label):
+        for url in self._finance_get_urls():
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(
+                    response.status_code, 403,
+                    f"{label} GET {url} expected 403, got {response.status_code}",
+                )
+        # xero_disconnect is POST-only (GET would be a 405 regardless of role).
+        response = self.client.post(reverse("crm:xero_disconnect"))
+        self.assertEqual(response.status_code, 403)
+
+    def _assert_all_allowed(self, label):
+        # 302s are legitimate: without creds/connection/state the views
+        # redirect back to the status page with a message.
+        for url in self._finance_get_urls():
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertIn(
+                    response.status_code, (200, 302),
+                    f"{label} GET {url} expected 200/302, got {response.status_code}",
+                )
+        response = self.client.post(reverse("crm:xero_disconnect"))
+        self.assertIn(response.status_code, (200, 302))
+
+    def test_anonymous_blocked(self):
+        self._assert_all_403("anon")
+
+    def test_customer_blocked(self):
+        self.client.force_login(self.customer)
+        self._assert_all_403("customer")
+
+    def test_associate_without_flag_blocked(self):
+        self.client.force_login(self.associate)
+        self._assert_all_403("associate")
+
+    def test_admin_without_flag_blocked(self):
+        # The strict-gating regression test: role alone is never enough.
+        self.client.force_login(self.admin)
+        self._assert_all_403("admin")
+
+    def test_finance_flagged_customer_still_blocked(self):
+        # The flag only takes effect for staff roles.
+        self.client.force_login(make_customer(is_finance=True))
+        self._assert_all_403("finance-flagged customer")
+
+    def test_finance_associate_allowed(self):
+        self.client.force_login(self.finance_associate)
+        self._assert_all_allowed("finance associate")
+
+    def test_finance_admin_allowed(self):
+        self.client.force_login(self.finance_admin)
+        self._assert_all_allowed("finance admin")
+
+    def test_deal_detail_hides_xero_card_from_non_finance_staff(self):
+        self.client.force_login(self.associate)
+        response = self.client.get(reverse("crm:deal_detail", args=[self.deal.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Xero invoices")
+        self.assertNotContains(response, "Raise invoice")
+        self.assertNotContains(response, reverse("crm:xero_status"))
+
+    def test_deal_detail_shows_xero_card_to_finance_staff(self):
+        self.client.force_login(self.finance_associate)
+        response = self.client.get(reverse("crm:deal_detail", args=[self.deal.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Xero invoices")
+        self.assertContains(response, "Raise invoice")
+        self.assertContains(response, reverse("crm:xero_status"))
 
 
 class CustomerCannotMutateStaffResourcesTests(TestCase):

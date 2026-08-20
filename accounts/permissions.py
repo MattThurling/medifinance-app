@@ -65,3 +65,13 @@ class AdminRequiredMixin(RoleRequiredMixin):
 
 class StaffRequiredMixin(RoleRequiredMixin):
     required_roles = {Role.ADMIN, Role.ASSOCIATE}
+
+
+class FinanceRequiredMixin(StaffRequiredMixin):
+    """Staff who also hold `User.is_finance` — gates the Xero integration.
+    Strict: admins without the flag are refused too."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not getattr(request.user, "is_finance_member", False):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)

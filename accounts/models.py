@@ -50,6 +50,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=150, blank=True)
 
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.ASSOCIATE)
+    is_finance = models.BooleanField(
+        default=False,
+        help_text=(
+            "Grants access to the Xero integration. "
+            "Only takes effect for staff (admin/associate)."
+        ),
+    )
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -88,6 +95,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_staff_member(self) -> bool:
         """True for admins and associates — anyone who can use the internal UI."""
         return self.role in {Role.ADMIN, Role.ASSOCIATE}
+
+    @property
+    def is_finance_member(self) -> bool:
+        """True for staff who also hold the finance flag — the gate for
+        everything Xero. Strict: admins without the flag are excluded too."""
+        return self.is_staff_member and self.is_finance
 
 
 class MagicLink(models.Model):

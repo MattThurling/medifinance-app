@@ -23,7 +23,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from accounts.models import Role
-from accounts.permissions import StaffRequiredMixin
+from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
 from .forms import (
     CoApplicantFormSet,
@@ -127,7 +127,9 @@ _ACTIVITY_LABELS = [
     ("last_participation_at", "Supplier invoice added"),
     ("last_proposal_at", "Proposal added"),
     ("last_quote_at", "Quote added"),
-    ("last_xero_at", "Xero invoice raised"),
+    # Labelled without the word "Xero" — the integration is hidden from
+    # non-finance staff, but the recency signal itself stays visible to all.
+    ("last_xero_at", "Invoice raised"),
 ]
 
 
@@ -2012,7 +2014,7 @@ class SignatureAuditDownloadView(StaffRequiredMixin, View):
 
 # --- Xero ------------------------------------------------------------------
 
-class XeroStatusView(StaffRequiredMixin, TemplateView):
+class XeroStatusView(FinanceRequiredMixin, TemplateView):
     """Shows whether the CRM is connected to Xero + the Connect / Disconnect controls."""
 
     template_name = "crm/xero_status.html"
@@ -2025,7 +2027,7 @@ class XeroStatusView(StaffRequiredMixin, TemplateView):
         return ctx
 
 
-class XeroConnectView(StaffRequiredMixin, View):
+class XeroConnectView(FinanceRequiredMixin, View):
     """Kick off the OAuth dance — redirects to Xero's authorize URL with a CSRF state."""
 
     def get(self, request):
@@ -2045,7 +2047,7 @@ class XeroConnectView(StaffRequiredMixin, View):
         return redirect(xero_helpers.get_authorize_url(redirect_uri, state))
 
 
-class XeroCallbackView(StaffRequiredMixin, View):
+class XeroCallbackView(FinanceRequiredMixin, View):
     """Xero redirects back here with a one-shot code — exchange it for tokens
     and store the connected org."""
 
@@ -2088,7 +2090,7 @@ class XeroCallbackView(StaffRequiredMixin, View):
         return redirect("crm:xero_status")
 
 
-class XeroDisconnectView(StaffRequiredMixin, View):
+class XeroDisconnectView(FinanceRequiredMixin, View):
     """Drop the stored tokens locally. Doesn't revoke server-side at Xero —
     staff can do that from their Xero developer dashboard."""
 
@@ -2098,7 +2100,7 @@ class XeroDisconnectView(StaffRequiredMixin, View):
         return redirect("crm:xero_status")
 
 
-class DealRaiseInvoiceView(StaffRequiredMixin, View):
+class DealRaiseInvoiceView(FinanceRequiredMixin, View):
     """Form to raise an ACCREC invoice on a deal, push it to Xero, and stash a
     XeroInvoice mirror locally so staff can deep-link back."""
 
