@@ -73,6 +73,9 @@ def create_submission(
     payload: dict = {
         "template_id": template_id,
         "send_email": send_email,
+        # Without this DocuSeal falls back to the submission creator's address
+        # (the admin account, info@medi-finance.co.uk) as the Reply-To.
+        "reply_to": settings.EMAIL_REPLY_TO,
         "submitters": [submitter],
     }
     if message:

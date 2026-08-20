@@ -3,6 +3,7 @@ and error surfacing — all against a mocked `requests`, no instance needed."""
 
 from unittest import mock
 
+from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from crm import docuseal
@@ -59,6 +60,9 @@ class WrapperTests(SimpleTestCase):
         # The signing-link placeholder is appended: a custom message replaces
         # DocuSeal's whole email body, which would otherwise drop the link.
         self.assertEqual(payload["message"], {"body": "Please sign\n\n{{submitter.link}}"})
+        # Replies to signing emails go to the shared inbox, not the DocuSeal
+        # admin account (DocuSeal's default Reply-To fallback).
+        self.assertEqual(payload["reply_to"], settings.EMAIL_REPLY_TO)
         self.assertEqual(payload["submitters"], [{
             "email": "jane@example.com",
             "name": "Jane Doe",

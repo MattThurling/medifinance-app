@@ -241,6 +241,10 @@ EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))    # seconds
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Medifinance <{EMAIL_HOST_USER}>")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
+# Replies to outgoing mail should land in the medifinance.co.uk (no hyphen)
+# inbox, even though messages are sent from the medi-finance.co.uk server.
+EMAIL_REPLY_TO = os.getenv("EMAIL_REPLY_TO", "info@medifinance.co.uk")
+
 # Seconds during which a repeat POST /api/deals/ (same introducer + customer
 # email) returns the existing deal instead of creating a new one. Defaults to
 # 24 hours; dev sets 10 so repeated demo submissions create real deals.

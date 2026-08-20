@@ -53,6 +53,7 @@ def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
         to=[to_email],
     )
     message.attach_alternative(html_body, "text/html")
@@ -89,6 +90,7 @@ def send_new_deal_notification_email(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
         to=settings.NOTIFY_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
@@ -121,6 +123,7 @@ def send_customer_application_submitted_email(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
         to=settings.NOTIFY_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
@@ -153,6 +156,7 @@ def send_supplier_invoice_submitted_email(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
         to=settings.NOTIFY_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
@@ -191,6 +195,7 @@ def send_commission_invoice_request_email(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
         to=settings.ACCOUNTS_EMAILS,
     )
     message.attach_alternative(html_body, "text/html")
@@ -237,6 +242,7 @@ def send_supplier_invoice_request_email(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
         to=[to_email],
     )
     message.attach_alternative(html_body, "text/html")
@@ -275,6 +281,7 @@ def send_proposal_approved_client_email(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
         to=[to_email],
     )
     message.attach_alternative(html_body, "text/html")
