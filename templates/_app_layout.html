@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icons static %}
+{% load icons static crm_extras %}
 
 {% block body %}
 <div class="drawer lg:drawer-open">
@@ -89,11 +89,21 @@
               <li class="menu-title pt-4">
                 <span>Integrations</span>
               </li>
-              <li>
-                <a href="{% url 'crm:xero_status' %}" class="{% if 'xero' in request.resolver_match.url_name %}menu-active{% endif %}">
+              {% xero_is_connected as xero_connected %}
+              <li class="flex-row items-center">
+                <a href="{% url 'crm:xero_status' %}" class="grow {% if 'xero' in request.resolver_match.url_name %}menu-active{% endif %}">
                   {% icon "receipt" %}
                   Xero
                 </a>
+                {% if xero_connected %}
+                  <form method="post" action="{% url 'crm:xero_sync' %}" class="p-0">
+                    {% csrf_token %}
+                    <button type="submit" class="p-2" title="Sync invoice statuses from Xero"
+                            aria-label="Sync invoice statuses from Xero">
+                      {% icon "refresh-cw" class="h-4 w-4" %}
+                    </button>
+                  </form>
+                {% endif %}
               </li>
             {% endif %}
           {% endif %}

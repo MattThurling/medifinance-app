@@ -90,6 +90,7 @@ urlpatterns = [
     path("xero/connect/", views.XeroConnectView.as_view(), name="xero_connect"),
     path("xero/callback/", views.XeroCallbackView.as_view(), name="xero_callback"),
     path("xero/disconnect/", views.XeroDisconnectView.as_view(), name="xero_disconnect"),
+    path("xero/sync/", views.XeroSyncInvoicesView.as_view(), name="xero_sync"),
     path("deals/<int:pk>/raise-invoice/", views.DealRaiseInvoiceView.as_view(), name="deal_raise_invoice"),
 
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/

@@ -17,6 +17,7 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -2097,6 +2098,65 @@ class XeroDisconnectView(FinanceRequiredMixin, View):
     def post(self, request):
         XeroConnection.objects.all().delete()
         messages.success(request, "Xero disconnected.")
+        return redirect("crm:xero_status")
+
+
+class XeroSyncInvoicesView(FinanceRequiredMixin, View):
+    """Pull the current status of every mirrored invoice back from Xero.
+    Manual, fired from the nav's sync button — no background job needed at
+    this volume."""
+
+    def post(self, request):
+        from . import xero as xero_helpers
+
+        if xero_helpers.get_active_connection() is None:
+            messages.error(request, "Connect to Xero first.")
+            return redirect("crm:xero_status")
+
+        local = {inv.xero_invoice_id: inv for inv in XeroInvoice.objects.all()}
+        if not local:
+            messages.info(request, "No Xero invoices to sync yet.")
+            return self._redirect_back(request)
+
+        try:
+            remote = xero_helpers.list_invoices(list(local))
+        except xero_helpers.XeroError as exc:
+            messages.error(request, str(exc))
+            return self._redirect_back(request)
+
+        updated = 0
+        for data in remote:
+            inv = local.get(data.get("InvoiceID"))
+            if inv is None:
+                continue
+            fields = {
+                "status": data.get("Status") or inv.status,
+                "xero_invoice_number": data.get("InvoiceNumber") or inv.xero_invoice_number,
+                "total": (
+                    Decimal(str(data["Total"])) if data.get("Total") is not None else inv.total
+                ),
+            }
+            changed = [name for name, value in fields.items() if getattr(inv, name) != value]
+            if changed:
+                for name in changed:
+                    setattr(inv, name, fields[name])
+                inv.save(update_fields=changed)
+                updated += 1
+        count = len(local)
+        messages.success(
+            request,
+            f"Synced {count} Xero invoice{'s' if count != 1 else ''} — {updated} updated.",
+        )
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request):
+        """Land back where the button was pressed — it lives in the nav, so
+        that could be any staff page."""
+        referer = request.META.get("HTTP_REFERER")
+        if referer and url_has_allowed_host_and_scheme(
+            referer, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return redirect(referer)
         return redirect("crm:xero_status")
 
 

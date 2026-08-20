@@ -106,6 +106,18 @@ class XeroError(RuntimeError):
     """The Xero API rejected the request — message contains the validation detail."""
 
 
+def _raise_on_error(r) -> None:
+    """Surface Xero's error message rather than a generic 4xx."""
+    if r.status_code < 400:
+        return
+    try:
+        detail = r.json()
+        msg = detail.get("Detail") or detail.get("Message") or r.text
+    except Exception:
+        msg = r.text
+    raise XeroError(f"Xero said {r.status_code}: {msg}")
+
+
 def create_invoice(
     *,
     contact_name: str,
@@ -149,14 +161,7 @@ def create_invoice(
         },
         timeout=30,
     )
-    if r.status_code >= 400:
-        # Surface Xero's error message rather than a generic 4xx.
-        try:
-            detail = r.json()
-            msg = detail.get("Detail") or detail.get("Message") or r.text
-        except Exception:
-            msg = r.text
-        raise XeroError(f"Xero said {r.status_code}: {msg}")
+    _raise_on_error(r)
     body = r.json()
     invoices = body.get("Invoices") or []
     if not invoices:
@@ -167,3 +172,34 @@ def create_invoice(
 def online_invoice_url(xero_invoice_id: str) -> str:
     """Deep link to the invoice's edit page in the Xero web UI."""
     return f"https://go.xero.com/AccountsReceivable/Edit.aspx?InvoiceID={xero_invoice_id}"
+
+
+# ---- Invoice sync ---------------------------------------------------------
+
+# Xero caps a page at 100 invoices and the IDs filter travels in the query
+# string, so chunk well below both limits.
+_SYNC_CHUNK = 40
+
+
+def list_invoices(invoice_ids: list[str]) -> list[dict]:
+    """Fetch invoices by InvoiceID. Returns the raw invoice dicts."""
+    conn = get_active_connection()
+    if conn is None:
+        raise XeroError("Xero isn't connected.")
+
+    invoices: list[dict] = []
+    for i in range(0, len(invoice_ids), _SYNC_CHUNK):
+        chunk = invoice_ids[i:i + _SYNC_CHUNK]
+        r = requests.get(
+            f"{API_BASE}/Invoices",
+            params={"IDs": ",".join(chunk)},
+            headers={
+                "Authorization": f"Bearer {conn.access_token}",
+                "Xero-Tenant-Id": conn.tenant_id,
+                "Accept": "application/json",
+            },
+            timeout=30,
+        )
+        _raise_on_error(r)
+        invoices.extend(r.json().get("Invoices") or [])
+    return invoices

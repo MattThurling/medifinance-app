@@ -7,7 +7,7 @@ from django import template
 from django.utils.safestring import SafeString, mark_safe
 from markdown_it import MarkdownIt
 
-from crm.models import Stage
+from crm.models import Stage, XeroConnection
 
 register = template.Library()
 
@@ -29,6 +29,13 @@ def markdown(text: str | None) -> SafeString:
     return mark_safe(
         nh3.clean(html, set_tag_attribute_values={"a": {"class": "link", "target": "_blank"}})
     )
+
+
+@register.simple_tag
+def xero_is_connected() -> bool:
+    """Whether this environment holds a Xero connection. Cheap existence check
+    for the nav's sync button — only evaluated for finance users."""
+    return XeroConnection.objects.exists()
 
 
 @register.filter(name="stage_display")

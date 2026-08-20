@@ -158,9 +158,11 @@ class FinanceUrlAccessMatrixTests(TestCase):
                     response.status_code, 403,
                     f"{label} GET {url} expected 403, got {response.status_code}",
                 )
-        # xero_disconnect is POST-only (GET would be a 405 regardless of role).
-        response = self.client.post(reverse("crm:xero_disconnect"))
-        self.assertEqual(response.status_code, 403)
+        # xero_disconnect + xero_sync are POST-only (GET would be a 405
+        # regardless of role).
+        for url_name in ("crm:xero_disconnect", "crm:xero_sync"):
+            response = self.client.post(reverse(url_name))
+            self.assertEqual(response.status_code, 403, f"{label} POST {url_name}")
 
     def _assert_all_allowed(self, label):
         # 302s are legitimate: without creds/connection/state the views
@@ -172,8 +174,9 @@ class FinanceUrlAccessMatrixTests(TestCase):
                     response.status_code, (200, 302),
                     f"{label} GET {url} expected 200/302, got {response.status_code}",
                 )
-        response = self.client.post(reverse("crm:xero_disconnect"))
-        self.assertIn(response.status_code, (200, 302))
+        for url_name in ("crm:xero_disconnect", "crm:xero_sync"):
+            response = self.client.post(reverse(url_name))
+            self.assertIn(response.status_code, (200, 302), f"{label} POST {url_name}")
 
     def test_anonymous_blocked(self):
         self._assert_all_403("anon")

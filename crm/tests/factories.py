@@ -8,6 +8,8 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 
+from django.utils import timezone
+
 from accounts.models import ApiKey, Role
 from crm.models import (
     Contact,
@@ -19,6 +21,8 @@ from crm.models import (
     Quote,
     RateBand,
     SignatureRequest,
+    XeroConnection,
+    XeroInvoice,
 )
 
 User = get_user_model()
@@ -138,6 +142,26 @@ def make_signature_request(deal: Deal, *, submission_id: int | None = None,
         submission_id=submission_id or _next() + 10_000,
         **extra,
     )
+
+
+def make_xero_connection(**extra) -> XeroConnection:
+    """A live-looking connection: token expiry in the future so
+    `xero.get_active_connection` doesn't try to refresh over the network."""
+    extra.setdefault("tenant_id", f"tenant-{_next()}")
+    extra.setdefault("tenant_name", "Demo Company (UK)")
+    extra.setdefault("access_token", "test-access-token")
+    extra.setdefault("refresh_token", "test-refresh-token")
+    extra.setdefault("expires_at", timezone.now() + timezone.timedelta(minutes=25))
+    return XeroConnection.objects.create(**extra)
+
+
+def make_xero_invoice(deal: Deal, **extra) -> XeroInvoice:
+    n = _next()
+    extra.setdefault("xero_invoice_id", f"00000000-0000-0000-0000-{n:012d}")
+    extra.setdefault("xero_invoice_number", f"INV-{n:04d}")
+    extra.setdefault("contact_name", "Test Contact")
+    extra.setdefault("status", "AUTHORISED")
+    return XeroInvoice.objects.create(deal=deal, **extra)
 
 
 def make_api_key(*, organisation: Organisation | None = None,
