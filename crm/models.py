@@ -914,26 +914,21 @@ class Document(TimestampedModel):
         self.uploaded_by = by
         self.save()
 
-    @property
-    def active_signature_request(self):
-        """The signature request currently in play, if any. Voided/declined
-        requests don't count — a new one can be sent after those."""
-        for sr in self.signature_requests.all():  # ordered -created_at; prefetch-friendly
-            if sr.status not in (SignatureRequest.Status.VOIDED,):
-                return sr
-        return None
-
 
 def signature_audit_upload_path(instance: "SignatureRequest", filename: str) -> str:
-    return f"deals/{instance.document.deal_id}/documents/audit/{filename}"
+    return f"deals/{instance.deal_id}/signatures/audit/{filename}"
+
+
+def signature_signed_upload_path(instance: "SignatureRequest", filename: str) -> str:
+    return f"deals/{instance.deal_id}/signatures/{filename}"
 
 
 class SignatureRequest(TimestampedModel):
-    """A DocuSeal submission sent for e-signature against a Document.
+    """A DocuSeal submission sent for e-signature on a Deal.
 
-    The signed PDF lands on the Document itself via `doc.attach()` (so the
-    portal, downloads and storage behave like any upload); this row keeps the
-    DocuSeal linkage plus the audit trail of who signed, when and from where."""
+    The signed PDF is stored on `signed_file` when the signer completes; this
+    row keeps the DocuSeal linkage plus the audit trail of who signed, when
+    and from where."""
 
     class Status(models.TextChoices):
         SENT = "sent", "Sent"
@@ -942,7 +937,7 @@ class SignatureRequest(TimestampedModel):
         DECLINED = "declined", "Declined"
         VOIDED = "voided", "Voided"
 
-    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="signature_requests")
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="signature_requests")
     template_id = models.PositiveIntegerField()
     template_name = models.CharField(max_length=255, blank=True)
     submission_id = models.PositiveIntegerField(unique=True)
@@ -966,6 +961,7 @@ class SignatureRequest(TimestampedModel):
 
     signer_ip = models.GenericIPAddressField(null=True, blank=True)
     signer_user_agent = models.CharField(max_length=512, blank=True)
+    signed_file = models.FileField(upload_to=signature_signed_upload_path, null=True, blank=True)
     audit_log_file = models.FileField(upload_to=signature_audit_upload_path, null=True, blank=True)
 
     created_by = models.ForeignKey(
@@ -979,7 +975,8 @@ class SignatureRequest(TimestampedModel):
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.document.name} → {self.signer_email} ({self.get_status_display()})"
+        label = self.template_name or f"Submission {self.submission_id}"
+        return f"{label} → {self.signer_email} ({self.get_status_display()})"
 
     @property
     def is_active(self) -> bool:

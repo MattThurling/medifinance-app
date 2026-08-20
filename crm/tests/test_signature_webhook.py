@@ -8,7 +8,7 @@ from unittest import mock
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from crm.models import Document, SignatureRequest
+from crm.models import SignatureRequest
 from crm.tests import factories
 
 SECRET = "whsec-test"
@@ -18,8 +18,7 @@ SECRET = "whsec-test"
 class DocuSealWebhookTests(TestCase):
     def setUp(self):
         self.deal = factories.make_deal()
-        self.doc = factories.make_document(self.deal, name="Finance agreement")
-        self.sr = factories.make_signature_request(self.doc, submission_id=555)
+        self.sr = factories.make_signature_request(self.deal, submission_id=555)
         self.url = reverse("crm:docuseal_webhook")
 
     def _post(self, event, data, *, secret=SECRET):
@@ -91,10 +90,8 @@ class DocuSealWebhookTests(TestCase):
         r = self._post("form.completed", {"submission_id": 555})
         self.assertEqual(r.status_code, 200)
         self.sr.refresh_from_db()
-        self.doc.refresh_from_db()
         self.assertEqual(self.sr.status, SignatureRequest.Status.COMPLETED)
-        self.assertEqual(self.doc.status, Document.Status.PROVIDED)
-        self.assertIn("finance-agreement-signed", self.doc.file.name)
+        self.assertIn("test-agreement-signed", self.sr.signed_file.name)
         self.assertTrue(self.sr.audit_log_file)
         self.assertEqual(self.sr.signer_ip, "203.0.113.9")
         self.assertEqual(self.sr.signer_user_agent, "Safari")
@@ -106,10 +103,10 @@ class DocuSealWebhookTests(TestCase):
     def test_duplicate_completed_delivery_is_idempotent(self, m_sub, m_docs, m_dl):
         self._mock_completed_api(m_sub, m_docs, m_dl)
         self._post("form.completed", {"submission_id": 555})
-        first_file = Document.objects.get(pk=self.doc.pk).file.name
+        first_file = SignatureRequest.objects.get(pk=self.sr.pk).signed_file.name
         r = self._post("form.completed", {"submission_id": 555})
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(Document.objects.get(pk=self.doc.pk).file.name, first_file)
+        self.assertEqual(SignatureRequest.objects.get(pk=self.sr.pk).signed_file.name, first_file)
         # The API was only consulted for the first delivery.
         self.assertEqual(m_sub.call_count, 1)
 

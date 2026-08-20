@@ -17,8 +17,7 @@ class SignatureRequestCreateViewTests(TestCase):
     def setUp(self):
         self.staff = factories.make_associate()
         self.deal = factories.make_deal()
-        self.doc = factories.make_document(self.deal, name="Finance agreement")
-        self.url = reverse("crm:document_sign", args=[self.doc.pk])
+        self.url = reverse("crm:deal_sign", args=[self.deal.pk])
         self.client.force_login(self.staff)
 
     def test_customers_cannot_send_for_signature(self):
@@ -59,26 +58,27 @@ class SignatureRequestCreateViewTests(TestCase):
         self.assertEqual(kwargs["values"]["Deal Name"], self.deal.name)
         self.assertEqual(kwargs["message"], "Please sign this")
         sr = SignatureRequest.objects.get()
-        self.assertEqual(sr.document, self.doc)
+        self.assertEqual(sr.deal, self.deal)
         self.assertEqual(sr.submission_id, 555)
         self.assertEqual(sr.template_name, "Finance agreement")
         self.assertEqual(sr.created_by, self.staff)
         self.assertEqual(sr.status, SignatureRequest.Status.SENT)
 
+    @mock.patch("crm.docuseal.create_submission",
+                return_value={"submission_id": 556, "submitter_id": 100})
     @mock.patch("crm.docuseal.list_templates", return_value=TEMPLATES)
-    def test_active_request_blocks_a_second_send(self, _lt):
-        factories.make_signature_request(self.doc)
-        r = self.client.get(self.url)
+    def test_concurrent_requests_on_a_deal_are_allowed(self, _lt, _create):
+        # Deliberate: a deal can have several requests in flight at once
+        # (customer + co-applicants, different templates).
+        factories.make_signature_request(self.deal)
+        r = self.client.post(self.url, {
+            "template": "7",
+            "signer_email": "jane@example.com",
+            "signer_name": "Jane Doe",
+            "message": "",
+        })
         self.assertRedirects(r, self.deal.get_absolute_url())
-
-    @mock.patch("crm.docuseal.list_templates", return_value=TEMPLATES)
-    def test_provided_document_cannot_be_sent(self, _lt):
-        from django.core.files.base import ContentFile
-        import tempfile
-        with override_settings(MEDIA_ROOT=tempfile.mkdtemp()):
-            self.doc.attach(ContentFile(b"x", name="x.pdf"))
-        r = self.client.get(self.url)
-        self.assertRedirects(r, self.deal.get_absolute_url())
+        self.assertEqual(SignatureRequest.objects.count(), 2)
 
 
 @override_settings(DOCUSEAL_URL="http://sign.test", DOCUSEAL_API_TOKEN="tok")
@@ -86,9 +86,8 @@ class SignatureVoidResendTests(TestCase):
     def setUp(self):
         self.staff = factories.make_associate()
         self.deal = factories.make_deal()
-        self.doc = factories.make_document(self.deal)
         self.sr = factories.make_signature_request(
-            self.doc, submission_id=555, template_id=7, signer_email="jane@example.com")
+            self.deal, submission_id=555, template_id=7, signer_email="jane@example.com")
         self.client.force_login(self.staff)
 
     @mock.patch("crm.docuseal.archive_submission")
@@ -117,6 +116,7 @@ class SignatureVoidResendTests(TestCase):
         self.assertEqual(self.sr.status, SignatureRequest.Status.VOIDED)
         fresh = SignatureRequest.objects.get(submission_id=556)
         self.assertEqual(fresh.status, SignatureRequest.Status.SENT)
+        self.assertEqual(fresh.deal, self.deal)
         self.assertEqual(fresh.signer_email, "jane@example.com")
         self.assertEqual(fresh.template_id, 7)
         self.assertEqual(m_create.call_args.kwargs["signer_email"], "jane@example.com")

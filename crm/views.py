@@ -608,7 +608,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             "stage_events",
             "co_applicants",
             "documents",
-            "documents__signature_requests",
+            "signature_requests",
             "participations__organisation",
             "xero_invoices",
         )
@@ -1719,7 +1719,6 @@ class DocuSealWebhookView(View):
                 sr = (
                     SignatureRequest.objects
                     .select_for_update()
-                    .select_related("document")
                     .filter(submission_id=submission_id)
                     .first()
                 )
@@ -1748,7 +1747,7 @@ class DocuSealWebhookView(View):
     def _handle_completed(sr: SignatureRequest, data: dict) -> None:
         # Duplicate delivery (or form.completed followed by submission.completed)
         # must be a no-op once the signed file is in.
-        if sr.status == SignatureRequest.Status.COMPLETED and sr.document.file:
+        if sr.status == SignatureRequest.Status.COMPLETED and sr.signed_file:
             return
 
         # Verify-then-fetch: treat our own API call as the source of truth
@@ -1764,8 +1763,8 @@ class DocuSealWebhookView(View):
         files = docuseal.get_submission_documents(sr.submission_id)
         if files:
             pdf = docuseal.download_file(files[0]["url"])
-            base = slugify(sr.document.name) or "document"
-            sr.document.attach(ContentFile(pdf, name=f"{base}-signed.pdf"), by=None)
+            base = slugify(sr.template_name) or "agreement"
+            sr.signed_file.save(f"{base}-signed.pdf", ContentFile(pdf), save=False)
 
         audit_url = submission.get("audit_log_url") or (data.get("submission") or {}).get("audit_log_url")
         if audit_url and not sr.audit_log_file:
@@ -1780,27 +1779,19 @@ class DocuSealWebhookView(View):
 
 
 class SignatureRequestCreateView(StaffRequiredMixin, View):
-    """Staff: send a requested document off for e-signature."""
+    """Staff: send a deal off for e-signature."""
 
     template_name = "crm/signature_request_form.html"
 
     def dispatch(self, request, *args, pk=None, **kwargs):
-        self.doc = get_object_or_404(Document.objects.select_related("deal__customer"), pk=pk)
+        self.deal = get_object_or_404(Deal.objects.select_related("customer"), pk=pk)
         if not docuseal.is_configured():
             messages.error(request, "DocuSeal isn't configured on this environment yet.")
-            return redirect(self.doc.deal.get_absolute_url())
-        if self.doc.is_provided:
-            messages.error(request, f"“{self.doc.name}” already has a file — nothing to sign.")
-            return redirect(self.doc.deal.get_absolute_url())
-        active = self.doc.active_signature_request
-        if active and active.is_active:
-            messages.info(request, f"“{self.doc.name}” is already out for signature with {active.signer_email}.")
-            return redirect(self.doc.deal.get_absolute_url())
+            return redirect(self.deal.get_absolute_url())
         return super().dispatch(request, *args, **kwargs)
 
     def _signers(self):
-        deal = self.doc.deal
-        pks = [c.pk for c in (deal.customer, *deal.co_applicants.all()) if c]
+        pks = [c.pk for c in (self.deal.customer, *self.deal.co_applicants.all()) if c]
         return Contact.objects.filter(pk__in=pks)
 
     def _form(self, data=None):
@@ -1812,7 +1803,7 @@ class SignatureRequestCreateView(StaffRequiredMixin, View):
         if not templates:
             messages.error(self.request, "No templates exist on DocuSeal yet — build one there first.")
             return None
-        customer = self.doc.deal.customer
+        customer = self.deal.customer
         initial = {
             "signer": customer,
             "signer_email": customer.email if customer else "",
@@ -1823,15 +1814,15 @@ class SignatureRequestCreateView(StaffRequiredMixin, View):
     def get(self, request, **kwargs):
         form = self._form()
         if form is None:
-            return redirect(self.doc.deal.get_absolute_url())
-        return render(request, self.template_name, {"form": form, "doc": self.doc, "parent_deal": self.doc.deal})
+            return redirect(self.deal.get_absolute_url())
+        return render(request, self.template_name, {"form": form, "parent_deal": self.deal})
 
     def post(self, request, **kwargs):
         form = self._form(request.POST)
         if form is None:
-            return redirect(self.doc.deal.get_absolute_url())
+            return redirect(self.deal.get_absolute_url())
         if not form.is_valid():
-            return render(request, self.template_name, {"form": form, "doc": self.doc, "parent_deal": self.doc.deal})
+            return render(request, self.template_name, {"form": form, "parent_deal": self.deal})
 
         template_id = int(form.cleaned_data["template"])
         template_name = dict(form.fields["template"].choices).get(template_id, "")
@@ -1840,15 +1831,15 @@ class SignatureRequestCreateView(StaffRequiredMixin, View):
                 template_id=template_id,
                 signer_email=form.cleaned_data["signer_email"],
                 signer_name=form.cleaned_data["signer_name"],
-                values=docuseal.build_prefill_values(self.doc.deal),
+                values=docuseal.build_prefill_values(self.deal),
                 message=form.cleaned_data["message"] or None,
             )
         except docuseal.DocuSealError as exc:
             messages.error(request, f"DocuSeal rejected the request: {exc}")
-            return render(request, self.template_name, {"form": form, "doc": self.doc, "parent_deal": self.doc.deal})
+            return render(request, self.template_name, {"form": form, "parent_deal": self.deal})
 
         SignatureRequest.objects.create(
-            document=self.doc,
+            deal=self.deal,
             template_id=template_id,
             template_name=template_name,
             submission_id=result["submission_id"],
@@ -1858,27 +1849,30 @@ class SignatureRequestCreateView(StaffRequiredMixin, View):
             signer_name=form.cleaned_data["signer_name"],
             created_by=request.user,
         )
-        messages.success(request, f"“{self.doc.name}” sent to {form.cleaned_data['signer_email']} for signature.")
-        return redirect(self.doc.deal.get_absolute_url())
+        messages.success(
+            request,
+            f"“{template_name or 'Signature request'}” sent to {form.cleaned_data['signer_email']} for signature.",
+        )
+        return redirect(self.deal.get_absolute_url())
 
 
 class SignatureRequestVoidView(StaffRequiredMixin, View):
     """Staff: cancel an in-flight signature request (POST only — inline)."""
 
     def post(self, request, pk):
-        sr = get_object_or_404(SignatureRequest.objects.select_related("document__deal"), pk=pk)
+        sr = get_object_or_404(SignatureRequest.objects.select_related("deal"), pk=pk)
         if not sr.is_active:
             messages.error(request, "Only a pending signature request can be voided.")
-            return redirect(sr.document.deal.get_absolute_url())
+            return redirect(sr.deal.get_absolute_url())
         try:
             docuseal.archive_submission(sr.submission_id)
         except docuseal.DocuSealError as exc:
             messages.error(request, f"Couldn't void on DocuSeal: {exc}")
-            return redirect(sr.document.deal.get_absolute_url())
+            return redirect(sr.deal.get_absolute_url())
         sr.status = SignatureRequest.Status.VOIDED
         sr.save(update_fields=["status", "updated_at"])
-        messages.success(request, f"Signature request for “{sr.document.name}” voided.")
-        return redirect(sr.document.deal.get_absolute_url())
+        messages.success(request, f"Signature request “{sr.template_name or sr.submission_id}” voided.")
+        return redirect(sr.deal.get_absolute_url())
 
 
 class SignatureRequestResendView(StaffRequiredMixin, View):
@@ -1886,10 +1880,10 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
     submission and creates a fresh one to the same signer (POST only)."""
 
     def post(self, request, pk):
-        old = get_object_or_404(SignatureRequest.objects.select_related("document__deal"), pk=pk)
-        deal = old.document.deal
+        old = get_object_or_404(SignatureRequest.objects.select_related("deal"), pk=pk)
+        deal = old.deal
         if old.status == SignatureRequest.Status.COMPLETED:
-            messages.error(request, "That document has already been signed.")
+            messages.error(request, "That request has already been completed.")
             return redirect(deal.get_absolute_url())
         try:
             if old.is_active:
@@ -1907,7 +1901,7 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
             old.status = SignatureRequest.Status.VOIDED
             old.save(update_fields=["status", "updated_at"])
         SignatureRequest.objects.create(
-            document=old.document,
+            deal=deal,
             template_id=old.template_id,
             template_name=old.template_name,
             submission_id=result["submission_id"],
@@ -1917,8 +1911,22 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
             signer_name=old.signer_name,
             created_by=request.user,
         )
-        messages.success(request, f"“{old.document.name}” re-sent to {old.signer_email} for signature.")
+        messages.success(
+            request,
+            f"“{old.template_name or 'Signature request'}” re-sent to {old.signer_email} for signature.",
+        )
         return redirect(deal.get_absolute_url())
+
+
+class SignatureSignedFileDownloadView(StaffRequiredMixin, View):
+    """Stream the signed PDF for a completed signature request."""
+
+    def get(self, request, pk):
+        sr = get_object_or_404(SignatureRequest, pk=pk)
+        if not sr.signed_file:
+            raise Http404("No signed document has been stored for this signature request.")
+        filename = sr.signed_file.name.rsplit("/", 1)[-1]
+        return FileResponse(sr.signed_file.open("rb"), as_attachment=False, filename=filename)
 
 
 class SignatureAuditDownloadView(StaffRequiredMixin, View):

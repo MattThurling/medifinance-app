@@ -8,10 +8,10 @@
     <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
     <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
   </p>
-  <h1 class="text-2xl font-semibold mb-2">Send “{{ doc.name }}” for signature</h1>
+  <h1 class="text-2xl font-semibold mb-2">Send for signature</h1>
   <p class="text-sm opacity-70 mb-6">
     The signer receives an email with a link to sign online. The signed PDF
-    lands back on this document automatically once they're done.
+    is stored against this deal automatically once they're done.
   </p>
 
   <form method="post" class="card bg-base-100 shadow">

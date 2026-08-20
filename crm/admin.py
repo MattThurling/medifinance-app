@@ -211,15 +211,15 @@ class DocumentAdmin(admin.ModelAdmin):
 class SignatureRequestAdmin(admin.ModelAdmin):
     """Read-mostly — signature requests are driven by the app + DocuSeal webhooks."""
 
-    list_display = ("document", "signer_email", "status", "created_at", "completed_at", "created_by")
-    list_select_related = ("document", "document__deal", "created_by")
+    list_display = ("template_name", "deal", "signer_email", "status", "created_at", "completed_at", "created_by")
+    list_select_related = ("deal", "created_by")
     list_filter = ("status",)
-    search_fields = ("signer_email", "document__name", "document__deal__name")
-    autocomplete_fields = ("document", "signer", "created_by")
+    search_fields = ("signer_email", "template_name", "deal__name")
+    autocomplete_fields = ("deal", "signer", "created_by")
     readonly_fields = (
         "template_id", "template_name", "submission_id", "submitter_id",
         "opened_at", "completed_at", "declined_at",
-        "signer_ip", "signer_user_agent", "audit_log_file",
+        "signer_ip", "signer_user_agent", "signed_file", "audit_log_file",
         "created_at", "updated_at",
     )
 

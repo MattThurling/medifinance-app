@@ -128,13 +128,13 @@ def make_document(deal: Deal, *, name: str = "Bank statements") -> Document:
     return Document.objects.create(deal=deal, name=name)
 
 
-def make_signature_request(document: Document, *, submission_id: int | None = None,
+def make_signature_request(deal: Deal, *, submission_id: int | None = None,
                            **extra) -> SignatureRequest:
     extra.setdefault("template_id", 1)
     extra.setdefault("template_name", "Test agreement")
     extra.setdefault("signer_email", f"signer-{_next()}@example.com")
     return SignatureRequest.objects.create(
-        document=document,
+        deal=deal,
         submission_id=submission_id or _next() + 10_000,
         **extra,
     )
