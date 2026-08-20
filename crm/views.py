@@ -2190,13 +2190,19 @@ class DealRaiseInvoiceView(FinanceRequiredMixin, View):
     template_name = "crm/deal_raise_invoice.html"
 
     def _initial_for(self, deal):
-        amount = deal.commission or 0
-        contact_name = deal.organisation.name if deal.organisation else ""
+        # The commission invoice goes to the funder — the selected proposal's
+        # lender — not to the client (same rule as the accounts email flow in
+        # RequestDealCommissionInvoiceView).
+        selected = deal.selected_proposal
+        reference = deal.name
+        if selected.proposal_number:
+            # The lender's own reference for the deal — helps them reconcile.
+            reference = f"{deal.name} · {selected.proposal_number}"
         return {
-            "contact_name": contact_name,
-            "reference": deal.name,
+            "contact_name": selected.lender.name,
+            "reference": reference,
             "description": f"Commission for {deal.name}",
-            "amount": amount,
+            "amount": deal.commission or 0,
             "account_code": "200",
             "tax_type": "NONE",
             "due_days": 30,
@@ -2204,11 +2210,23 @@ class DealRaiseInvoiceView(FinanceRequiredMixin, View):
         }
 
     def get(self, request, pk):
-        deal = get_object_or_404(Deal.objects.select_related("organisation"), pk=pk)
+        deal = get_object_or_404(
+            Deal.objects.select_related(
+                "organisation", "selected_proposal", "selected_proposal__lender",
+            ),
+            pk=pk,
+        )
         from . import xero as xero_helpers
         if xero_helpers.get_active_connection() is None:
             messages.error(request, "Connect to Xero first.")
             return redirect("crm:xero_status")
+        if deal.selected_proposal is None:
+            messages.error(
+                request,
+                "Select a Proposal on this deal first — the commission invoice "
+                "is addressed to the lender.",
+            )
+            return redirect(deal.get_absolute_url())
         form = XeroInvoiceForm(initial=self._initial_for(deal))
         return render(request, self.template_name, {"form": form, "deal": deal})
 
