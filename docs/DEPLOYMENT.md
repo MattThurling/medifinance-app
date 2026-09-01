@@ -208,6 +208,7 @@ In the repo: **Settings → Secrets and variables → Actions → Variables** (n
 | `NOTIFY_EMAILS` | *(optional)* comma-separated staff addresses notified about new API-created deals. Defaults to `mnthurling@gmail.com`. |
 | `ACCOUNTS_EMAILS` | *(optional)* comma-separated accounts addresses notified when staff request a commission invoice from a deal. Defaults to `mnthurling@gmail.com`. |
 | `DOCUSEAL_ENABLED` | *(optional)* set to `true` after the DocuSeal setup (step 11) — wires `DOCUSEAL_URL` + the `docuseal-api-token-*` / `docuseal-webhook-secret-*` secrets into the app. Unset = the send-for-signature UI stays hidden. |
+| `DOCUSEAL_ENABLED_PROD` | *(optional)* prod is gated separately — set to `true` only once a prod DocuSeal instance exists and the `docuseal-api-token-prod` / `docuseal-webhook-secret-prod` secrets are created; a deploy that references a missing secret fails outright. |
 | `DOCUSEAL_URL_DEV` | *(optional)* overrides the dev DocuSeal URL (e.g. the `*.run.app` address while `sign-dev.medifinance.co.uk` doesn't exist). Defaults to `https://sign-dev.medifinance.co.uk`. |
 
 ## 8. First deploy

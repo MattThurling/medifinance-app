@@ -139,10 +139,18 @@ jobs:
 
           # DocuSeal e-signing — points the app at the environment's DocuSeal
           # instance (sign / sign-dev). Token + webhook secret must be in
-          # Secret Manager when DOCUSEAL_ENABLED=true; without them the
-          # send-for-signature UI stays hidden. DOCUSEAL_URL_DEV can override
-          # the dev URL (e.g. a *.run.app address before the LB host exists).
-          if [ "${{ vars.DOCUSEAL_ENABLED }}" = "true" ]; then
+          # Secret Manager for the environment being deployed; without them
+          # the send-for-signature UI stays hidden. Gated per environment:
+          # DOCUSEAL_ENABLED for dev, DOCUSEAL_ENABLED_PROD for prod (prod's
+          # DocuSeal instance + docuseal-*-prod secrets don't exist yet, and a
+          # deploy referencing a missing secret fails outright).
+          # DOCUSEAL_URL_DEV can override the dev URL (e.g. a *.run.app
+          # address before the LB host exists).
+          DOCUSEAL_ON="${{ vars.DOCUSEAL_ENABLED }}"
+          if [ "$SUFFIX" = "prod" ]; then
+            DOCUSEAL_ON="${{ vars.DOCUSEAL_ENABLED_PROD }}"
+          fi
+          if [ "$DOCUSEAL_ON" = "true" ]; then
             if [ "$SUFFIX" = "dev" ]; then
               ENVVARS="${ENVVARS}|DOCUSEAL_URL=${{ vars.DOCUSEAL_URL_DEV || 'https://sign-dev.medifinance.co.uk' }}"
             else
