@@ -1,33 +1,41 @@
 {% extends "_app_layout.html" %}
-{% load humanize %}
+{% load static humanize icons %}
 
 {% block title %}Dashboard · Medifinance CRM{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-  {% if user.is_admin or user.is_associate %}
-    <a href="{% url 'crm:contact_list' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-      <div class="card-body items-center text-center">
-        <h2 class="card-title">Contacts</h2>
-        <p class="text-4xl font-semibold">{{ contacts_count|intcomma }}</p>
-      </div>
-    </a>
+{% if user.is_admin or user.is_associate %}
+  {# ---- Record counts ------------------------------------------------- #}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    {% url 'crm:contact_list' as contacts_url %}
+    {% url 'crm:organisation_list' as organisations_url %}
+    {% url 'crm:deal_list' as deals_url %}
+    {% include "_stat_tile.html" with label="Contacts" value=contacts_count kind="int" href=contacts_url %}
+    {% include "_stat_tile.html" with label="Organisations" value=organisations_count kind="int" href=organisations_url %}
+    {% include "_stat_tile.html" with label="Deals" value=deals_count kind="int" href=deals_url %}
+  </div>
 
-    <a href="{% url 'crm:organisation_list' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-      <div class="card-body items-center text-center">
-        <h2 class="card-title">Organisations</h2>
-        <p class="text-4xl font-semibold">{{ organisations_count|intcomma }}</p>
-      </div>
+  {# ---- Deal stats ---------------------------------------------------- #}
+  <div class="flex items-center justify-between gap-4 mb-3">
+    <h2 class="text-lg font-semibold">{{ stats.params.period_label }}</h2>
+    <a href="{% url 'crm:reports' %}" class="btn btn-sm btn-outline">
+      {% icon "chart-bar" class="h-4 w-4" %} View full report
     </a>
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+    {% include "_stat_tile.html" with label="New deals" value=stats.headline.new_deals.value kind="int" delta_abs=stats.headline.new_deals.delta_abs delta_pct=stats.headline.new_deals.delta_pct %}
+    {% include "_stat_tile.html" with label="Funded" value=stats.headline.funded.value kind="money" delta_abs=stats.headline.funded.delta_abs delta_pct=stats.headline.funded.delta_pct %}
+    {% include "_stat_tile.html" with label="Commission" value=stats.headline.commission.value kind="money" delta_abs=stats.headline.commission.delta_abs delta_pct=stats.headline.commission.delta_pct %}
+    {% url 'crm:deal_list' as live_url %}
+    {% include "_stat_tile.html" with label="Currently live" value=stats.headline.live_count.value kind="int" href=live_url|add:"?stage=deal_live" hint="All time" %}
+  </div>
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+    {% include "_chart.html" with chart_id="chart-pipeline" kind="bar" data=stats.charts.pipeline title="Pipeline" footnote="Deals by current stage — a snapshot." %}
+    {% include "_chart.html" with chart_id="chart-series" kind="bar" data=stats.charts.series title="Funded by month" footnote="Recognised in the month a deal first goes live." %}
+  </div>
 
-    <a href="{% url 'crm:deal_list' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
-      <div class="card-body items-center text-center">
-        <h2 class="card-title">Deals</h2>
-        <p class="text-4xl font-semibold">{{ deals_count|intcomma }}</p>
-      </div>
-    </a>
   {% if user.is_admin %}
-    <div class="card bg-base-100 shadow md:col-span-3 {% if not api_enabled %}border-2 border-error{% endif %}">
+    <div class="card bg-base-100 shadow {% if not api_enabled %}border-2 border-error{% endif %}">
       <div class="card-body">
         <form method="post" action="{% url 'toggle_api_access' %}" class="flex items-center gap-4">
           {% csrf_token %}
@@ -52,27 +60,33 @@
       </div>
     </div>
   {% endif %}
-  {% else %}
-    <div class="card bg-base-100 shadow md:col-span-3">
-      <div class="card-body">
-        <h2 class="card-title">Your deals</h2>
-        {% if customer_deals %}
-          <ul class="divide-y mt-2">
-            {% for d in customer_deals %}
-              <li class="py-2 flex items-center justify-between gap-3">
-                <a href="{% url 'crm:portal_quote_select' d.pk %}" class="link link-hover flex-1">{{ d.name }}</a>
-                <a href="{% url 'crm:portal_documents' d.pk %}" class="link link-hover text-sm opacity-70">Documents</a>
-                {% if d.current_stage %}
-                  <span class="badge badge-ghost">{{ d.current_stage.get_name_display }}</span>
-                {% endif %}
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="opacity-70 text-sm">Nothing here yet — your Medifinance contact will share details with you when they're ready.</p>
-        {% endif %}
-      </div>
+{% else %}
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Your deals</h2>
+      {% if customer_deals %}
+        <ul class="divide-y mt-2">
+          {% for d in customer_deals %}
+            <li class="py-2 flex items-center justify-between gap-3">
+              <a href="{% url 'crm:portal_quote_select' d.pk %}" class="link link-hover flex-1">{{ d.name }}</a>
+              <a href="{% url 'crm:portal_documents' d.pk %}" class="link link-hover text-sm opacity-70">Documents</a>
+              {% if d.current_stage %}
+                <span class="badge badge-ghost">{{ d.current_stage.get_name_display }}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="opacity-70 text-sm">Nothing here yet — your Medifinance contact will share details with you when they're ready.</p>
+      {% endif %}
     </div>
-  {% endif %}
-</div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if user.is_admin or user.is_associate %}
+<script src="{% static 'vendor/chart.umd.min.js' %}" defer></script>
+<script src="{% static 'js/charts.js' %}" defer></script>
+{% endif %}
 {% endblock %}

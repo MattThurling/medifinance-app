@@ -83,7 +83,7 @@ crm/        models, views, forms, urls, admin, signals,
             management/commands/import_hubspot.py, templates/crm/, templatetags/crm_extras
 medifinance/ settings, urls, wsgi
 templates/  base, _app_layout (staff sidebar), _portal_layout (plain), dashboard, email/, portal/
-static/     src/input.css → dist/output.css (Tailwind), vendor/htmx, js/combobox
+static/     src/input.css → dist/output.css (Tailwind), vendor/htmx, vendor/chart.umd.min (Chart.js), js/combobox, js/charts
 docs/       DEPLOYMENT, HUBSPOT_IMPORT, HUBSPOT_EXPORT_QUERIES, HANDOVER
 ```
 

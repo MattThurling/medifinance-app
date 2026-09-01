@@ -24,6 +24,9 @@ urlpatterns = [
     path("rates/add/", views.RateBandAddView.as_view(), name="rate_band_add"),
     path("rates/upload/", views.RateUploadView.as_view(), name="rate_upload"),
 
+    # Reports
+    path("reports/", views.ReportsView.as_view(), name="reports"),
+
     # Deals
     path("deals/", views.DealListView.as_view(), name="deal_list"),
     path("deals/maturing/", views.DealMaturingListView.as_view(), name="deal_maturing"),

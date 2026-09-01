@@ -61,6 +61,8 @@ class StaffUrlAccessMatrixTests(TestCase):
             reverse("crm:contact_detail", args=[self.contact.pk]),
             reverse("crm:contact_update", args=[self.contact.pk]),
             reverse("crm:contact_delete", args=[self.contact.pk]),
+            # Reports
+            reverse("crm:reports"),
             # Deals
             reverse("crm:deal_list"),
             reverse("crm:deal_create"),

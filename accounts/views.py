@@ -24,11 +24,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         if user.is_admin or user.is_associate:
             # Inline import — accounts is loaded before crm, so a module-level
             # import here would risk an apps-not-ready loop.
+            from crm import stats
             from crm.models import Contact, Deal, Organisation
             ctx["contacts_count"] = Contact.objects.count()
             ctx["organisations_count"] = Organisation.objects.count()
             ctx["deals_count"] = Deal.objects.count()
             ctx["api_enabled"] = SiteSettings.get().api_enabled
+            # Headline deal stats at the default window; the Reports page has
+            # the filters and the full breakdowns.
+            ctx["stats"] = stats.dashboard_stats(stats.StatsParams.from_request(self.request))
         elif user.is_customer:
             # OneToOne reverse accessor — may not exist if the user has no linked Contact yet.
             contact = getattr(user, "contact", None)

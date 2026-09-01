@@ -141,6 +141,36 @@ class DealTypeTests(OwnerFormTestCase):
         self.assertNotContains(self.client.get(deal.get_absolute_url()), "Type:")
 
 
+class DealSourceTests(OwnerFormTestCase):
+    def test_create_persists_source(self):
+        response = self.client.post(reverse("crm:deal_create"), {
+            "name": "Dental chair",
+            "source": Deal.Source.SUPPLIER,
+            "owner": self.staff.pk,
+        })
+        deal = Deal.objects.get(name="Dental chair")
+        self.assertRedirects(response, deal.get_absolute_url())
+        self.assertEqual(deal.source, Deal.Source.SUPPLIER)
+
+    def test_edit_clearing_source_stores_null(self):
+        deal = make_deal(owner=self.staff, source=Deal.Source.REFERRAL)
+        response = self.client.post(
+            reverse("crm:deal_update", args=[deal.pk]),
+            {"name": deal.name, "owner": self.staff.pk, "source": ""},
+        )
+        deal.refresh_from_db()
+        self.assertRedirects(response, deal.get_absolute_url())
+        self.assertIsNone(deal.source)
+
+    def test_detail_shows_source_label(self):
+        deal = make_deal(owner=self.staff, source=Deal.Source.EXISTING_CUSTOMER)
+        self.assertContains(self.client.get(deal.get_absolute_url()), "Source: Existing Customer")
+
+    def test_detail_omits_source_line_when_unset(self):
+        deal = make_deal(owner=self.staff)
+        self.assertNotContains(self.client.get(deal.get_absolute_url()), "Source:")
+
+
 class OwnerProtectTests(OwnerFormTestCase):
     def test_deleting_user_who_owns_contact_is_protected(self):
         make_contact(owner=self.colleague)

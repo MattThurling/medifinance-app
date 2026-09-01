@@ -104,6 +104,10 @@ class StaffPagesRenderTests(TestCase):
     def test_document_pages(self):
         self._assert_get_ok(reverse("crm:document_create") + f"?deal={self.deal.pk}")
 
+    def test_reports_page(self):
+        self._assert_get_ok(reverse("crm:reports"))
+        self._assert_get_ok(reverse("crm:reports") + "?period=all&owner=me&type=none&source=none")
+
     def test_rate_pages(self):
         self._assert_get_ok(reverse("crm:rates"))
         self._assert_get_ok(reverse("crm:rate_band_add"))

@@ -42,6 +42,9 @@ layout (main content left, amount + timeline right).
       {% if deal.type %}
         <p>Type: {{ deal.get_type_display }}</p>
       {% endif %}
+      {% if deal.source %}
+        <p>Source: {{ deal.get_source_display }}</p>
+      {% endif %}
       {% if deal.introducer %}
         <p>Introducer: <a href="{{ deal.introducer.get_absolute_url }}" class="link link-hover">{{ deal.introducer.name }}</a></p>
       {% endif %}

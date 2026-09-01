@@ -179,6 +179,16 @@ class TypeFilterTests(DealListTestCase):
     def test_none_matches_null_and_blank(self):
         self.assertEqual(_names(self.get(type="none")), ["Blank", "Null"])
 
+    def test_source_filter(self):
+        Deal.objects.filter(pk=self.asset.pk).update(source=Deal.Source.INTRODUCER)
+        Deal.objects.filter(pk=self.blank_type.pk).update(source="")
+        self.assertEqual(_names(self.get(source="introducer")), ["Asset"])
+        self.assertEqual(sorted(_names(self.get(source="none"))), ["Blank", "Commercial", "Null"])
+        self.assertEqual(sorted(_names(self.get(source="bogus"))), ["Asset", "Blank", "Commercial", "Null"])
+        # Composes with the type filter.
+        self.assertEqual(_names(self.get(type="asset_finance", source="introducer")), ["Asset"])
+        self.assertEqual(_names(self.get(type="commercial_finance", source="introducer")), [])
+
     def test_unknown_type_ignored(self):
         self.assertEqual(len(_names(self.get(type="garbage"))), 4)
 

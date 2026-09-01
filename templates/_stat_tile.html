@@ -1,0 +1,24 @@
+{% load humanize crm_extras icons %}
+{% comment %}
+  Headline stat tile.
+  include with: label, value, kind (money|int|percent, default int),
+                delta_abs, delta_pct (optional — "vs previous period"),
+                href (optional — makes the whole card a link), hint (optional
+                footer text, shown when there is no delta).
+{% endcomment %}
+{% if href %}<a href="{{ href }}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">{% else %}<div class="card bg-base-100 shadow">{% endif %}
+  <div class="card-body py-4 px-5 gap-1">
+    <div class="text-xs uppercase tracking-wide opacity-60">{{ label }}</div>
+    <div class="text-3xl font-semibold tabular-nums">
+      {% if value is None %}—{% elif kind == "money" %}{{ value|money:0 }}{% elif kind == "percent" %}{{ value|floatformat:1 }}%{% else %}{{ value|intcomma }}{% endif %}
+    </div>
+    {% if delta_pct is not None %}
+      <div class="text-xs flex items-center gap-1 {% if delta_abs > 0 %}text-success{% elif delta_abs < 0 %}text-error{% else %}opacity-60{% endif %}">
+        {% if delta_abs > 0 %}{% icon "trending-up" class="h-3.5 w-3.5" %}{% elif delta_abs < 0 %}{% icon "trending-down" class="h-3.5 w-3.5" %}{% endif %}
+        <span>{% if delta_abs > 0 %}+{% endif %}{{ delta_pct|floatformat:1 }}% vs previous period</span>
+      </div>
+    {% elif hint %}
+      <div class="text-xs opacity-60">{{ hint }}</div>
+    {% endif %}
+  </div>
+{% if href %}</a>{% else %}</div>{% endif %}

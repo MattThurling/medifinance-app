@@ -1,0 +1,200 @@
+{% extends "_app_layout.html" %}
+{% load static humanize icons crm_extras %}
+
+{% block title %}Reports · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between gap-4 mb-1">
+  <h1 class="text-xl font-semibold">Reports</h1>
+  {% if params.owner != "me" %}
+    <a href="?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}owner=me" class="btn btn-sm btn-outline">
+      {% icon "user" class="h-4 w-4" %} My stats
+    </a>
+  {% endif %}
+</div>
+<p class="text-sm opacity-60 mb-4">Deal performance for {{ params.period_label|lower }}.</p>
+
+{% include "_stats_filter_bar.html" %}
+
+{# ---- Headline ---------------------------------------------------------- #}
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  {% include "_stat_tile.html" with label="New deals" value=headline.new_deals.value kind="int" delta_abs=headline.new_deals.delta_abs delta_pct=headline.new_deals.delta_pct %}
+  {% include "_stat_tile.html" with label="Went live" value=headline.went_live.value kind="int" delta_abs=headline.went_live.delta_abs delta_pct=headline.went_live.delta_pct %}
+  {% include "_stat_tile.html" with label="Funded" value=headline.funded.value kind="money" delta_abs=headline.funded.delta_abs delta_pct=headline.funded.delta_pct %}
+  {% include "_stat_tile.html" with label="Commission" value=headline.commission.value kind="money" delta_abs=headline.commission.delta_abs delta_pct=headline.commission.delta_pct %}
+  {% include "_stat_tile.html" with label="Currently live" value=headline.live_count.value kind="int" hint="All time — not affected by period" %}
+</div>
+
+{# ---- Pipeline ---------------------------------------------------------- #}
+<h2 class="text-lg font-semibold mb-2">Pipeline</h2>
+<p class="text-sm opacity-60 mb-3">Where deals are right now — a snapshot, not affected by the period.</p>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+  <div class="xl:col-span-2">
+    {% include "_chart.html" with chart_id="chart-pipeline" kind="bar" data=charts.pipeline height="20rem" %}
+  </div>
+  <div class="card bg-base-100 shadow">
+    <div class="overflow-x-auto">
+      <table class="table table-xs">
+        <thead><tr><th>Stage</th><th class="text-right">Deals</th><th class="text-right">Funded</th></tr></thead>
+        <tbody>
+          {% for b in pipeline %}
+            <tr class="{% if not b.count %}opacity-50{% endif %}">
+              <td><a href="{% url 'crm:deal_list' %}?stage={{ b.stage }}{{ list_qs }}" class="link link-hover">{{ b.label }}</a></td>
+              <td class="text-right tabular-nums">{{ b.count|intcomma }}</td>
+              <td class="text-right tabular-nums whitespace-nowrap">{% if b.funded %}{{ b.funded|money:0 }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ---- Over time --------------------------------------------------------- #}
+<h2 class="text-lg font-semibold mb-2">Over time</h2>
+<p class="text-sm opacity-60 mb-3">Funded £ and commission by the month a deal first went live.</p>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+  <div class="xl:col-span-2">
+    {% include "_chart.html" with chart_id="chart-series" kind="bar" data=charts.series height="20rem" %}
+  </div>
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h3 class="card-title text-base">Totals</h3>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="opacity-70">Funded</dt><dd class="text-right tabular-nums font-medium">{{ series.total_funded|money:0 }}</dd>
+        <dt class="opacity-70">Commission</dt><dd class="text-right tabular-nums font-medium">{{ series.total_commission|money:0 }}</dd>
+        {% if series.prev_total_funded is not None %}
+          <dt class="opacity-70 pt-2 border-t border-base-200">Previous period funded</dt><dd class="text-right tabular-nums pt-2 border-t border-base-200">{{ series.prev_total_funded|money:0 }}</dd>
+          <dt class="opacity-70">Previous period commission</dt><dd class="text-right tabular-nums">{{ series.prev_total_commission|money:0 }}</dd>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+</div>
+
+{# ---- By owner ---------------------------------------------------------- #}
+<h2 class="text-lg font-semibold mb-2">By owner</h2>
+<p class="text-sm opacity-60 mb-3">Deals and win rate are for deals created in the period; live, funded and commission for deals that went live in it.</p>
+<div class="card bg-base-100 shadow mb-6">
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Owner</th>
+          <th class="text-right">Deals</th>
+          <th class="text-right">Won</th>
+          <th class="text-right">Win rate</th>
+          <th class="text-right">Went live</th>
+          <th class="text-right">Funded</th>
+          <th class="text-right">Commission</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in owners %}
+          <tr class="{% if o.is_me %}bg-primary/10 font-medium{% endif %}">
+            <td>
+              {% if o.owner_id %}
+                <a href="{% url 'crm:deal_list' %}?owner={{ o.owner_id }}{% if params.type %}&type={{ params.type }}{% endif %}{% if params.source %}&source={{ params.source }}{% endif %}" class="link link-hover">{{ o.name }}</a>
+              {% else %}
+                <a href="{% url 'crm:deal_list' %}?owner=none{% if params.type %}&type={{ params.type }}{% endif %}{% if params.source %}&source={{ params.source }}{% endif %}" class="link link-hover opacity-70">{{ o.name }}</a>
+              {% endif %}
+              {% if o.is_me %}<span class="badge badge-primary badge-xs ml-1">you</span>{% endif %}
+            </td>
+            <td class="text-right tabular-nums">{{ o.deals|intcomma }}</td>
+            <td class="text-right tabular-nums">{{ o.won|intcomma }}</td>
+            <td class="text-right tabular-nums">{% if o.win_rate is not None %}{{ o.win_rate|floatformat:1 }}%{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+            <td class="text-right tabular-nums">{{ o.live|intcomma }}</td>
+            <td class="text-right tabular-nums whitespace-nowrap">{% if o.funded %}{{ o.funded|money:0 }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+            <td class="text-right tabular-nums whitespace-nowrap">{% if o.commission %}{{ o.commission|money:0 }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center opacity-60 py-6">No deals in this period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ---- By source --------------------------------------------------------- #}
+<h2 class="text-lg font-semibold mb-2">By source</h2>
+<p class="text-sm opacity-60 mb-3">How deals came to Medifinance. Deals and win rate by created date; funded and commission by first-live date.</p>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+  <div class="xl:col-span-2 card bg-base-100 shadow">
+    <div class="overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th class="text-right">Deals</th>
+            <th class="text-right">Won</th>
+            <th class="text-right">Win rate</th>
+            <th class="text-right">Went live</th>
+            <th class="text-right">Funded</th>
+            <th class="text-right">Commission</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sources %}
+            <tr class="{% if not s.deals and not s.live %}opacity-50{% endif %}">
+              <td><a href="{% url 'crm:deal_list' %}?source={{ s.source }}{% if params.type %}&type={{ params.type }}{% endif %}{% if params.owner %}&owner={{ params.owner }}{% endif %}" class="link link-hover">{{ s.label }}</a></td>
+              <td class="text-right tabular-nums">{{ s.deals|intcomma }}</td>
+              <td class="text-right tabular-nums">{{ s.won|intcomma }}</td>
+              <td class="text-right tabular-nums">{% if s.win_rate is not None %}{{ s.win_rate|floatformat:1 }}%{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+              <td class="text-right tabular-nums">{{ s.live|intcomma }}</td>
+              <td class="text-right tabular-nums whitespace-nowrap">{% if s.funded %}{{ s.funded|money:0 }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+              <td class="text-right tabular-nums whitespace-nowrap">{% if s.commission %}{{ s.commission|money:0 }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% include "_chart.html" with chart_id="chart-sources" kind="doughnut" data=charts.sources title="Funded by source" height="18rem" %}
+</div>
+
+{# ---- Conversion -------------------------------------------------------- #}
+<h2 class="text-lg font-semibold mb-2">Conversion</h2>
+<p class="text-sm opacity-60 mb-3">Outcomes of the {{ conversion.total|intcomma }} deal{{ conversion.total|pluralize }} created in the period. Won = reached Deal Live or Settled; lost and dormant are the current stage.</p>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+  <div class="xl:col-span-2 grid grid-cols-2 lg:grid-cols-3 gap-4 content-start">
+    {% include "_stat_tile.html" with label="Win rate" value=conversion.win_rate kind="percent" hint="Won ÷ all created" %}
+    {% include "_stat_tile.html" with label="Win rate (decided)" value=conversion.win_rate_of_decided kind="percent" hint="Won ÷ (won + lost)" %}
+    {% include "_stat_tile.html" with label="Loss rate" value=conversion.loss_rate kind="percent" hint="Lost ÷ all created" %}
+    {% include "_stat_tile.html" with label="Won" value=conversion.won kind="int" %}
+    {% include "_stat_tile.html" with label="Lost" value=conversion.lost kind="int" %}
+    {% include "_stat_tile.html" with label="Dormant" value=conversion.dormant kind="int" %}
+  </div>
+  {% include "_chart.html" with chart_id="chart-conversion" kind="doughnut" data=charts.conversion title="Outcomes" height="18rem" %}
+</div>
+
+{# ---- Velocity ---------------------------------------------------------- #}
+<h2 class="text-lg font-semibold mb-2">Velocity</h2>
+<p class="text-sm opacity-60 mb-3">Days between stages, for deals that went live or were lost in the period. First occurrence of each stage counts.</p>
+<div class="card bg-base-100 shadow mb-6">
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead><tr><th>Leg</th><th class="text-right">Deals</th><th class="text-right">Average days</th><th class="text-right">Median days</th></tr></thead>
+      <tbody>
+        {% for v in velocity %}
+          <tr class="{% if not v.n %}opacity-50{% endif %}">
+            <td>{{ v.label }}</td>
+            <td class="text-right tabular-nums">{{ v.n|intcomma }}</td>
+            <td class="text-right tabular-nums">{% if v.avg_days is not None %}{{ v.avg_days|floatformat:1 }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+            <td class="text-right tabular-nums">{% if v.median_days is not None %}{{ v.median_days|floatformat:1 }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<p class="text-xs opacity-60">
+  Funded £ is the sum of supplier participations; commission is the deal's commission field. Both are recognised in the month a deal first reaches Deal Live.
+  New deals, conversion and the by-owner / by-source deal counts use the deal's created date. The pipeline is a snapshot of current stages.
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'vendor/chart.umd.min.js' %}" defer></script>
+<script src="{% static 'js/charts.js' %}" defer></script>
+{% endblock %}

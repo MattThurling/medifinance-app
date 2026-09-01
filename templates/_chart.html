@@ -1,0 +1,20 @@
+{% comment %}
+  Chart.js chart card. Data is embedded with json_script and picked up by
+  static/js/charts.js (loaded via {% block scripts %} on the page).
+  include with: chart_id (unique on the page), data (JSON-safe payload from
+                crm.stats, see *_chart()), kind (bar|line|doughnut, default
+                bar), title (optional), height (CSS length, default 16rem),
+                footnote (optional).
+{% endcomment %}
+{% with sid=chart_id|add:"-data" %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    {% if title %}<h2 class="card-title text-base">{{ title }}</h2>{% endif %}
+    <div class="relative" style="height: {{ height|default:'16rem' }}">
+      <canvas data-chart data-chart-kind="{{ kind|default:'bar' }}" data-chart-src="{{ sid }}"></canvas>
+    </div>
+    {% if footnote %}<p class="text-xs opacity-60 mt-2">{{ footnote }}</p>{% endif %}
+    {{ data|json_script:sid }}
+  </div>
+</div>
+{% endwith %}

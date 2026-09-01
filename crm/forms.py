@@ -117,6 +117,7 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
         fields = [
             "name",
             "type",
+            "source",
             "customer",
             "organisation",
             "owner",
@@ -140,6 +141,9 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
     def clean_type(self):
         # Normalise the cleared select to NULL so "unset" is one state, not two.
         return self.cleaned_data.get("type") or None
+
+    def clean_source(self):
+        return self.cleaned_data.get("source") or None
 
 
 class SupplierInvoiceForm(DaisyUIFormMixin, forms.ModelForm):

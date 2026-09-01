@@ -47,7 +47,7 @@ from .forms import (
     QuoteSelectionForm,
     StageForm,
 )
-from . import docuseal, pricing
+from . import docuseal, pricing, stats
 from .models import (
     Contact,
     Deal,
@@ -506,6 +506,11 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
             qs = qs.filter(Q(type__isnull=True) | Q(type=""))
         elif deal_type in Deal.Type.values:
             qs = qs.filter(type=deal_type)
+        source = self.request.GET.get("source", "")
+        if source == "none":
+            qs = qs.filter(Q(source__isnull=True) | Q(source=""))
+        elif source in Deal.Source.values:
+            qs = qs.filter(source=source)
         return self.apply_owner_filter(qs)
 
     def get_context_data(self, **kwargs):
@@ -515,6 +520,8 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         ctx["stage_filter"] = self.request.GET.get("stage", "")
         ctx["type_choices"] = Deal.Type.choices
         ctx["type_filter"] = self.request.GET.get("type", "")
+        ctx["source_choices"] = Deal.Source.choices
+        ctx["source_filter"] = self.request.GET.get("source", "")
         return ctx
 
 
@@ -593,6 +600,28 @@ class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
         ctx["window_choices"] = self.WINDOW_CHOICES
         ctx["no_maturity_count"] = self.no_maturity_count
         ctx["today"] = timezone.localdate()
+        return ctx
+
+
+class ReportsView(OwnerFilterMixin, StaffRequiredMixin, TemplateView):
+    """Deal statistics — pipeline, funded/commission over time, by owner, by
+    source, conversion and velocity. All the numbers come from `crm.stats`;
+    filters are plain GET params (`period`, `type`, `source`, `owner`) in the
+    same vocabulary as the Deals list so rows can deep-link into it."""
+
+    template_name = "crm/reports.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)  # owner_choices / owner_filter
+        params = stats.StatsParams.from_request(self.request)
+        ctx.update(stats.report_stats(params))
+        ctx["period_choices"] = list(stats.PERIODS.items())
+        ctx["type_choices"] = Deal.Type.choices
+        ctx["type_filter"] = params.type
+        ctx["source_choices"] = Deal.Source.choices
+        ctx["source_filter"] = params.source
+        # Querystring suffix for deep links into the deal list (owner/type/source).
+        ctx["list_qs"] = "".join(f"&{k}={v}" for k, v in params.list_query().items())
         return ctx
 
 

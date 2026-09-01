@@ -224,6 +224,20 @@ class Deal(TimestampedModel):
         KMC_ASSOCIATES = "kmc_associates", "KMC Associates"
         SHORT_TERM_FINANCE = "short_term_finance", "Short Term Finance"
 
+    class Source(models.TextChoices):
+        INTRODUCER = "introducer", "Introducer"
+        EXISTING_CUSTOMER = "existing_customer", "Existing Customer"
+        SUPPLIER = "supplier", "Supplier"
+        REFERRAL = "referral", "Referral"
+        EXHIBITION = "exhibition", "Exhibition"
+        MEETING = "meeting", "Meeting"
+        WEBSITE = "website", "Website"
+        SEARCH_ENGINE = "search_engine", "Search Engine"
+        CAMPAIGN_ADVERT = "campaign_advert", "Campaign / Advert"
+        E_SHOT = "e_shot", "E-shot"
+        TWITTER = "twitter", "Twitter"
+        OTHER = "other", "Other"
+
     name = models.CharField(max_length=255)
     type = models.CharField(
         max_length=32,
@@ -231,6 +245,13 @@ class Deal(TimestampedModel):
         null=True,
         blank=True,
         help_text="The kind of finance this deal is for. Optional.",
+    )
+    source = models.CharField(
+        max_length=32,
+        choices=Source.choices,
+        null=True,
+        blank=True,
+        help_text="How this deal came to MediFinance. Optional.",
     )
 
     owner = models.ForeignKey(

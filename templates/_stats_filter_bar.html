@@ -1,0 +1,38 @@
+{% comment %}
+  Period / type / source / owner filters for stats pages. Plain GET form —
+  the whole page re-renders, like the Deals and Maturing lists.
+  Expects: params (crm.stats.StatsParams), period_choices, type_choices,
+           source_choices, owner_choices (from OwnerFilterMixin).
+{% endcomment %}
+<form method="get" class="flex flex-wrap items-center gap-2 mb-4">
+  <select name="period" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+    {% for code, label in period_choices %}
+      <option value="{{ code }}" {% if params.period == code %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="type" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+    <option value="">All types</option>
+    <option value="none" {% if params.type == "none" %}selected{% endif %}>No type</option>
+    {% for code, label in type_choices %}
+      <option value="{{ code }}" {% if params.type == code %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="source" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+    <option value="">All sources</option>
+    <option value="none" {% if params.source == "none" %}selected{% endif %}>No source</option>
+    {% for code, label in source_choices %}
+      <option value="{{ code }}" {% if params.source == code %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
+    <option value="">All owners</option>
+    <option value="me" {% if params.owner == "me" %}selected{% endif %}>My deals</option>
+    <option value="none" {% if params.owner == "none" %}selected{% endif %}>Unowned</option>
+    {% for u in owner_choices %}
+      <option value="{{ u.pk }}" {% if params.owner == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
+    {% endfor %}
+  </select>
+  {% if params.owner or params.type or params.source or params.period != "12m" %}
+    <a href="{{ request.path }}" class="btn btn-ghost btn-sm">Reset</a>
+  {% endif %}
+</form>

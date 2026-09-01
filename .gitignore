@@ -38,3 +38,5 @@ npm-debug.log*
 
 # Claude Code scheduled-task lock (machine-local)
 .claude/scheduled_tasks.lock
+
+db-old.sqlite3.bak-*
