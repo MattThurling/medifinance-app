@@ -19,6 +19,8 @@ _PREVIOUS_OWNER_ATTR = "_previous_owner_id"
 
 @receiver(pre_save, sender=Deal)
 def _capture_previous_owner(sender, instance: Deal, **kwargs):
+    if kwargs.get("raw"):  # fixture load — rows arrive as-is
+        return
     if instance.pk:
         previous = Deal.objects.filter(pk=instance.pk).values_list("owner_id", flat=True).first()
         setattr(instance, _PREVIOUS_OWNER_ATTR, previous)
@@ -28,6 +30,8 @@ def _capture_previous_owner(sender, instance: Deal, **kwargs):
 
 @receiver(post_save, sender=Deal)
 def _sync_owner_object_perms(sender, instance: Deal, created: bool, **kwargs):
+    if kwargs.get("raw"):
+        return
     previous_owner_id = getattr(instance, _PREVIOUS_OWNER_ATTR, None)
 
     if not created and previous_owner_id and previous_owner_id != instance.owner_id:
@@ -44,8 +48,12 @@ def _sync_owner_object_perms(sender, instance: Deal, created: bool, **kwargs):
 
 @receiver(post_save, sender=Deal)
 def _bootstrap_initial_stage(sender, instance: Deal, created: bool, **kwargs):
-    """Seed an 'Application' stage event the first time a deal is created."""
-    if created:
+    """Seed an 'Application' stage event the first time a deal is created.
+
+    Skipped for fixture loads (``raw=True``): the fixture carries its own
+    stage rows, and seeding here would both duplicate them and collide with
+    their primary keys."""
+    if created and not kwargs.get("raw"):
         Stage.objects.create(
             deal=instance,
             name=Stage.Name.APPLICATION,
