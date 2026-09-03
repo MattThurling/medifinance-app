@@ -223,6 +223,12 @@ class Deal(TimestampedModel):
         STRUCTURED_FINANCE = "structured_finance", "Structured Finance"
         KMC_ASSOCIATES = "kmc_associates", "KMC Associates"
         SHORT_TERM_FINANCE = "short_term_finance", "Short Term Finance"
+        PRACTICE_PURCHASE = "practice_purchase", "Practice Purchase"
+        REFINANCE = "refinance", "Refinance"
+        RENOVATION = "renovation", "Renovation"
+        STARTUP = "startup", "Startup"
+        PROPERTY_PURCHASE = "property_purchase", "Property Purchase"
+        BRIDGING_LOAN = "bridging_loan", "Bridging Loan"
 
     class Source(models.TextChoices):
         INTRODUCER = "introducer", "Introducer"
@@ -356,7 +362,12 @@ class Deal(TimestampedModel):
 
     @property
     def is_commercial_finance(self) -> bool:
-        return self.type == Deal.Type.COMMERCIAL_FINANCE
+        """Whether this deal uses the Commercial Finance form treatment
+        (funded amounts instead of supplier participations).
+
+        Every deal type except Asset Finance does. Untyped deals keep the
+        Asset Finance-style (full supplier) treatment."""
+        return self.type is not None and self.type != Deal.Type.ASSET_FINANCE
 
     @property
     def hubspot_url(self) -> str | None:
@@ -577,13 +588,16 @@ class Stage(TimestampedModel):
     """A stage-change event on a Deal. The latest one is the deal's current stage."""
 
     class Name(models.TextChoices):
+        INITIAL_CONTACT = "initial_contact", "Initial Contact"
         APPLICATION = "application", "Application"
         INFO_RECEIVED = "info_received", "Info Received"
+        QUOTING = "quoting", "Quoting"
         PROPOSAL_SUBMITTED = "proposal_submitted", "Proposal Submitted"
         PROPOSAL_APPROVED = "proposal_approved", "Proposal Approved"
         PROPOSAL_DECLINED = "proposal_declined", "Proposal Declined"
         CLIENT_NOTIFIED = "client_notified", "Client Notified"
         DOCUMENTS_OUT = "documents_out", "Documents Out"
+        LEGALS = "legals", "Legals"
         SUPPLIER_INVOICE_REQUESTED = "supplier_invoice_requested", "Supplier Invoice Requested"
         SUPPLIER_INVOICE_RECEIVED = "supplier_invoice_received", "Supplier Invoice Received"
         MF_INVOICED = "mf_invoiced", "MF Invoiced"
