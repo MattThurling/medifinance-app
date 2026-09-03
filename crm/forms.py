@@ -213,9 +213,8 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
         model = Quote
         fields = ["term", "rate", "deposit", "balloon", "commission_percent", "repayment_profile"]
         help_texts = {
-            "commission_percent": "Optional.",
-            "deposit": "Optional. Subtracted from the funded amount.",
-            "balloon": "Optional. Subtracted from the funded amount.",
+            "deposit": "Subtracted from the funded amount.",
+            "balloon": "Subtracted from the funded amount.",
             "repayment_profile": "e.g. monthly, quarterly, balloon",
         }
 
