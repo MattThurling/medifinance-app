@@ -64,8 +64,8 @@
 
       <div class="divider text-xs opacity-60 mt-2 mb-2">Repayment</div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-        {% include "_field.html" with field=form.first_payment_date %}
-        {% include "_field.html" with field=form.term_end_date %}
+        {% include "_field.html" with field=form.first_payment_date help_as_tooltip=True %}
+        {% include "_field.html" with field=form.term_end_date help_as_tooltip=True %}
       </div>
 
       <div class="card-actions justify-end mt-2">
