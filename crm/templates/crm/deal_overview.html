@@ -88,9 +88,10 @@ than being hidden, so the structure stays predictable.
       <dt class="opacity-60">Funded amount</dt>       <dd>{% if deal.funded_amount is not None %}£{{ deal.funded_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Asset finance</dt>       <dd>{% if deal.finance_amount is not None %}£{{ deal.finance_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Commission</dt>          <dd>{% if deal.commission is not None %}£{{ deal.commission|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
-      <dt class="opacity-60">Earnings</dt>            <dd>{% if deal.earnings is not None %}£{{ deal.earnings|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Initial fee</dt>         <dd>{% if deal.initial_fee is not None %}£{{ deal.initial_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Final fee</dt>           <dd>{% if deal.final_fee is not None %}£{{ deal.final_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Document fee</dt>        <dd>{% if deal.document_fee is not None %}£{{ deal.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
-      <dt class="opacity-60">Flat fee</dt>            <dd>{% if deal.flat_fee is not None %}£{{ deal.flat_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Non-completion fee</dt>  <dd>{% if deal.non_completion_fee is not None %}{{ deal.non_completion_fee|floatformat:2 }}%{% else %}—{% endif %}</dd>
       <dt class="opacity-60">First payment date</dt>  <dd>{% if deal.first_payment_date %}{{ deal.first_payment_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Term ends</dt>           <dd>{% if deal.maturity_date %}{{ deal.maturity_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
     </dl>

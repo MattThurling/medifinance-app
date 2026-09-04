@@ -55,10 +55,11 @@
       <div class="divider text-xs opacity-60 mt-2 mb-2">Financials</div>
       <p class="text-xs opacity-60 mb-3">The deal's funded amount is the sum of its supplier / funded-amount entries (managed on the deal page). Deposit and balloon are set per quote.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-        {% include "_field.html" with field=form.earnings %}
-        {% include "_field.html" with field=form.flat_fee %}
+        {% include "_field.html" with field=form.initial_fee %}
+        {% include "_field.html" with field=form.final_fee %}
         {% include "_field.html" with field=form.commission %}
         {% include "_field.html" with field=form.document_fee %}
+        {% include "_field.html" with field=form.non_completion_fee help_as_tooltip=True %}
         {% include "_field.html" with field=form.mf_invoice_number %}
       </div>
 

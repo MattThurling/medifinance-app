@@ -296,10 +296,18 @@ class Deal(TimestampedModel):
     )
     # Other financials (all nullable). `funded_amount` is derived as the sum of
     # this deal's Participations — see the property below.
-    earnings = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    flat_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    initial_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    final_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     document_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    non_completion_fee = models.DecimalField(
+        "Non-completion fee %",
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Charged as a percentage if the deal doesn't complete.",
+    )
 
     # Medifinance's own commission invoice to the funder. A deal is only
     # considered mf_invoiced when this is set.

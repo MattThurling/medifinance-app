@@ -118,10 +118,11 @@ class DealAdmin(admin.ModelAdmin):
             "Other financials",
             {
                 "fields": (
-                    "earnings",
-                    "flat_fee",
+                    "initial_fee",
+                    "final_fee",
                     "commission",
                     "document_fee",
+                    "non_completion_fee",
                     "first_payment_date",
                 ),
                 "description": (
