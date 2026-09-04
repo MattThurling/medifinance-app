@@ -1,0 +1,69 @@
+{% extends "_app_layout.html" %}
+{% load icons humanize %}
+
+{% block title %}{{ deal.name }} · Medifinance{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-6">
+  <div>
+    <p class="text-sm opacity-60 mb-1">
+      <a href="{% url 'crm:my_deals' %}" class="link link-hover">Your deals</a> / {{ deal.name }}
+    </p>
+    <div class="flex items-center gap-3">
+      <h1 class="text-2xl font-semibold">{{ deal.name }}</h1>
+      {% if deal.current_stage %}
+        <span class="badge badge-ghost">{{ deal.current_stage.get_name_display }}</span>
+      {% endif %}
+    </div>
+    {% if deal.organisation %}<p class="opacity-70 mt-1">{{ deal.organisation.name }}</p>{% endif %}
+  </div>
+
+  {# ---- Summary ---- #}
+  <div class="card bg-base-100 shadow w-full">
+    <div class="card-body">
+      <h2 class="card-title text-base">{% icon "handshake" class="h-5 w-5 opacity-70" %} Summary</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        {% if amount_display %}
+          <div><dt class="opacity-60 inline">Amount financed&nbsp;</dt><dd class="inline font-medium">{{ amount_display }}</dd></div>
+        {% endif %}
+        {% if deal.selected_quote %}
+          <div><dt class="opacity-60 inline">Term&nbsp;</dt><dd class="inline">{{ deal.selected_quote.term }} months</dd></div>
+          {% if deal.selected_quote.monthly_payment is not None %}
+            <div><dt class="opacity-60 inline">Monthly payment&nbsp;</dt><dd class="inline">£{{ deal.selected_quote.monthly_payment|floatformat:2|intcomma }}</dd></div>
+          {% endif %}
+        {% endif %}
+        {% if deal.owner %}
+          <div><dt class="opacity-60 inline">Your contact&nbsp;</dt><dd class="inline">{{ deal.owner.full_name }}</dd></div>
+        {% endif %}
+      </dl>
+      {% if not deal.selected_quote %}
+        <p class="text-sm opacity-70 mt-2">No quote has been chosen yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---- Documents (read-only this slice) ---- #}
+  <div class="card bg-base-100 shadow w-full">
+    <div class="card-body">
+      <h2 class="card-title text-base">{% icon "file-text" class="h-5 w-5 opacity-70" %} Documents</h2>
+      <ul class="divide-y divide-base-200">
+        {% for d in documents %}
+          <li class="py-2 flex items-center justify-between gap-3">
+            <span class="font-medium">{{ d.name }}</span>
+            {% if d.is_provided %}
+              <span class="badge badge-success badge-sm">Provided</span>
+            {% else %}
+              <span class="badge badge-warning badge-sm">Requested</span>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li class="py-2 opacity-70 text-sm">No documents have been requested.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  {# ---- Repayments ---- #}
+  {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule %}
+</div>
+{% endblock %}

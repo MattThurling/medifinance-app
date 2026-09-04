@@ -112,6 +112,28 @@
                 {% endif %}
               </li>
             {% endif %}
+          {% elif user.is_customer %}
+            <li class="menu-title pt-4">
+              <span>Your account</span>
+            </li>
+            <li>
+              <a href="{% url 'crm:my_company' %}" class="{% if request.resolver_match.url_name == 'my_company' %}menu-active{% endif %}">
+                {% icon "building" %}
+                Company
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'crm:my_people' %}" class="{% if request.resolver_match.url_name == 'my_people' %}menu-active{% endif %}">
+                {% icon "users" %}
+                People
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'crm:my_deals' %}" class="{% if request.resolver_match.url_name == 'my_deals' or request.resolver_match.url_name == 'my_deal_detail' %}menu-active{% endif %}">
+                {% icon "handshake" %}
+                Deals
+              </a>
+            </li>
           {% endif %}
         </ul>
       </nav>

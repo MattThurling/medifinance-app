@@ -1,0 +1,32 @@
+{% load icons %}
+{% comment %}Display state of one person card.{% endcomment %}
+<div class="card bg-base-100 shadow w-full">
+  <div class="card-body">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h2 class="card-title text-base">
+          {% icon "contact" class="h-5 w-5 opacity-70" %}
+          {{ person.full_name|default:person.email }}
+          {% if person.user_id == request.user.pk %}<span class="badge badge-ghost badge-sm">you</span>{% endif %}
+        </h2>
+        {% if person.email %}<p class="text-xs opacity-60 mt-1">{{ person.email }}</p>{% endif %}
+      </div>
+      <button class="btn btn-sm btn-ghost"
+              hx-get="{% url 'crm:my_person_edit' person.pk %}"
+              hx-target="closest .card" hx-swap="outerHTML">
+        {% icon "pencil" class="h-4 w-4" %} Edit
+      </button>
+    </div>
+
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-3 text-sm">
+      <div class="space-y-2">
+        <div><dt class="opacity-60 inline">Phone&nbsp;</dt><dd class="inline">{{ person.phone|default:"—" }}</dd></div>
+        <div><dt class="opacity-60 inline">Date of birth&nbsp;</dt><dd class="inline">{% if person.date_of_birth %}{{ person.date_of_birth|date:"j M Y" }}{% else %}—{% endif %}</dd></div>
+      </div>
+      <div>
+        <dt class="opacity-60">Home address</dt>
+        <dd>{{ person.one_line_address|default:"—" }}</dd>
+      </div>
+    </dl>
+  </div>
+</div>

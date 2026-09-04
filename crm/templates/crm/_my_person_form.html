@@ -1,0 +1,38 @@
+{% load icons %}
+{% comment %}Edit state of one person card.{% endcomment %}
+<form class="card bg-base-100 shadow w-full"
+      hx-post="{% url 'crm:my_person_edit' person.pk %}"
+      hx-target="this" hx-swap="outerHTML">
+  {% csrf_token %}
+  <div class="card-body">
+    <h2 class="card-title text-base">
+      {% icon "contact" class="h-5 w-5 opacity-70" %}
+      {{ person.full_name|default:person.email }}
+    </h2>
+    {{ form.non_field_errors }}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.first_name %}
+      {% include "_field.html" with field=form.last_name %}
+      {% include "_field.html" with field=form.date_of_birth %}
+      {% include "_field.html" with field=form.phone %}
+    </div>
+    <div class="divider text-xs opacity-60 my-2">Home address</div>
+    {% include "_field.html" with field=form.home_address_line1 %}
+    {% include "_field.html" with field=form.home_address_line2 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.home_address_city %}
+      {% include "_field.html" with field=form.home_address_county %}
+    </div>
+    <div class="max-w-xs">
+      {% include "_field.html" with field=form.home_address_postcode %}
+    </div>
+
+    <div class="card-actions justify-end mt-2">
+      <button type="button" class="btn btn-ghost btn-sm"
+              hx-get="{% url 'crm:my_person_card' person.pk %}"
+              hx-target="closest form" hx-swap="outerHTML">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    </div>
+  </div>
+</form>

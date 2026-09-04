@@ -349,6 +349,19 @@ class CompanyInfoForm(DaisyUIFormMixin, forms.ModelForm):
         fields = ["name"] + ADDRESS_FIELDS_ORG
 
 
+class CustomerCompanyForm(DaisyUIFormMixin, forms.ModelForm):
+    """Customer portal: the organisation fields a customer may edit inline.
+
+    Name and Companies House number are deliberately absent — locked for
+    customers (a rename ripples across the CRM); ModelForms ignore posted
+    fields not in Meta.fields, so omission IS the lock."""
+
+    class Meta:
+        model = Organisation
+        fields = ADDRESS_FIELDS_ORG + ["phone", "email", "url"]
+        labels = {"url": "Website"}
+
+
 class CustomerInfoForm(DaisyUIFormMixin, forms.ModelForm):
     class Meta:
         model = Contact

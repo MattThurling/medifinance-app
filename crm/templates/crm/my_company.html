@@ -1,0 +1,20 @@
+{% extends "_app_layout.html" %}
+{% load icons %}
+
+{% block title %}Company · Medifinance{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold mb-6">Company</h1>
+
+  <div class="space-y-4">
+    {% for org in organisations %}
+      {% include "crm/_my_company_card.html" %}
+    {% empty %}
+      <p class="opacity-70 text-sm">
+        No company on file yet — your Medifinance contact will set this up with you.
+      </p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

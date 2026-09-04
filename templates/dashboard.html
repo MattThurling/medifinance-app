@@ -61,15 +61,30 @@
     </div>
   {% endif %}
 {% else %}
-  <div class="card bg-base-100 shadow">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 max-w-3xl">
+    <a href="{% url 'crm:my_company' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+      <div class="card-body py-5"><h2 class="card-title text-base">Company</h2>
+        <p class="text-sm opacity-70">Your company's details</p></div>
+    </a>
+    <a href="{% url 'crm:my_people' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+      <div class="card-body py-5"><h2 class="card-title text-base">People</h2>
+        <p class="text-sm opacity-70">You and your co-applicants</p></div>
+    </a>
+    <a href="{% url 'crm:my_deals' %}" class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+      <div class="card-body py-5"><h2 class="card-title text-base">Deals</h2>
+        <p class="text-sm opacity-70">Your deals and repayments</p></div>
+    </a>
+  </div>
+
+  <div class="card bg-base-100 shadow max-w-3xl">
     <div class="card-body">
       <h2 class="card-title">Your deals</h2>
       {% if customer_deals %}
         <ul class="divide-y mt-2">
           {% for d in customer_deals %}
             <li class="py-2 flex items-center justify-between gap-3">
-              <a href="{% url 'crm:portal_quote_select' d.pk %}" class="link link-hover flex-1">{{ d.name }}</a>
-              <a href="{% url 'crm:portal_documents' d.pk %}" class="link link-hover text-sm opacity-70">Documents</a>
+              <a href="{% url 'crm:my_deal_detail' d.pk %}" class="link link-hover flex-1">{{ d.name }}</a>
+              <a href="{% url 'crm:portal_quote_select' d.pk %}" class="link link-hover text-sm opacity-70">Application</a>
               {% if d.current_stage %}
                 <span class="badge badge-ghost">{{ d.current_stage.get_name_display }}</span>
               {% endif %}

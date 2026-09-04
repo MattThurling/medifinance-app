@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_customer
 
 app_name = "crm"
 
@@ -95,6 +95,18 @@ urlpatterns = [
     path("xero/disconnect/", views.XeroDisconnectView.as_view(), name="xero_disconnect"),
     path("xero/sync/", views.XeroSyncInvoicesView.as_view(), name="xero_sync"),
     path("deals/<int:pk>/raise-invoice/", views.DealRaiseInvoiceView.as_view(), name="deal_raise_invoice"),
+
+    # Customer portal (/my/) — the logged-in customer's own view of the CRM.
+    # Inline HTMX editing: each record has a page, a card partial and an edit
+    # endpoint (see crm/views_customer.py for the contract).
+    path("my/company/", views_customer.MyCompanyView.as_view(), name="my_company"),
+    path("my/company/<int:pk>/card/", views_customer.MyCompanyCardView.as_view(), name="my_company_card"),
+    path("my/company/<int:pk>/edit/", views_customer.MyCompanyEditView.as_view(), name="my_company_edit"),
+    path("my/people/", views_customer.MyPeopleView.as_view(), name="my_people"),
+    path("my/people/<int:pk>/card/", views_customer.MyPersonCardView.as_view(), name="my_person_card"),
+    path("my/people/<int:pk>/edit/", views_customer.MyPersonEditView.as_view(), name="my_person_edit"),
+    path("my/deals/", views_customer.MyDealListView.as_view(), name="my_deals"),
+    path("my/deals/<int:pk>/", views_customer.MyDealDetailView.as_view(), name="my_deal_detail"),
 
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/
     path("deals/<int:pk>/portal-link/", views.IssuePortalLinkView.as_view(), name="deal_issue_portal_link"),

@@ -1,0 +1,22 @@
+{% extends "_app_layout.html" %}
+{% load icons %}
+
+{% block title %}People · Medifinance{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold mb-1">People</h1>
+  <p class="text-sm opacity-70 mb-6">
+    You and anyone applying alongside you. To change an email address or add
+    someone new, contact your Medifinance representative.
+  </p>
+
+  <div class="space-y-4">
+    {% for person in people %}
+      {% include "crm/_my_person_card.html" %}
+    {% empty %}
+      <p class="opacity-70 text-sm">No people on file yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% load icons %}
+{% comment %}Edit state of one company card. Save posts back; Cancel restores the display card.{% endcomment %}
+<form class="card bg-base-100 shadow w-full"
+      hx-post="{% url 'crm:my_company_edit' org.pk %}"
+      hx-target="this" hx-swap="outerHTML">
+  {% csrf_token %}
+  <div class="card-body">
+    <h2 class="card-title text-base">{% icon "building" class="h-5 w-5 opacity-70" %} {{ org.name }}</h2>
+    {{ form.non_field_errors }}
+
+    {% include "_field.html" with field=form.address_line1 %}
+    {% include "_field.html" with field=form.address_line2 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.address_city %}
+      {% include "_field.html" with field=form.address_county %}
+    </div>
+    <div class="max-w-xs">
+      {% include "_field.html" with field=form.address_postcode %}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=form.phone %}
+      {% include "_field.html" with field=form.email %}
+    </div>
+    {% include "_field.html" with field=form.url %}
+
+    <div class="card-actions justify-end mt-2">
+      <button type="button" class="btn btn-ghost btn-sm"
+              hx-get="{% url 'crm:my_company_card' org.pk %}"
+              hx-target="closest form" hx-swap="outerHTML">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    </div>
+  </div>
+</form>

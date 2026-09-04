@@ -1057,6 +1057,7 @@ class Note(TimestampedModel):
         HUBSPOT_EMAIL = "hubspot_email", "HubSpot email"
         HUBSPOT_MIGRATION_COMMENT = "hubspot_migration_comment", "HubSpot migration comment"
         ADMIN_COMMENT = "admin_comment", "Admin comment"
+        CUSTOMER_UPDATE = "customer_update", "Customer update"
 
     type = models.CharField(max_length=32, choices=Type.choices)
 
