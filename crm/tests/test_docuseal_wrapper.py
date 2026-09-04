@@ -46,7 +46,7 @@ class WrapperTests(SimpleTestCase):
 
     @mock.patch("crm.docuseal.requests.request")
     def test_create_submission_payload_and_dict_response(self, request):
-        request.return_value = _response(json_body={"id": 55, "submitters": [{"id": 99}]})
+        request.return_value = _response(json_body={"id": 55, "submitters": [{"id": 99, "slug": "abc123"}]})
         result = docuseal.create_submission(
             template_id=7,
             signer_email="jane@example.com",
@@ -68,13 +68,13 @@ class WrapperTests(SimpleTestCase):
             "name": "Jane Doe",
             "values": {"Customer Name": "Jane Doe"},
         }])
-        self.assertEqual(result, {"submission_id": 55, "submitter_id": 99})
+        self.assertEqual(result, {"submission_id": 55, "submitter_id": 99, "slug": "abc123"})
 
     @mock.patch("crm.docuseal.requests.request")
     def test_create_submission_normalises_legacy_list_response(self, request):
-        request.return_value = _response(json_body=[{"id": 99, "submission_id": 55}])
+        request.return_value = _response(json_body=[{"id": 99, "submission_id": 55, "slug": "xyz789"}])
         result = docuseal.create_submission(template_id=7, signer_email="jane@example.com")
-        self.assertEqual(result, {"submission_id": 55, "submitter_id": 99})
+        self.assertEqual(result, {"submission_id": 55, "submitter_id": 99, "slug": "xyz789"})
 
     @mock.patch("crm.docuseal.requests.request")
     def test_api_error_surfaces_detail(self, request):

@@ -277,7 +277,7 @@ class DealReadOnlyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "No quote has been chosen yet")
 
-    def test_detail_shows_quote_and_documents_read_only(self):
+    def test_detail_shows_quote_and_documents(self):
         quote = make_quote(self.deal)
         self.deal.selected_quote = quote
         self.deal.save(update_fields=["selected_quote"])
@@ -287,7 +287,296 @@ class DealReadOnlyTests(TestCase):
         self.assertContains(response, f"{quote.term} months")
         self.assertContains(response, "Bank statements")
         self.assertContains(response, "Requested")
-        # Read-only: no upload controls, no forms beyond none at all.
+        # Since slice 2, requested documents carry an inline upload form.
+        self.assertContains(response, reverse("crm:document_upload", args=[doc.pk]))
+
+
+from unittest import mock
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
+
+from crm.models import Document, SignatureRequest
+
+from .factories import make_signature_request
+
+DOCUSEAL_ON = {"DOCUSEAL_URL": "http://sign.test:3000", "DOCUSEAL_API_TOKEN": "tok"}
+
+
+def _pdf(name="f.pdf"):
+    return SimpleUploadedFile(name, b"pdf", content_type="application/pdf")
+
+
+class DealDocumentUploadTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.deal = make_customer_with_deal()
+        cls.other_customer, cls.other_deal = make_customer_with_deal()
+
+    def setUp(self):
+        self.doc = make_document(self.deal, name="Bank statements")
+        self.client.force_login(self.customer)
+
+    def _upload(self, **kwargs):
+        return self.client.post(
+            reverse("crm:document_upload", args=[self.doc.pk]),
+            {"file": _pdf()},
+            **kwargs,
+        )
+
+    def test_htmx_upload_returns_row_partial_and_logs_note(self):
+        response = self._upload(**HTMX)
+        self.assertEqual(response.status_code, 200)
         content = response.content.decode()
-        self.assertNotIn("type=\"file\"", content)
-        self.assertNotIn("document_upload", content)
+        self.assertNotIn("<html", content)
+        self.assertIn("Provided", content)
+        self.assertIn("replace", content)
+
+        self.doc.refresh_from_db()
+        self.assertTrue(self.doc.is_provided)
+
+        note = Note.objects.get(type=Note.Type.CUSTOMER_UPDATE)
+        self.assertEqual(note.deal, self.deal)
+        self.assertEqual(note.author, self.customer)
+        self.assertIn("Bank statements", note.content)
+
+    def test_htmx_upload_without_file_returns_error_row_no_note(self):
+        response = self.client.post(
+            reverse("crm:document_upload", args=[self.doc.pk]), {}, **HTMX
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("Please choose a file", content)
+        self.assertIn("Requested", content)
+        self.doc.refresh_from_db()
+        self.assertFalse(self.doc.is_provided)
+        self.assertEqual(Note.objects.filter(type=Note.Type.CUSTOMER_UPDATE).count(), 0)
+
+    def test_foreign_customer_upload_forbidden(self):
+        self.client.force_login(self.other_customer)
+        response = self._upload(**HTMX)
+        self.assertEqual(response.status_code, 403)
+        self.doc.refresh_from_db()
+        self.assertFalse(self.doc.is_provided)
+
+    def test_wizard_upload_redirect_unchanged(self):
+        """Non-HTMX customer uploads keep the wizard redirect — regression."""
+        response = self._upload()
+        self.assertRedirects(
+            response,
+            reverse("crm:portal_documents", args=[self.deal.pk]),
+            fetch_redirect_response=False,
+        )
+        self.doc.refresh_from_db()
+        self.assertTrue(self.doc.is_provided)
+
+    def test_deal_page_hides_documents_card_when_none_requested(self):
+        self.doc.delete()
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertNotContains(response, "Documents")
+
+    def test_deal_page_shows_upload_form_for_requested_doc(self):
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, "hx-encoding=\"multipart/form-data\"")
+        self.assertContains(response, "Bank statements")
+
+
+class DealSigningTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.deal = make_customer_with_deal()
+        cls.other_customer, cls.other_deal = make_customer_with_deal()
+
+    def setUp(self):
+        self.client.force_login(self.customer)
+
+    def _sr(self, **extra):
+        extra.setdefault("signing_slug", "slug123")
+        return make_signature_request(self.deal, **extra)
+
+    def _sign_url(self, sr):
+        return reverse("crm:my_deal_sign", args=[self.deal.pk, sr.pk])
+
+    @override_settings(**DOCUSEAL_ON)
+    def test_sign_redirects_to_docuseal_signing_page(self):
+        # A redirect, not an embed — DocuSeal's embedded form is Pro-only.
+        sr = self._sr()
+        response = self.client.get(self._sign_url(sr))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://sign.test:3000/s/slug123")
+
+    @override_settings(**DOCUSEAL_ON)
+    def test_sign_backfills_missing_slug(self):
+        sr = self._sr(signing_slug="", submitter_id=42)
+        with mock.patch(
+            "crm.views_customer.docuseal.get_submission",
+            return_value={"submitters": [{"id": 41, "slug": "wrong"}, {"id": 42, "slug": "right42"}]},
+        ):
+            response = self.client.get(self._sign_url(sr))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://sign.test:3000/s/right42")
+        sr.refresh_from_db()
+        self.assertEqual(sr.signing_slug, "right42")
+
+    @override_settings(**DOCUSEAL_ON)
+    def test_sign_page_foreign_deal_404(self):
+        sr = make_signature_request(self.other_deal, signing_slug="slugx")
+        response = self.client.get(
+            reverse("crm:my_deal_sign", args=[self.other_deal.pk, sr.pk])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    @override_settings(**DOCUSEAL_ON)
+    def test_sign_page_inactive_request_redirects(self):
+        sr = self._sr(status=SignatureRequest.Status.COMPLETED)
+        response = self.client.get(self._sign_url(sr))
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+
+    @override_settings(DOCUSEAL_URL="", DOCUSEAL_API_TOKEN="")
+    def test_unconfigured_redirects_and_hides_button(self):
+        sr = self._sr()
+        response = self.client.get(self._sign_url(sr))
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        page = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertNotContains(page, "Sign now")
+
+    @override_settings(**DOCUSEAL_ON)
+    def test_deal_page_shows_sign_button_and_signed_link(self):
+        active = self._sr()
+        signed = self._sr(status=SignatureRequest.Status.COMPLETED)
+        signed.signed_file.save("signed.pdf", _pdf("signed.pdf"), save=True)
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, self._sign_url(active))
+        self.assertContains(response, reverse("crm:signature_signed_download", args=[signed.pk]))
+
+    def test_signed_download_permissions(self):
+        sr = self._sr(status=SignatureRequest.Status.COMPLETED)
+        sr.signed_file.save("signed.pdf", _pdf("signed.pdf"), save=True)
+        url = reverse("crm:signature_signed_download", args=[sr.pk])
+
+        self.assertEqual(self.client.get(url).status_code, 200)  # own deal
+        self.client.force_login(self.other_customer)
+        self.assertEqual(self.client.get(url).status_code, 403)  # foreign
+        self.client.force_login(make_associate())
+        self.assertEqual(self.client.get(url).status_code, 200)  # staff
+
+
+class ActionBadgeTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.deal = make_customer_with_deal()
+
+    def setUp(self):
+        self.client.force_login(self.customer)
+
+    def test_badge_counts_outstanding_items(self):
+        make_document(self.deal, name="Bank statements")  # requested
+        make_signature_request(self.deal)  # sent
+        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertContains(response, "2 actions needed")
+
+    def test_no_badge_when_everything_done(self):
+        doc = make_document(self.deal, name="Bank statements")
+        doc.attach(_pdf(), by=self.customer)
+        make_signature_request(self.deal, status=SignatureRequest.Status.COMPLETED)
+        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertNotContains(response, "needed")
+
+    def test_counts_do_not_multiply(self):
+        """Two docs + two signatures = 4, not 2×2 (distinct=True regression)."""
+        make_document(self.deal, name="A")
+        make_document(self.deal, name="B")
+        make_signature_request(self.deal)
+        make_signature_request(self.deal)
+        response = self.client.get(reverse("crm:my_deals"))
+        self.assertContains(response, "4 actions needed")
+
+
+class QuoteSelectionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.deal = make_customer_with_deal()
+        cls.other_customer, cls.other_deal = make_customer_with_deal()
+
+    def setUp(self):
+        self.quote = make_quote(self.deal)
+        self.client.force_login(self.customer)
+
+    def _select(self, quote=None, **kwargs):
+        return self.client.post(
+            reverse("crm:my_deal_quote_select", args=[self.deal.pk]),
+            {"quote": (quote or self.quote).pk},
+            **kwargs,
+        )
+
+    def test_card_hidden_without_quotes(self):
+        self.quote.delete()
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertNotContains(response, "Your quote")
+
+    def test_card_prompts_until_selected(self):
+        url = reverse("crm:my_deal_detail", args=[self.deal.pk])
+        response = self.client.get(url)
+        self.assertContains(response, "Action needed — please choose the quote")
+        # Selection happens straight from the radio: the form fires on change,
+        # there is no separate submit button.
+        self.assertContains(response, 'hx-trigger="change"')
+        self.assertNotContains(response, "Choose this quote")
+
+        self._select()
+        response = self.client.get(url)
+        self.assertNotContains(response, "Action needed — please choose the quote")
+        self.assertContains(response, "change your choice at any time")
+
+    def test_htmx_select_returns_card_and_logs_note(self):
+        response = self._select(**HTMX)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertNotIn("<html", content)
+        self.assertIn("Quote selected — thank you", content)
+
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.selected_quote_id, self.quote.pk)
+        note = Note.objects.get(type=Note.Type.CUSTOMER_UPDATE)
+        self.assertEqual(note.deal, self.deal)
+        self.assertIn("selected a quote", note.content)
+        self.assertIn(f"{self.quote.term} months", note.content)
+
+    def test_reselecting_same_quote_logs_no_second_note(self):
+        self._select(**HTMX)
+        self._select(**HTMX)
+        self.assertEqual(Note.objects.filter(type=Note.Type.CUSTOMER_UPDATE).count(), 1)
+
+    def test_invalid_selection_rejected(self):
+        foreign_quote = make_quote(self.other_deal)
+        response = self._select(quote=foreign_quote, **HTMX)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Please pick one of the quotes", response.content.decode())
+        self.deal.refresh_from_db()
+        self.assertIsNone(self.deal.selected_quote_id)
+
+    def test_foreign_deal_404(self):
+        self.client.force_login(self.other_customer)
+        response = self._select(**HTMX)
+        self.assertEqual(response.status_code, 404)
+        self.deal.refresh_from_db()
+        self.assertIsNone(self.deal.selected_quote_id)
+
+    def test_non_htmx_select_redirects(self):
+        response = self._select()
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.selected_quote_id, self.quote.pk)
+
+    def test_unselected_quote_counts_in_badge(self):
+        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), "1 action needed")
+        self._select()
+        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
+            with self.subTest(url=url):
+                self.assertNotContains(self.client.get(url), "needed")

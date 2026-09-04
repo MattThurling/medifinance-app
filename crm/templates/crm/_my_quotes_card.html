@@ -1,0 +1,60 @@
+{% load icons humanize %}
+{% comment %}
+The deal page's Quotes card — also the HTMX response for quote selection
+(the <form> is the swap target). Context: `deal`, `quotes`, and optionally
+`quote_saved` / `quote_error` after a POST.
+{% endcomment %}
+<form class="card bg-base-100 shadow w-full" id="quotes"
+      hx-post="{% url 'crm:my_deal_quote_select' deal.pk %}"
+      hx-trigger="change" hx-target="this" hx-swap="outerHTML">
+  {% csrf_token %}
+  <div class="card-body">
+    <h2 class="card-title text-base">{% icon "banknote" class="h-5 w-5 opacity-70" %} Your quote</h2>
+
+    {% if not deal.selected_quote_id %}
+      <div class="alert alert-warning py-2 text-sm">
+        <span>Action needed — please choose the quote you'd like to proceed with.</span>
+      </div>
+    {% elif quote_saved %}
+      <div class="alert alert-success py-2 text-sm"><span>Quote selected — thank you.</span></div>
+    {% endif %}
+    {% if quote_error %}
+      <div class="alert alert-error py-2 text-sm"><span>{{ quote_error }}</span></div>
+    {% endif %}
+
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Term</th>
+            <th>Deposit</th>
+            <th>Balloon</th>
+            <th>APR</th>
+            <th>Monthly payment</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for q in quotes %}
+            <tr>
+              <td>{{ q.term }} months</td>
+              <td>{% if q.deposit %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+              <td>{% if q.balloon %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+              <td>{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
+              <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+              <td class="text-right">
+                <input type="radio" name="quote" value="{{ q.pk }}"
+                       class="radio radio-lg radio-primary"
+                       {% if deal.selected_quote_id == q.pk %}checked{% endif %} required />
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="text-xs opacity-60 mt-1">
+      {% if deal.selected_quote_id %}You can change your choice at any time by picking a different quote.{% else %}Pick a quote to select it.{% endif %}
+    </p>
+  </div>
+</form>

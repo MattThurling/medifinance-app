@@ -1,0 +1,33 @@
+{% comment %}
+One document row on the customer deal page — also the HTMX response for
+uploads: the <li> is the swap target (hx-target="closest li", outerHTML).
+Context: `d` (Document), optional `upload_error` (string).
+{% endcomment %}
+<li class="py-2 flex items-center justify-between gap-3 flex-wrap">
+  <span class="font-medium">{{ d.name }}</span>
+  <span class="flex items-center gap-2">
+    {% if d.is_provided %}
+      <span class="badge badge-success badge-sm">Provided</span>
+      <a href="{% url 'crm:document_download' d.pk %}" class="link link-hover text-sm">View</a>
+      <form hx-post="{% url 'crm:document_upload' d.pk %}" hx-encoding="multipart/form-data"
+            hx-target="closest li" hx-swap="outerHTML">
+        {% csrf_token %}
+        <label class="link link-hover text-sm cursor-pointer">
+          replace
+          <input type="file" name="file" class="hidden" onchange="this.form.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" />
+        </label>
+      </form>
+    {% else %}
+      <span class="badge badge-warning badge-sm">Requested</span>
+      <form hx-post="{% url 'crm:document_upload' d.pk %}" hx-encoding="multipart/form-data"
+            hx-target="closest li" hx-swap="outerHTML" class="flex items-center gap-2">
+        {% csrf_token %}
+        <input type="file" name="file" required class="file-input file-input-bordered file-input-sm" />
+        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+      </form>
+    {% endif %}
+  </span>
+  {% if upload_error %}
+    <p class="text-error text-sm w-full">{{ upload_error }}</p>
+  {% endif %}
+</li>

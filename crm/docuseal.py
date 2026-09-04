@@ -63,7 +63,9 @@ def create_submission(
     """Send a template to one signer, prefilled with `values` (keyed by the
     template's field names — unknown keys are ignored by DocuSeal).
 
-    Returns {"submission_id": int, "submitter_id": int | None}.
+    Returns {"submission_id": int, "submitter_id": int | None,
+    "slug": str | None} — `slug` is the signer's DocuSeal slug; their signing
+    page is {DOCUSEAL_URL}/s/{slug}.
     """
     submitter: dict = {"email": signer_email}
     if signer_name:
@@ -90,11 +92,16 @@ def create_submission(
     # return {"id": ..., "submitters": [...]}. Normalise to one shape.
     if isinstance(body, list):
         first = body[0] if body else {}
-        return {"submission_id": first.get("submission_id"), "submitter_id": first.get("id")}
+        return {
+            "submission_id": first.get("submission_id"),
+            "submitter_id": first.get("id"),
+            "slug": first.get("slug"),
+        }
     submitters = body.get("submitters") or []
     return {
         "submission_id": body.get("id"),
         "submitter_id": submitters[0].get("id") if submitters else None,
+        "slug": submitters[0].get("slug") if submitters else None,
     }
 
 

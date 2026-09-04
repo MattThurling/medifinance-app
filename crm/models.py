@@ -1005,6 +1005,9 @@ class SignatureRequest(TimestampedModel):
     template_name = models.CharField(max_length=255, blank=True)
     submission_id = models.PositiveIntegerField(unique=True)
     submitter_id = models.PositiveIntegerField(null=True, blank=True)
+    # DocuSeal's per-signer slug: the signing page lives at {DOCUSEAL_URL}/s/{slug}.
+    # Captured at creation; lazily backfilled for older rows (MyDealSignView).
+    signing_slug = models.CharField(max_length=255, blank=True, default="")
 
     signer = models.ForeignKey(
         Contact,

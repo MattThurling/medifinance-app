@@ -107,6 +107,8 @@ urlpatterns = [
     path("my/people/<int:pk>/edit/", views_customer.MyPersonEditView.as_view(), name="my_person_edit"),
     path("my/deals/", views_customer.MyDealListView.as_view(), name="my_deals"),
     path("my/deals/<int:pk>/", views_customer.MyDealDetailView.as_view(), name="my_deal_detail"),
+    path("my/deals/<int:pk>/quotes/", views_customer.MyDealQuoteSelectView.as_view(), name="my_deal_quote_select"),
+    path("my/deals/<int:deal_pk>/sign/<int:sr_pk>/", views_customer.MyDealSignView.as_view(), name="my_deal_sign"),
 
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/
     path("deals/<int:pk>/portal-link/", views.IssuePortalLinkView.as_view(), name="deal_issue_portal_link"),

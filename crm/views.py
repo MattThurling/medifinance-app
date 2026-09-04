@@ -1677,6 +1677,16 @@ class SubmitParticipationInvoiceView(View):
 
 # --- Documents -------------------------------------------------------------
 
+def _can_access_signature(user, sr: SignatureRequest) -> bool:
+    """Staff see any signature request; a customer only their own deal's."""
+    if not user.is_authenticated:
+        return False
+    if user.is_admin or user.is_associate:
+        return True
+    customer = sr.deal.customer
+    return user.is_customer and customer is not None and customer.user_id == user.id
+
+
 def _can_access_document(user, doc: Document) -> bool:
     """Staff see any document; a customer only their own deal's."""
     if not user.is_authenticated:
@@ -1737,10 +1747,30 @@ class DocumentUploadView(LoginRequiredMixin, View):
             raise PermissionDenied
 
         form = DocumentUploadForm(request.POST, request.FILES, instance=doc)
+        is_htmx = request.headers.get("HX-Request") == "true"
         if form.is_valid():
             doc.attach(form.cleaned_data["file"], by=request.user)
+            if request.user.is_customer:
+                # Audit trail for staff — mirrors the portal's inline edits.
+                Note.objects.create(
+                    type=Note.Type.CUSTOMER_UPDATE,
+                    author=request.user,
+                    datetime=timezone.now(),
+                    content=f"Customer uploaded “{doc.name}”.",
+                    deal=doc.deal,
+                )
+            if is_htmx:
+                # Portal inline upload: swap the document row in place. No
+                # flash message — it would pop as a stale toast later.
+                return render(request, "crm/_my_document_row.html", {"d": doc})
             messages.success(request, f"“{doc.name}” uploaded.")
         else:
+            if is_htmx:
+                return render(
+                    request,
+                    "crm/_my_document_row.html",
+                    {"d": doc, "upload_error": "Please choose a file."},
+                )
             messages.error(request, f"Couldn't upload “{doc.name}”. Please choose a file.")
 
         if request.user.is_customer:
@@ -1947,6 +1977,7 @@ class SignatureRequestCreateView(StaffRequiredMixin, View):
             template_name=template_name,
             submission_id=result["submission_id"],
             submitter_id=result["submitter_id"],
+            signing_slug=result.get("slug") or "",
             signer=form.cleaned_data["signer"],
             signer_email=form.cleaned_data["signer_email"],
             signer_name=form.cleaned_data["signer_name"],
@@ -2009,6 +2040,7 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
             template_name=old.template_name,
             submission_id=result["submission_id"],
             submitter_id=result["submitter_id"],
+            signing_slug=result.get("slug") or "",
             signer=old.signer,
             signer_email=old.signer_email,
             signer_name=old.signer_name,
@@ -2021,22 +2053,27 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
         return redirect(deal.get_absolute_url())
 
 
-class SignatureSignedFileDownloadView(StaffRequiredMixin, View):
-    """Stream the signed PDF for a completed signature request."""
+class SignatureSignedFileDownloadView(LoginRequiredMixin, View):
+    """Stream the signed PDF for a completed signature request. Staff see any;
+    a customer only their own deal's (linked from the customer portal)."""
 
     def get(self, request, pk):
-        sr = get_object_or_404(SignatureRequest, pk=pk)
+        sr = get_object_or_404(SignatureRequest.objects.select_related("deal__customer"), pk=pk)
+        if not _can_access_signature(request.user, sr):
+            raise PermissionDenied
         if not sr.signed_file:
             raise Http404("No signed document has been stored for this signature request.")
         filename = sr.signed_file.name.rsplit("/", 1)[-1]
         return FileResponse(sr.signed_file.open("rb"), as_attachment=False, filename=filename)
 
 
-class SignatureAuditDownloadView(StaffRequiredMixin, View):
+class SignatureAuditDownloadView(LoginRequiredMixin, View):
     """Stream the DocuSeal audit-log PDF for a completed signature request."""
 
     def get(self, request, pk):
-        sr = get_object_or_404(SignatureRequest, pk=pk)
+        sr = get_object_or_404(SignatureRequest.objects.select_related("deal__customer"), pk=pk)
+        if not _can_access_signature(request.user, sr):
+            raise PermissionDenied
         if not sr.audit_log_file:
             raise Http404("No audit log has been stored for this signature request.")
         return FileResponse(sr.audit_log_file.open("rb"), as_attachment=False, filename="audit-log.pdf")

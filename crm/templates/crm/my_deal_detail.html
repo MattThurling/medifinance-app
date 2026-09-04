@@ -36,32 +36,67 @@
           <div><dt class="opacity-60 inline">Your contact&nbsp;</dt><dd class="inline">{{ deal.owner.full_name }}</dd></div>
         {% endif %}
       </dl>
-      {% if not deal.selected_quote %}
+      {% if not deal.selected_quote and not quotes %}
         <p class="text-sm opacity-70 mt-2">No quote has been chosen yet.</p>
       {% endif %}
     </div>
   </div>
 
-  {# ---- Documents (read-only this slice) ---- #}
-  <div class="card bg-base-100 shadow w-full">
-    <div class="card-body">
-      <h2 class="card-title text-base">{% icon "file-text" class="h-5 w-5 opacity-70" %} Documents</h2>
-      <ul class="divide-y divide-base-200">
-        {% for d in documents %}
-          <li class="py-2 flex items-center justify-between gap-3">
-            <span class="font-medium">{{ d.name }}</span>
-            {% if d.is_provided %}
-              <span class="badge badge-success badge-sm">Provided</span>
-            {% else %}
-              <span class="badge badge-warning badge-sm">Requested</span>
-            {% endif %}
-          </li>
-        {% empty %}
-          <li class="py-2 opacity-70 text-sm">No documents have been requested.</li>
-        {% endfor %}
-      </ul>
+  {# ---- Quotes — pick one inline (card hidden until quotes exist) ---- #}
+  {% if quotes %}
+    {% include "crm/_my_quotes_card.html" %}
+  {% endif %}
+
+  {# ---- Documents — upload/replace inline (card hidden until requested) ---- #}
+  {% if documents %}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">{% icon "file-text" class="h-5 w-5 opacity-70" %} Documents</h2>
+        <p class="text-sm opacity-70">Please upload the documents requested below.</p>
+        <ul class="divide-y divide-base-200">
+          {% for d in documents %}
+            {% include "crm/_my_document_row.html" %}
+          {% endfor %}
+        </ul>
+      </div>
     </div>
-  </div>
+  {% endif %}
+
+  {# ---- Signatures (card hidden until a request exists) ---- #}
+  {% if signature_requests %}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">{% icon "signature" class="h-5 w-5 opacity-70" %} Signatures</h2>
+        <ul class="divide-y divide-base-200">
+          {% for sr in signature_requests %}
+            <li class="py-2 flex items-center justify-between gap-3 flex-wrap">
+              <span>
+                <span class="font-medium">{{ sr.template_name|default:"Agreement" }}</span>
+                <span class="block text-sm opacity-70">{{ sr.signer_name|default:sr.signer_email }}</span>
+              </span>
+              <span class="flex items-center gap-2">
+                {% if sr.status == "completed" %}
+                  <span class="badge badge-success badge-sm">Signed</span>
+                  {% if sr.signed_file %}
+                    <a href="{% url 'crm:signature_signed_download' sr.pk %}" class="link link-hover text-sm">View signed document</a>
+                  {% endif %}
+                {% elif sr.status == "declined" %}
+                  <span class="badge badge-error badge-sm">Declined</span>
+                {% elif sr.status == "voided" %}
+                  <span class="badge badge-ghost badge-sm">Cancelled</span>
+                {% else %}
+                  <span class="badge badge-warning badge-sm">Awaiting signature</span>
+                  {% if docuseal_ready %}
+                    <a href="{% url 'crm:my_deal_sign' deal.pk sr.pk %}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Sign now</a>
+                  {% endif %}
+                {% endif %}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% endif %}
 
   {# ---- Repayments ---- #}
   {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule %}

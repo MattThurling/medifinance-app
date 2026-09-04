@@ -34,9 +34,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             # the filters and the full breakdowns.
             ctx["stats"] = stats.dashboard_stats(stats.StatsParams.from_request(self.request))
         elif user.is_customer:
-            # OneToOne reverse accessor — may not exist if the user has no linked Contact yet.
-            contact = getattr(user, "contact", None)
-            ctx["customer_deals"] = contact.deals.all() if contact else []
+            # Inline import — accounts loads before crm (see comment above).
+            # customer_deals is user-scoped and annotated with the
+            # outstanding-actions counts the badges need; it also handles a
+            # user with no linked Contact (empty queryset).
+            from crm.views_customer import customer_deals
+            ctx["customer_deals"] = customer_deals(user)
         return ctx
 
 
