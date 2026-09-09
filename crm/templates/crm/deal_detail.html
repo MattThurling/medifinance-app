@@ -52,7 +52,10 @@ layout (main content left, amount + timeline right).
         <p>First payment: {{ deal.first_payment_date|date:"j M Y" }}</p>
       {% endif %}
       {% if deal.maturity_date %}
-        <p>Term ends: {{ deal.maturity_date|date:"j M Y" }}</p>
+        <p>
+          Term ends: {{ deal.maturity_date|date:"j M Y" }}{% if deal.selected_quote.commitment_months %}
+          <span class="opacity-60">(rate committed for {{ deal.selected_quote.commitment_months }} months)</span>{% endif %}
+        </p>
       {% endif %}
       {% if deal.selected_quote.repayment_profile %}
         <p>Repayment profile: {{ deal.selected_quote.repayment_profile }}</p>
@@ -217,8 +220,8 @@ layout (main content left, amount + timeline right).
           <tbody>
             {% for q in deal.quotes.all %}
               <tr {% if deal.selected_quote_id == q.pk %}class="bg-primary/10"{% endif %}>
-                <td>{{ q.term }} m</td>
-                <td class="opacity-70 hidden md:table-cell">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% else %}—{% endif %}</td>
+                <td>{{ q.term }} m{% if q.commitment_months %} <span class="opacity-60 whitespace-nowrap">· {{ q.commitment_months }}m committed</span>{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% elif q.lender %}{{ q.lender.name }}{% if q.interest_rate_percent %} · {{ q.interest_rate_percent }}%{% endif %}{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.deposit %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.balloon %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>

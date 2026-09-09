@@ -286,6 +286,48 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
         return funded - value("deposit") - value("balloon")
 
 
+class CommercialQuoteForm(DaisyUIFormMixin, forms.ModelForm):
+    """The slim quote form for every deal type except Asset Finance: choose
+    the lender directly (searchable combobox, as proposals do) and enter the
+    term, the optional rate commitment, and commission. No rate bands, no
+    deposit/balloon, no pricing maths — `monthly_payment` stays None and the
+    quote reads "payment TBC"."""
+
+    term = forms.IntegerField(min_value=1, label="Term (months)")
+    commitment_months = forms.IntegerField(
+        min_value=1,
+        required=False,
+        label="Rate committed for (months)",
+        help_text="Optional — for long loans with a rate review, the shorter "
+                  "window the rate is committed for. Blank = full term.",
+    )
+
+    class Meta:
+        model = Quote
+        fields = ["lender", "interest_rate_percent", "term", "commitment_months", "commission_percent"]
+        labels = {"interest_rate_percent": "Interest rate (% p.a.)"}
+
+    def __init__(self, *args, deal=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.deal = deal or (self.instance.deal if self.instance and self.instance.pk else None)
+        self.fields["lender"].required = True
+        # Nullable on the model (Asset Finance quotes don't use it) but every
+        # commercial quote carries its rate — it drives the payment maths.
+        self.fields["interest_rate_percent"].required = True
+
+    def clean(self):
+        cleaned = super().clean()
+        term = cleaned.get("term")
+        commitment = cleaned.get("commitment_months")
+        if term and commitment and commitment >= term:
+            self.add_error(
+                "commitment_months",
+                "Must be shorter than the term — leave blank if the rate is "
+                "committed for the full term.",
+            )
+        return cleaned
+
+
 class StageForm(DaisyUIFormMixin, forms.ModelForm):
     """Stage-change ModelForm. `deal`, `set_by` and `occurred_at` are set by the view."""
 

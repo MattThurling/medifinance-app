@@ -103,12 +103,19 @@ than being hidden, so the structure stays predictable.
       <section>
         <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 border-b border-base-300 pb-1 mb-3">Selected quote</h2>
         <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
-          <dt class="opacity-60">Lender</dt>            <dd>{% if q.rate %}{{ q.rate.organisation.name }}{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Lender</dt>            <dd>{% if q.lender_org %}{{ q.lender_org.name }}{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Term</dt>              <dd>{{ q.term }} months</dd>
+          {% if q.commitment_months %}
+          <dt class="opacity-60">Committed for</dt>      <dd>{{ q.commitment_months }} months</dd>
+          {% endif %}
           <dt class="opacity-60">Deposit</dt>           <dd>{% if q.deposit is not None %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Balloon</dt>           <dd>{% if q.balloon is not None %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Repayment profile</dt> <dd>{{ q.repayment_profile|default:"—" }}</dd>
-          <dt class="opacity-60">Yield</dt>             <dd>{% if q.rate %}{{ q.rate.yield_percent }}%{% else %}—{% endif %}</dd>
+          {% if q.interest_rate_percent %}
+          <dt class="opacity-60">Interest rate</dt>     <dd>{{ q.interest_rate_percent }}% p.a.</dd>
+          {% else %}
+          <dt class="opacity-60">Yield</dt>             <dd>{% if q.yield_percent is not None %}{{ q.yield_percent }}%{% else %}—{% endif %}</dd>
+          {% endif %}
           <dt class="opacity-60">Commission %</dt>      <dd>{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</dd>
           <dt class="opacity-60">APR</dt>               <dd>{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Flat rate</dt>         <dd>{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</dd>
@@ -125,8 +132,8 @@ than being hidden, so the structure stays predictable.
       <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5 mb-4">
         <dt class="opacity-60">Quote {{ forloop.counter }}</dt>
         <dd>
-          {{ q.term }} months
-          {% if q.rate %} · {{ q.rate.organisation.name }} @ {{ q.rate.yield_percent }}%{% endif %}
+          {{ q.term }} months{% if q.commitment_months %} ({{ q.commitment_months }}m committed){% endif %}
+          {% if q.rate %} · {{ q.rate.organisation.name }} @ {{ q.rate.yield_percent }}%{% elif q.lender %} · {{ q.lender.name }}{% if q.interest_rate_percent %} @ {{ q.interest_rate_percent }}%{% endif %}{% endif %}
           {% if q.deposit %} · £{{ q.deposit|floatformat:2|intcomma }} deposit{% endif %}
           {% if q.balloon %} · £{{ q.balloon|floatformat:2|intcomma }} balloon{% endif %}
           {% if q.monthly_payment is not None %} · £{{ q.monthly_payment|floatformat:2|intcomma }}/month{% endif %}

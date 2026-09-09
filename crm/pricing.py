@@ -31,6 +31,22 @@ def cheapest_rate_band(*, term_months: int, amount: int | Decimal) -> RateBand |
     )
 
 
+def rate_per_thousand_exact(yield_percent: Decimal, term_months: int) -> Decimal | None:
+    """Full-precision monthly rental per £1,000 of capital — the annuity-due
+    payment `=-PMT(yield/100/12, term, 1000, 0, 1)`. Pure function of yield +
+    term; `RateBand.rate_per_thousand_exact()` delegates here, and yield-driven
+    commercial quotes call it with the quote's own term. NOT rounded."""
+    if not term_months or yield_percent is None:
+        return None
+    r = (Decimal(yield_percent) / Decimal("100")) / Decimal("12")
+    n = int(term_months)
+    pv = Decimal("1000")
+    if r == 0:
+        return pv / Decimal(n)
+    growth = (Decimal("1") + r) ** n
+    return pv * r * growth / ((Decimal("1") + r) * (growth - Decimal("1")))
+
+
 def monthly_payment(
     *,
     principal: Decimal,
@@ -59,6 +75,36 @@ def monthly_payment(
     comm = (commission_percent or Decimal("0")) / Decimal("100")
     figure = rpt + comm * rpt
     monthly = figure * Decimal(principal) / Decimal("1000")
+    return monthly.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def commercial_monthly_payment(
+    *,
+    principal: Decimal,
+    annual_rate_percent: Decimal,
+    term_months: int,
+) -> Decimal | None:
+    """Standard mortgage amortisation — an ORDINARY annuity (payments at
+    period end, Excel `PMT(rate/12, n, -pv)` with type=0), the convention
+    commercial lenders quote in:
+
+        M = P · r / (1 − (1+r)^−n),   r = annual_rate/100/12
+
+    This is deliberately a different convention from the Asset Finance
+    annuity-due formula above, and matches the ordinary-annuity maths
+    `implied_monthly_rate`/`repayment_schedule` amortise with. Rounded 2dp
+    half-up at the end only. Returns None if any input is missing.
+    """
+    if principal is None or annual_rate_percent is None or not term_months:
+        return None
+    r = (Decimal(annual_rate_percent) / Decimal("100")) / Decimal("12")
+    n = int(term_months)
+    p = Decimal(principal)
+    if r == 0:
+        monthly = p / Decimal(n)
+    else:
+        growth = (Decimal("1") + r) ** n
+        monthly = p * r * growth / (growth - Decimal("1"))
     return monthly.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 

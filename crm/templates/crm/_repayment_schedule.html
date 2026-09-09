@@ -26,7 +26,14 @@ when there is no schedule yet, otherwise the card is skipped entirely.
           </thead>
           <tbody>
             {% for row in schedule %}
-              <tr>
+              {% ifchanged row.indicative %}{% if row.indicative %}
+                <tr>
+                  <td colspan="6" class="text-xs text-warning bg-warning/10">
+                    Rate review — payments beyond this point are indicative until the rate is reviewed.
+                  </td>
+                </tr>
+              {% endif %}{% endifchanged %}
+              <tr{% if row.indicative %} class="opacity-60"{% endif %}>
                 <td class="opacity-70">{{ row.number }}</td>
                 <td class="whitespace-nowrap">{{ row.due_date|date:"j M Y" }}</td>
                 <td class="opacity-70 hidden md:table-cell">£{{ row.interest|floatformat:2|intcomma }}</td>

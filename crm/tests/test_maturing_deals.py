@@ -42,6 +42,23 @@ class MaturityDateTests(TestCase):
         # 12 months after the first payment, clamped to month end.
         self.assertEqual(deal.maturity_date, date(2027, 1, 31))
 
+    def test_commitment_end_wins_over_full_term(self):
+        """A 25y/5y deal matures at the rate review — the re-brokering
+        moment — not at year 25."""
+        deal = make_deal(first_payment_date=date(2026, 1, 1))
+        deal.selected_quote = make_quote(deal, term=300, commitment_months=60)
+        deal.save()
+        # 59 months after the first payment = the 60th (last committed) payment.
+        self.assertEqual(deal.maturity_date, date(2030, 12, 1))
+
+    def test_explicit_term_end_still_wins_over_commitment(self):
+        deal = make_deal(
+            term_end_date=date(2051, 1, 1),
+            first_payment_date=date(2026, 1, 1),
+        )
+        deal.selected_quote = make_quote(deal, term=300, commitment_months=60)
+        self.assertEqual(deal.maturity_date, date(2051, 1, 1))
+
     def test_none_without_either_source(self):
         deal = make_deal()
         self.assertIsNone(deal.maturity_date)

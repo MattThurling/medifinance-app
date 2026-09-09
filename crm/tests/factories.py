@@ -108,9 +108,27 @@ def make_rate_band(*, organisation: Organisation | None = None,
 
 
 def make_quote(deal: Deal, *, rate: RateBand | None = None,
-               term: int = 60) -> Quote:
-    rate = rate or make_rate_band(term_months=term)
-    return Quote.objects.create(deal=deal, rate=rate, term=term)
+               term: int = 60, commitment_months: int | None = None) -> Quote:
+    """With a commitment, the default rate band is priced on the commitment
+    (that's what band-matching keys on), not the full amortisation term."""
+    rate = rate or make_rate_band(term_months=commitment_months or term)
+    return Quote.objects.create(
+        deal=deal, rate=rate, term=term, commitment_months=commitment_months,
+    )
+
+
+def make_commercial_quote(deal: Deal, *, lender: Organisation | None = None,
+                          term: int = 300,
+                          commitment_months: int | None = None,
+                          interest_rate: Decimal | str | None = None) -> Quote:
+    """A rate-band-less quote as the slim commercial form creates them."""
+    return Quote.objects.create(
+        deal=deal,
+        lender=lender or make_organisation(name=f"Lender {_next()}"),
+        term=term,
+        commitment_months=commitment_months,
+        interest_rate_percent=Decimal(interest_rate) if interest_rate is not None else None,
+    )
 
 
 def make_proposal(deal: Deal, *, lender: Organisation | None = None,

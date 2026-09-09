@@ -321,7 +321,8 @@ class Deal(TimestampedModel):
         null=True, blank=True,
         help_text="When the finance term ends. Migrated from HubSpot for "
                   "historical deals; leave blank to derive it from the first "
-                  "payment date + selected quote's term.",
+                  "payment date + the selected quote's committed term (or "
+                  "full term).",
     )
 
     # Customer's chosen quote, picked via the portal application
@@ -409,9 +410,11 @@ class Deal(TimestampedModel):
 
     @property
     def maturity_date(self) -> "date | None":
-        """When this deal's finance term ends. The explicit `term_end_date`
-        (set by staff or the HubSpot migration) wins; otherwise derived as the
-        selected quote's final payment date. None when neither is available."""
+        """When this deal matures for re-engagement. The explicit
+        `term_end_date` (set by staff or the HubSpot migration) wins;
+        otherwise derived as the end of the selected quote's committed period
+        — the rate review, when there is one — else its full term. None when
+        neither is available."""
         if self.term_end_date:
             return self.term_end_date
         quote = self.selected_quote
@@ -419,7 +422,7 @@ class Deal(TimestampedModel):
             return None
         from . import pricing  # avoid circular import; pricing imports RateBand
 
-        return pricing.add_months(self.first_payment_date, quote.term - 1)
+        return pricing.add_months(self.first_payment_date, quote.priced_term - 1)
 
     @property
     def repayment_schedule(self) -> "list[dict] | None":
@@ -431,12 +434,26 @@ class Deal(TimestampedModel):
         quote = self.selected_quote
         if self.first_payment_date is None or quote is None:
             return None
-        return pricing.repayment_schedule(
+        rows = pricing.repayment_schedule(
             principal=quote.finance_amount,
             monthly_payment=quote.monthly_payment,
             term_months=quote.term,
             first_payment_date=self.first_payment_date,
         )
+        # Beyond the committed window the rate is subject to review, so those
+        # payments are indicative. Presentation concern only — the shared
+        # pricing maths stay untouched.
+        if rows and quote.commitment_months and quote.commitment_months < len(rows):
+            for row in rows[quote.commitment_months:]:
+                row["indicative"] = True
+        return rows
+
+    @property
+    def has_committed_quote(self) -> bool:
+        """Whether any quote on this deal has a rate commitment — drives the
+        'Committed for' column. Iterates `quotes.all()` so a prefetch stays
+        cheap."""
+        return any(q.commitment_months for q in self.quotes.all())
 
 
 def participation_invoice_upload_path(instance: "Participation", filename: str) -> str:
@@ -649,6 +666,12 @@ class Quote(TimestampedModel):
     Each quote is a self-contained financing structure: term, rate, and its
     own deposit/balloon/repayment profile, so alternatives like "£5k deposit
     over 60 months" vs "no deposit over 48" can sit side by side on one deal.
+
+    `term` is always the FULL amortisation horizon — it drives the payment,
+    APR, flat-rate and schedule maths. `commitment_months`, when set, is the
+    shorter window the rate is committed/priced for ("25-year loan, 5-year
+    commitment"): rate-band matching and the deal's maturity key on it via
+    `priced_term`, and repayments beyond it are indicative until the review.
     `monthly_payment` is computed on access (a property) from this quote's
     `finance_amount`, the chosen rate band's yield, and the term — never stored,
     so it always reflects the deal's current participations and this quote's
@@ -661,9 +684,37 @@ class Quote(TimestampedModel):
         on_delete=models.PROTECT,
         related_name="quotes",
         null=True,
-        help_text="The lender rate band this quote is priced on.",
+        help_text="The lender rate band this quote is priced on (Asset "
+                  "Finance quotes).",
+    )
+    lender = models.ForeignKey(
+        Organisation,
+        on_delete=models.PROTECT,
+        related_name="direct_quotes",
+        null=True,
+        blank=True,
+        help_text="For commercial quotes with no rate band — the lender "
+                  "quoted directly.",
+    )
+    interest_rate_percent = models.DecimalField(
+        "Interest rate",
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Annual interest rate for commercial quotes with no rate "
+                  "band, e.g. 9.50 for 9.5% p.a. Drives a mortgage-style "
+                  "repayment over the full term.",
     )
     term = models.PositiveSmallIntegerField(help_text="Term in months.")
+    commitment_months = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Months the rate is committed for, when shorter than the "
+                  "full term. The rate band is matched on this; repayments "
+                  "beyond it are indicative until the rate review. Leave "
+                  "blank when the rate runs the full term.",
+    )
     commission_percent = models.DecimalField(
         "Commission %",
         max_digits=5,
@@ -685,9 +736,33 @@ class Quote(TimestampedModel):
 
     class Meta:
         ordering = ["deal", "term"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(commitment_months__isnull=True)
+                | models.Q(commitment_months__lt=models.F("term")),
+                name="quote_commitment_lt_term",
+            ),
+        ]
+
+    @property
+    def lender_org(self):
+        """The lender behind this quote: the rate band's organisation for
+        priced (Asset Finance) quotes, the direct lender for commercial ones."""
+        if self.rate_id:
+            return self.rate.organisation
+        return self.lender
+
+    @property
+    def priced_term(self) -> int:
+        """The term the rate applies to — the committed window when set,
+        else the full term. Rate-band matching and maturity read this."""
+        return self.commitment_months or self.term
 
     @property
     def yield_percent(self) -> "Decimal | None":
+        """The rate band's yield (Asset Finance quotes). Commercial quotes
+        carry `interest_rate_percent` instead — a different convention, not
+        a yield."""
         return self.rate.yield_percent if self.rate_id else None
 
     @property
@@ -711,14 +786,25 @@ class Quote(TimestampedModel):
         public quote API so partners get the same numbers as the internal tool."""
         from . import pricing  # avoid circular import; pricing imports RateBand
 
-        if not (self.deal_id and self.rate_id and self.term):
+        if not (self.deal_id and self.term):
             return None
-        return pricing.monthly_payment(
-            principal=self.finance_amount,
-            rate_band=self.rate,
-            term_months=self.term,
-            commission_percent=self.commission_percent,
-        )
+        if self.rate_id:
+            # Asset Finance: the rate band's annuity-due spreadsheet formula.
+            return pricing.monthly_payment(
+                principal=self.finance_amount,
+                rate_band=self.rate,
+                term_months=self.term,
+                commission_percent=self.commission_percent,
+            )
+        if self.interest_rate_percent is not None:
+            # Commercial: standard mortgage amortisation at the entered rate.
+            # Commission is the broker's record, not loaded onto the payment.
+            return pricing.commercial_monthly_payment(
+                principal=self.finance_amount,
+                annual_rate_percent=self.interest_rate_percent,
+                term_months=self.term,
+            )
+        return None
 
     @property
     def monthly_payment(self) -> "Decimal | None":
@@ -822,15 +908,9 @@ class RateBand(TimestampedModel):
         NOT rounded — callers that multiply by a loan amount must round only at
         the end, else the 2dp rounding gets amplified by amount/1000.
         """
-        if not self.term_months or self.yield_percent is None:
-            return None
-        r = (Decimal(self.yield_percent) / Decimal("100")) / Decimal("12")
-        n = int(self.term_months)
-        pv = Decimal("1000")
-        if r == 0:
-            return pv / Decimal(n)
-        growth = (Decimal("1") + r) ** n
-        return pv * r * growth / ((Decimal("1") + r) * (growth - Decimal("1")))
+        from . import pricing  # avoid circular import; pricing imports RateBand
+
+        return pricing.rate_per_thousand_exact(self.yield_percent, self.term_months)
 
     @property
     def rate_per_thousand(self) -> "Decimal":

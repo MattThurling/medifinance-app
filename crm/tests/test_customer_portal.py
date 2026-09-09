@@ -578,3 +578,82 @@ class QuoteSelectionTests(TestCase):
         for url in [reverse("crm:my_deals"), reverse("dashboard")]:
             with self.subTest(url=url):
                 self.assertNotContains(self.client.get(url), "needed")
+
+
+class CommittedQuoteCardTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.deal = make_customer_with_deal()
+
+    def setUp(self):
+        self.client.force_login(self.customer)
+
+    def _page(self):
+        return self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+
+    def test_committed_for_column_toggles(self):
+        make_quote(self.deal, term=60)
+        self.assertNotContains(self._page(), "Committed for")
+
+        make_quote(self.deal, term=300, commitment_months=60)
+        response = self._page()
+        self.assertContains(response, "Committed for")
+        self.assertContains(response, "60 months")
+
+    def test_committed_quote_selectable(self):
+        quote = make_quote(self.deal, term=300, commitment_months=60)
+        response = self.client.post(
+            reverse("crm:my_deal_quote_select", args=[self.deal.pk]),
+            {"quote": quote.pk},
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.selected_quote_id, quote.pk)
+
+
+class CommercialQuoteCardTests(TestCase):
+    """Commercial deals' portal quote card shows Lender/Term/Committed —
+    not the Asset Finance pricing columns."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from crm.models import Deal
+        from .factories import make_commercial_quote, make_organisation, make_participation
+
+        cls.customer, cls.deal = make_customer_with_deal()
+        Deal.objects.filter(pk=cls.deal.pk).update(type="commercial_finance")
+        cls.deal.refresh_from_db()
+        cls.lender = make_organisation(name="Big Commercial Bank")
+        make_participation(cls.deal, amount=100_000)
+        cls.quote = make_commercial_quote(
+            cls.deal, lender=cls.lender, term=300, commitment_months=60,
+            interest_rate="9.50",
+        )
+
+    def setUp(self):
+        self.client.force_login(self.customer)
+
+    def test_card_shows_lender_term_committed_columns(self):
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, "Big Commercial Bank")
+        self.assertContains(response, "Committed for")
+        self.assertContains(response, "300 months")
+        self.assertContains(response, "60 months")
+        content = response.content.decode()
+        self.assertNotIn("<th>Deposit</th>", content)
+        self.assertNotIn("<th>APR</th>", content)
+        # Yield-driven maths: the monthly payment shows for customers.
+        self.assertIn("<th>Monthly payment</th>", content)
+        self.assertIsNotNone(self.quote.monthly_payment)
+        self.assertContains(response, "£{:,.2f}".format(self.quote.monthly_payment).replace(",", ","))
+
+    def test_commercial_quote_selectable(self):
+        response = self.client.post(
+            reverse("crm:my_deal_quote_select", args=[self.deal.pk]),
+            {"quote": self.quote.pk},
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.selected_quote_id, self.quote.pk)

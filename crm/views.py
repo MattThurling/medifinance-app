@@ -27,6 +27,7 @@ from accounts.models import Role
 from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
 from .forms import (
+    CommercialQuoteForm,
     ContactForm,
     DealForm,
     DocumentRequestForm,
@@ -798,10 +799,14 @@ class NoteCreateView(StaffRequiredMixin, View):
 # Quotes are always managed in the context of a parent Deal — no list/detail.
 
 class QuoteCreateView(StaffRequiredMixin, CreateView):
-    """Create a quote. Requires `?deal=<pk>` — the deal is set from URL, not the form."""
+    """Create a quote. Requires `?deal=<pk>` — the deal is set from URL, not
+    the form. Asset Finance deals get the full rate-band form; every other
+    type gets the slim lender/term/commitment form."""
 
     model = Quote
-    form_class = QuoteForm
+
+    def get_form_class(self):
+        return CommercialQuoteForm if self.parent_deal.is_commercial_finance else QuoteForm
 
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
@@ -819,7 +824,8 @@ class QuoteCreateView(StaffRequiredMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
-        if self.parent_deal.funded_amount is None:
+        # Commercial quotes carry no pricing maths, so no funded amount is needed.
+        if not self.parent_deal.is_commercial_finance and self.parent_deal.funded_amount is None:
             form.add_error(
                 None,
                 "This deal has no funded amount set, so we can't calculate a monthly payment. "
@@ -962,7 +968,9 @@ class UserSearchView(_SearchView):
 
 class QuoteUpdateView(StaffRequiredMixin, UpdateView):
     model = Quote
-    form_class = QuoteForm
+
+    def get_form_class(self):
+        return CommercialQuoteForm if self.object.deal.is_commercial_finance else QuoteForm
 
     def get_queryset(self):
         return super().get_queryset().select_related("deal")
@@ -973,7 +981,7 @@ class QuoteUpdateView(StaffRequiredMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        if form.instance.deal.funded_amount is None:
+        if not form.instance.deal.is_commercial_finance and form.instance.deal.funded_amount is None:
             form.add_error(
                 None,
                 "This deal has no funded amount set, so we can't recalculate the monthly payment. "

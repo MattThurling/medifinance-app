@@ -20,27 +20,39 @@
         <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
       {% endif %}
 
-      {% if parent_deal.funded_amount %}
-        <p class="text-sm opacity-70 mb-4">
-          Monthly payment is calculated automatically from the funded amount
-          (<strong>{{ funded_amount_display }}</strong>) minus any deposit and balloon,
-          and the term &amp; rate below.
-        </p>
+      {% if parent_deal.is_commercial_finance %}
+        {# Slim commercial quote: lender direct, no bands or pricing maths. #}
+        {% url 'crm:organisation_search' as organisation_search_url %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          {% include "crm/_combobox.html" with name="lender" label="Lender" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.lender.value selected_label=form.instance.lender errors=form.lender.errors %}
+          {% include "_field.html" with field=form.interest_rate_percent help_as_tooltip=True %}
+          {% include "_field.html" with field=form.commission_percent help_as_tooltip=True %}
+          {% include "_field.html" with field=form.term %}
+          {% include "_field.html" with field=form.commitment_months help_as_tooltip=True %}
+        </div>
       {% else %}
-        <p class="text-sm text-warning mb-4">
-          This deal has no funded amount set, so the monthly payment can't be calculated.
-          Add a supplier to the deal first.
-        </p>
-      {% endif %}
+        {% if parent_deal.funded_amount %}
+          <p class="text-sm opacity-70 mb-4">
+            Monthly payment is calculated automatically from the funded amount
+            (<strong>{{ funded_amount_display }}</strong>) minus any deposit and balloon,
+            and the term &amp; rate below.
+          </p>
+        {% else %}
+          <p class="text-sm text-warning mb-4">
+            This deal has no funded amount set, so the monthly payment can't be calculated.
+            Add a supplier to the deal first.
+          </p>
+        {% endif %}
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4">
-        {% include "_field.html" with field=form.deposit %}
-        {% include "_field.html" with field=form.balloon %}
-        {% include "_field.html" with field=form.repayment_profile %}
-        {% include "_field.html" with field=form.term %}
-        {% include "_field.html" with field=form.rate %}
-        {% include "_field.html" with field=form.commission_percent %}
-      </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4">
+          {% include "_field.html" with field=form.deposit %}
+          {% include "_field.html" with field=form.balloon %}
+          {% include "_field.html" with field=form.repayment_profile %}
+          {% include "_field.html" with field=form.term %}
+          {% include "_field.html" with field=form.rate %}
+          {% include "_field.html" with field=form.commission_percent help_as_tooltip=True %}
+        </div>
+      {% endif %}
 
       {% if object and object.monthly_payment %}
         <p class="text-sm opacity-70 mb-2">
