@@ -4,7 +4,7 @@ A logged-in customer gets the same app shell as staff with a three-item nav
 (Company / People / Deals) and inline HTMX editing: each record renders as a
 card partial whose Edit button swaps in a form partial in place; saving swaps
 the card back. Everything is scoped through request.user — foreign records
-404. The wizard portal (crm.views Portal*) is untouched by this module.
+404.
 
 The HTMX contract, used by every section:
 - GET  …/<pk>/card/  -> display partial (Cancel's target)
@@ -22,10 +22,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from . import docuseal
-from .forms import CustomerCompanyForm, CustomerInfoForm, QuoteSelectionForm
-from .models import Contact, Deal, Document, Note, Organisation, Quote, SignatureRequest
-from .views import CustomerRequiredMixin
+from .. import docuseal
+from ..forms import CustomerCompanyForm, CustomerInfoForm, QuoteSelectionForm
+from ..models import Contact, Deal, Document, Note, Organisation, Quote, SignatureRequest
+from .shared import CustomerRequiredMixin
 
 
 def _log_customer_update(user, section: str, form, *, contact=None, organisation=None) -> None:

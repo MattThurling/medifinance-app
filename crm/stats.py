@@ -9,7 +9,7 @@ Design notes
 * ``Deal`` has no stage/funded/closed columns. Current stage is the latest
   ``Stage`` event, funded £ is ``Sum(Participation.amount)``, and "went
   live"/"lost" dates are ``Stage.occurred_at`` rows. The subqueries below
-  mirror ``crm.views._deal_summaries`` (same ``-pk`` tie-break) so these
+  mirror ``crm.views.shared._deal_summaries`` (same ``-pk`` tie-break) so these
   numbers agree with the Deals list.
 * Dev/CI runs on SQLite and prod on Postgres, so the ORM is only asked to
   GROUP BY real columns. Whenever the group key or the summed value is a
