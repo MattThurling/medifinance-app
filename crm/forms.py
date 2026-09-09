@@ -5,7 +5,6 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from django import forms
-from django.forms import modelformset_factory
 from django.urls import reverse_lazy
 
 from .models import Contact, Deal, Document, Organisation, Participation, Proposal, Quote, RateBand, Stage
@@ -344,12 +343,6 @@ ADDRESS_FIELDS_HOME = [
 ]
 
 
-class CompanyInfoForm(DaisyUIFormMixin, forms.ModelForm):
-    class Meta:
-        model = Organisation
-        fields = ["name"] + ADDRESS_FIELDS_ORG
-
-
 class CustomerCompanyForm(DaisyUIFormMixin, forms.ModelForm):
     """Customer portal: the organisation fields a customer may edit inline.
 
@@ -384,12 +377,6 @@ class CoApplicantForm(DaisyUIFormMixin, forms.ModelForm):
         }
 
 
-CoApplicantFormSet = modelformset_factory(
-    Contact,
-    form=CoApplicantForm,
-    extra=0,
-    can_delete=True,
-)
 
 
 class DocumentRequestForm(DaisyUIFormMixin, forms.ModelForm):

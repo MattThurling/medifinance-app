@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views, views_customer
 
@@ -113,11 +114,11 @@ urlpatterns = [
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/
     path("deals/<int:pk>/portal-link/", views.IssuePortalLinkView.as_view(), name="deal_issue_portal_link"),
     path("deals/<int:pk>/portal-link/email/", views.EmailPortalLinkView.as_view(), name="deal_email_portal_link"),
-    # Step 1: pick a quote. URL path retained as /portal/deals/<pk>/ so existing
-    # magic links keep working — only the view behind it has changed.
-    path("portal/deals/<int:pk>/", views.PortalQuoteSelectView.as_view(), name="portal_quote_select"),
-    path("portal/deals/<int:pk>/company/", views.PortalCompanyView.as_view(), name="portal_company"),
-    path("portal/deals/<int:pk>/applicants/", views.PortalApplicantsView.as_view(), name="portal_applicants"),
-    path("portal/deals/<int:pk>/documents/", views.PortalDocumentsView.as_view(), name="portal_documents"),
-    path("portal/deals/<int:pk>/thanks/", views.PortalApplicationCompleteView.as_view(), name="portal_application_complete"),
+    # The old wizard portal is gone — these shims catch magic links and
+    # bookmarks minted before its removal and land them on the /my/ deal page.
+    path("portal/deals/<int:pk>/", RedirectView.as_view(pattern_name="crm:my_deal_detail")),
+    path("portal/deals/<int:pk>/company/", RedirectView.as_view(pattern_name="crm:my_deal_detail")),
+    path("portal/deals/<int:pk>/applicants/", RedirectView.as_view(pattern_name="crm:my_deal_detail")),
+    path("portal/deals/<int:pk>/documents/", RedirectView.as_view(pattern_name="crm:my_deal_detail")),
+    path("portal/deals/<int:pk>/thanks/", RedirectView.as_view(pattern_name="crm:my_deal_detail")),
 ]

@@ -121,7 +121,7 @@ class MagicLink(models.Model):
     )
     redirect_url = models.CharField(
         max_length=512,
-        help_text="Path the customer lands on after consuming the link, e.g. /portal/deals/123/",
+        help_text="Path the customer lands on after consuming the link, e.g. / (their dashboard).",
     )
 
     created_by = models.ForeignKey(

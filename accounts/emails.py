@@ -97,39 +97,6 @@ def send_new_deal_notification_email(
     _send_with_retry(message)
 
 
-def send_customer_application_submitted_email(
-    *,
-    deal_name: str,
-    deal_url: str,
-    customer_name: str,
-    customer_email: str,
-    organisation_name: str,
-    amount_display: str,
-) -> None:
-    """Tell the NOTIFY_EMAILS staff list that a customer completed the portal application."""
-    context = {
-        "deal_name": deal_name,
-        "deal_url": deal_url,
-        "customer_name": customer_name,
-        "customer_email": customer_email,
-        "organisation_name": organisation_name,
-        "amount_display": amount_display,
-    }
-    subject = f"Customer application submitted: {deal_name}"
-    text_body = render_to_string("email/customer_application_submitted.txt", context)
-    html_body = render_to_string("email/customer_application_submitted.html", context)
-
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        reply_to=[settings.EMAIL_REPLY_TO],
-        to=settings.NOTIFY_EMAILS,
-    )
-    message.attach_alternative(html_body, "text/html")
-    _send_with_retry(message)
-
-
 def send_supplier_invoice_submitted_email(
     *,
     deal_name: str,

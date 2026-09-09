@@ -27,10 +27,7 @@ from accounts.models import Role
 from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
 from .forms import (
-    CoApplicantFormSet,
-    CompanyInfoForm,
     ContactForm,
-    CustomerInfoForm,
     DealForm,
     DocumentRequestForm,
     DocumentUploadForm,
@@ -44,7 +41,6 @@ from .forms import (
     SupplierInvoiceForm,
     XeroInvoiceForm,
     QuoteForm,
-    QuoteSelectionForm,
     StageForm,
 )
 from . import docuseal, pricing, stats
@@ -964,190 +960,6 @@ class UserSearchView(_SearchView):
         return get_user_model().objects.filter(role__in=[Role.ADMIN, Role.ASSOCIATE])
 
 
-class _PortalDealMixin(CustomerRequiredMixin):
-    """Shared queryset filter for portal views — only deals belonging to the user."""
-
-    def get_deal(self, pk):
-        return get_object_or_404(
-            Deal.objects.filter(customer__user=self.request.user)
-            .select_related("owner", "customer", "organisation")
-            .prefetch_related("quotes", "stage_events"),
-            pk=pk,
-        )
-
-
-class _PortalStepMixin(_PortalDealMixin):
-    """A step in the customer application wizard. Steps after Quotes require a
-    quote to have been selected; otherwise we bounce back to the Quotes step."""
-
-    step = 1
-
-    def dispatch(self, request, *args, **kwargs):
-        if self.step > 1 and request.user.is_authenticated and getattr(request.user, "is_customer", False):
-            deal = Deal.objects.filter(customer__user=request.user, pk=kwargs["pk"]).first()
-            if deal and not deal.selected_quote_id:
-                return redirect("crm:portal_quote_select", pk=kwargs["pk"])
-        return super().dispatch(request, *args, **kwargs)
-
-
-class PortalQuoteSelectView(_PortalStepMixin, View):
-    """Step 1: customer picks a quote."""
-
-    step = 1
-    template_name = "crm/portal_quote_select.html"
-
-    def get(self, request, pk):
-        deal = self.get_deal(pk)
-        form = QuoteSelectionForm(deal=deal, initial={"quote": deal.selected_quote_id})
-        return self._render(request, deal, form)
-
-    def post(self, request, pk):
-        deal = self.get_deal(pk)
-        form = QuoteSelectionForm(request.POST, deal=deal)
-        if form.is_valid():
-            deal.selected_quote = form.cleaned_data["quote"]
-            deal.save(update_fields=["selected_quote"])
-            return redirect("crm:portal_company", pk=deal.pk)
-        return self._render(request, deal, form)
-
-    def _render(self, request, deal, form):
-        from django.shortcuts import render
-        amount_display = f"£{deal.finance_amount:,.2f}" if deal.finance_amount is not None else None
-        return render(
-            request,
-            self.template_name,
-            {"deal": deal, "form": form, "amount_display": amount_display, "current_step": self.step},
-        )
-
-
-class PortalCompanyView(_PortalStepMixin, View):
-    """Step 2: company details (organisation address)."""
-
-    step = 2
-    template_name = "crm/portal_company.html"
-
-    def get(self, request, pk):
-        deal = self.get_deal(pk)
-        form = CompanyInfoForm(instance=deal.organisation, prefix="company")
-        return self._render(request, deal, form)
-
-    def post(self, request, pk):
-        deal = self.get_deal(pk)
-        form = CompanyInfoForm(request.POST, instance=deal.organisation, prefix="company")
-        if form.is_valid():
-            org = form.save()
-            # Link the saved org to the deal (if not already) and to the customer's
-            # organisations M2M (add is idempotent).
-            if deal.organisation_id != org.pk:
-                deal.organisation = org
-                deal.save(update_fields=["organisation"])
-            deal.customer.organisations.add(org)
-            return redirect("crm:portal_applicants", pk=deal.pk)
-        return self._render(request, deal, form)
-
-    def _render(self, request, deal, form):
-        from django.shortcuts import render
-        return render(
-            request,
-            self.template_name,
-            {"deal": deal, "form": form, "current_step": self.step},
-        )
-
-
-class PortalApplicantsView(_PortalStepMixin, View):
-    """Step 3: the lead's details + any co-applicants. Records 'Info Received'."""
-
-    step = 3
-    template_name = "crm/portal_applicants.html"
-
-    def get(self, request, pk):
-        deal = self.get_deal(pk)
-        return self._render(request, deal, *self._build_forms(deal))
-
-    def post(self, request, pk):
-        deal = self.get_deal(pk)
-        customer_form, co_formset = self._build_forms(deal, data=request.POST)
-        if customer_form.is_valid() and co_formset.is_valid():
-            customer_form.save()
-
-            # Save co-applicants. Forms marked DELETE get unlinked (not deleted).
-            # Newly-saved contacts get the deal's organisation added to their M2M
-            # so they're discoverable under that org going forward.
-            org = deal.organisation
-            active_contacts = []
-            for form in co_formset:
-                if form.cleaned_data.get("DELETE"):
-                    continue
-                if not form.has_changed() and form.instance.pk is None:
-                    continue
-                contact = form.save(commit=False)
-                is_new = contact.pk is None
-                contact.save()
-                if is_new and org is not None:
-                    contact.organisations.add(org)
-                active_contacts.append(contact)
-            deal.co_applicants.set(active_contacts)
-
-            # Record an Info Received stage event automatically (once).
-            if (deal.current_stage is None) or (deal.current_stage.name != Stage.Name.INFO_RECEIVED):
-                Stage.objects.create(
-                    deal=deal,
-                    name=Stage.Name.INFO_RECEIVED,
-                    organisation=deal.organisation,
-                    set_by=request.user,
-                    note="Customer completed application via portal.",
-                )
-                try:
-                    from accounts.emails import send_customer_application_submitted_email
-                    finance_amount = deal.finance_amount
-                    send_customer_application_submitted_email(
-                        deal_name=deal.name,
-                        deal_url=request.build_absolute_uri(deal.get_absolute_url()),
-                        customer_name=deal.customer.full_name,
-                        customer_email=deal.customer.email,
-                        organisation_name=deal.organisation.name if deal.organisation else "",
-                        amount_display=f"£{finance_amount:,.2f}" if finance_amount is not None else "",
-                    )
-                except Exception:
-                    logger.exception("Customer-application notification email failed for deal %s", deal.pk)
-
-            return redirect("crm:portal_documents", pk=deal.pk)
-        return self._render(request, deal, customer_form, co_formset)
-
-    def _build_forms(self, deal, data=None):
-        customer_form = CustomerInfoForm(data, instance=deal.customer, prefix="customer")
-        co_formset = CoApplicantFormSet(data, queryset=deal.co_applicants.all(), prefix="co")
-        return customer_form, co_formset
-
-    def _render(self, request, deal, customer_form, co_formset):
-        from django.shortcuts import render
-        return render(
-            request,
-            self.template_name,
-            {
-                "deal": deal,
-                "customer_form": customer_form,
-                "co_formset": co_formset,
-                "current_step": self.step,
-            },
-        )
-
-
-class PortalApplicationCompleteView(_PortalStepMixin, View):
-    """Final thank-you page after the wizard is complete."""
-
-    step = 4
-
-    def get(self, request, pk):
-        from django.shortcuts import render
-        deal = self.get_deal(pk)
-        return render(
-            request,
-            "crm/portal_application_complete.html",
-            {"deal": deal, "repayment_schedule": deal.repayment_schedule},
-        )
-
-
 class QuoteUpdateView(StaffRequiredMixin, UpdateView):
     model = Quote
     form_class = QuoteForm
@@ -1774,7 +1586,7 @@ class DocumentUploadView(LoginRequiredMixin, View):
             messages.error(request, f"Couldn't upload “{doc.name}”. Please choose a file.")
 
         if request.user.is_customer:
-            return redirect("crm:portal_documents", pk=doc.deal_id)
+            return redirect("crm:my_deal_detail", pk=doc.deal_id)
         return redirect(doc.deal.get_absolute_url())
 
 
@@ -1790,26 +1602,6 @@ class DocumentDownloadView(LoginRequiredMixin, View):
             raise Http404("No file has been uploaded for this document yet.")
         filename = doc.file.name.rsplit("/", 1)[-1]
         return FileResponse(doc.file.open("rb"), as_attachment=False, filename=filename)
-
-
-class PortalDocumentsView(_PortalStepMixin, View):
-    """Step 4: customer sees required documents for their deal and uploads them."""
-
-    step = 4
-    template_name = "crm/portal_documents.html"
-
-    def get(self, request, pk):
-        deal = self.get_deal(pk)
-        return render(
-            request,
-            self.template_name,
-            {
-                "deal": deal,
-                "documents": deal.documents.all(),
-                "upload_form": DocumentUploadForm(),
-                "current_step": self.step,
-            },
-        )
 
 
 # --- DocuSeal e-signing ----------------------------------------------------

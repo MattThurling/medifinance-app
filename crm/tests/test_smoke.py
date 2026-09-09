@@ -138,12 +138,20 @@ class PortalPagesRenderTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200, f"GET {url} returned {response.status_code}")
 
-    def test_portal_steps(self):
-        self._ok(reverse("crm:portal_quote_select", args=[self.deal.pk]))
-        self._ok(reverse("crm:portal_company", args=[self.deal.pk]))
-        self._ok(reverse("crm:portal_applicants", args=[self.deal.pk]))
-        self._ok(reverse("crm:portal_documents", args=[self.deal.pk]))
-        self._ok(reverse("crm:portal_application_complete", args=[self.deal.pk]))
+    def test_portal_pages(self):
+        self._ok(reverse("crm:my_deals"))
+        self._ok(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self._ok(reverse("crm:my_company"))
+        self._ok(reverse("crm:my_people"))
+
+    def test_old_wizard_paths_redirect_to_my_deal(self):
+        """Magic links minted before the wizard's removal still land somewhere."""
+        for suffix in ("", "company/", "applicants/", "documents/", "thanks/"):
+            with self.subTest(suffix=suffix):
+                response = self.client.get(f"/portal/deals/{self.deal.pk}/{suffix}")
+                self.assertRedirects(
+                    response, reverse("crm:my_deal_detail", args=[self.deal.pk])
+                )
 
     def test_customer_dashboard(self):
         self._ok(reverse("dashboard"))

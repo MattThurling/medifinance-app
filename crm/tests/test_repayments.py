@@ -72,7 +72,7 @@ class PortalRepaymentsTests(TestCase):
 
     def _get(self):
         return self.client.get(
-            reverse("crm:portal_application_complete", args=[self.deal.pk])
+            reverse("crm:my_deal_detail", args=[self.deal.pk])
         )
 
     def test_schedule_renders_on_application_complete(self):

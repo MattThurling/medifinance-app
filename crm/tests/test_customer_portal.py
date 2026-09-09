@@ -98,8 +98,6 @@ class AccessControlTests(TestCase):
         response = self.client.get(reverse("dashboard"))
         self.assertContains(response, reverse("crm:my_company"))
         self.assertContains(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
-        # The wizard stays reachable.
-        self.assertContains(response, reverse("crm:portal_quote_select", args=[self.deal.pk]))
 
 
 class IsolationTests(TestCase):
@@ -359,12 +357,12 @@ class DealDocumentUploadTests(TestCase):
         self.doc.refresh_from_db()
         self.assertFalse(self.doc.is_provided)
 
-    def test_wizard_upload_redirect_unchanged(self):
-        """Non-HTMX customer uploads keep the wizard redirect — regression."""
+    def test_non_htmx_upload_redirects_to_deal_page(self):
+        """Non-HTMX customer uploads land back on the /my/ deal page."""
         response = self._upload()
         self.assertRedirects(
             response,
-            reverse("crm:portal_documents", args=[self.deal.pk]),
+            reverse("crm:my_deal_detail", args=[self.deal.pk]),
             fetch_redirect_response=False,
         )
         self.doc.refresh_from_db()
