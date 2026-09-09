@@ -38,7 +38,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             # customer_deals is user-scoped and annotated with the
             # outstanding-actions counts the badges need; it also handles a
             # user with no linked Contact (empty queryset).
-            from crm.views_customer import customer_deals
+            from crm.views.customer import customer_deals
             ctx["customer_deals"] = customer_deals(user)
         return ctx
 

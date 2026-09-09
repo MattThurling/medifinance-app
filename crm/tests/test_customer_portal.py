@@ -407,7 +407,7 @@ class DealSigningTests(TestCase):
     def test_sign_backfills_missing_slug(self):
         sr = self._sr(signing_slug="", submitter_id=42)
         with mock.patch(
-            "crm.views_customer.docuseal.get_submission",
+            "crm.views.customer.docuseal.get_submission",
             return_value={"submitters": [{"id": 41, "slug": "wrong"}, {"id": 42, "slug": "right42"}]},
         ):
             response = self.client.get(self._sign_url(sr))
