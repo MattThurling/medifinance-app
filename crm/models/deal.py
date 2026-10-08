@@ -23,6 +23,18 @@ class Deal(TimestampedModel):
         STARTUP = "startup", "Startup"
         PROPERTY_PURCHASE = "property_purchase", "Property Purchase"
         BRIDGING_LOAN = "bridging_loan", "Bridging Loan"
+        TAX_LOAN = "tax_loan", "Tax Loan"
+        PARTNER_BUY_IN = "partner_buy_in", "Partner Buy-in"
+
+    # Types no longer offered on the deal form. They stay in ``Type`` so
+    # existing deals keep their label and still validate on edit; the form
+    # only shows one of these when the deal being edited already has it.
+    RETIRED_TYPES = frozenset({
+        Type.COMMERCIAL_FINANCE,
+        Type.STRUCTURED_FINANCE,
+        Type.KMC_ASSOCIATES,
+        Type.SHORT_TERM_FINANCE,
+    })
 
     class Source(models.TextChoices):
         INTRODUCER = "introducer", "Introducer"

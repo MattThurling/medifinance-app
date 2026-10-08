@@ -136,6 +136,62 @@ class DealTypeTests(OwnerFormTestCase):
         deal = make_deal(owner=self.staff, type=Deal.Type.COMMERCIAL_FINANCE)
         self.assertContains(self.client.get(deal.get_absolute_url()), "Commercial Finance")
 
+    @staticmethod
+    def _type_codes(response):
+        """Flatten the grouped (optgroup) type choices to a list of codes."""
+        codes = []
+        for value, label in response.context["form"].fields["type"].choices:
+            if isinstance(label, (list, tuple)):
+                codes.extend(code for code, _ in label)
+            else:
+                codes.append(value)
+        return codes
+
+    def test_create_form_groups_types_under_headings(self):
+        response = self.client.get(reverse("crm:deal_create"))
+        choices = response.context["form"].fields["type"].choices
+        groups = {label: [c for c, _ in opts] for label, opts in choices if isinstance(opts, list)}
+        self.assertEqual(groups["Asset Finance"], [Deal.Type.ASSET_FINANCE])
+        self.assertIn(Deal.Type.TAX_LOAN, groups["Commercial Finance"])
+        self.assertNotIn(Deal.Type.ASSET_FINANCE, groups["Commercial Finance"])
+        self.assertContains(response, '<optgroup label="Asset Finance">')
+        self.assertContains(response, '<optgroup label="Commercial Finance">')
+
+    def test_create_form_offers_new_types_and_hides_retired_ones(self):
+        response = self.client.get(reverse("crm:deal_create"))
+        codes = self._type_codes(response)
+        self.assertIn(Deal.Type.TAX_LOAN, codes)
+        self.assertIn(Deal.Type.PARTNER_BUY_IN, codes)
+        self.assertIn(Deal.Type.ASSET_FINANCE, codes)
+        for retired in Deal.RETIRED_TYPES:
+            self.assertNotIn(retired, codes)
+
+    def test_edit_form_keeps_only_the_deals_own_retired_type(self):
+        deal = make_deal(owner=self.staff, type=Deal.Type.KMC_ASSOCIATES)
+        response = self.client.get(reverse("crm:deal_update", args=[deal.pk]))
+        codes = self._type_codes(response)
+        self.assertIn(Deal.Type.KMC_ASSOCIATES, codes)
+        self.assertNotIn(Deal.Type.STRUCTURED_FINANCE, codes)
+        # Re-saving the edit form with the retired type untouched still validates.
+        response = self.client.post(
+            reverse("crm:deal_update", args=[deal.pk]),
+            {"name": deal.name, "owner": self.staff.pk, "type": Deal.Type.KMC_ASSOCIATES},
+        )
+        deal.refresh_from_db()
+        self.assertRedirects(response, deal.get_absolute_url())
+        self.assertEqual(deal.type, Deal.Type.KMC_ASSOCIATES)
+
+    def test_create_rejects_retired_type(self):
+        response = self.client.post(reverse("crm:deal_create"), {
+            "name": "Old style",
+            "type": Deal.Type.STRUCTURED_FINANCE,
+            "owner": self.staff.pk,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "type",
+                             "Select a valid choice. structured_finance is not one of the available choices.")
+        self.assertFalse(Deal.objects.filter(name="Old style").exists())
+
     def test_detail_omits_type_line_when_unset(self):
         deal = make_deal(owner=self.staff)
         self.assertNotContains(self.client.get(deal.get_absolute_url()), "Type:")
