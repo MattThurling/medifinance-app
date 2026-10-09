@@ -16,30 +16,34 @@ def _client_ip(request) -> str | None:
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
+    """Staff home. Customers have no dashboard: `/` sends them to their deal
+    page when they have exactly one deal, otherwise to their deals list."""
+
     template_name = "dashboard.html"
+
+    def get(self, request, *args, **kwargs):
+        if request.user.is_customer:
+            # Inline import — accounts is loaded before crm, so a module-level
+            # import here would risk an apps-not-ready loop.
+            from crm.views.customer import customer_deals
+            pks = list(customer_deals(request.user).values_list("pk", flat=True)[:2])
+            if len(pks) == 1:
+                return redirect("crm:my_deal_detail", pk=pks[0])
+            return redirect("crm:my_deals")
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        user = self.request.user
-        if user.is_admin or user.is_associate:
-            # Inline import — accounts is loaded before crm, so a module-level
-            # import here would risk an apps-not-ready loop.
-            from crm import stats
-            from crm.models import Contact, Deal, Organisation
-            ctx["contacts_count"] = Contact.objects.count()
-            ctx["organisations_count"] = Organisation.objects.count()
-            ctx["deals_count"] = Deal.objects.count()
-            ctx["api_enabled"] = SiteSettings.get().api_enabled
-            # Headline deal stats at the default window; the Reports page has
-            # the filters and the full breakdowns.
-            ctx["stats"] = stats.dashboard_stats(stats.StatsParams.from_request(self.request))
-        elif user.is_customer:
-            # Inline import — accounts loads before crm (see comment above).
-            # customer_deals is user-scoped and annotated with the
-            # outstanding-actions counts the badges need; it also handles a
-            # user with no linked Contact (empty queryset).
-            from crm.views.customer import customer_deals
-            ctx["customer_deals"] = customer_deals(user)
+        # Inline import — see get().
+        from crm import stats
+        from crm.models import Contact, Deal, Organisation
+        ctx["contacts_count"] = Contact.objects.count()
+        ctx["organisations_count"] = Organisation.objects.count()
+        ctx["deals_count"] = Deal.objects.count()
+        ctx["api_enabled"] = SiteSettings.get().api_enabled
+        # Headline deal stats at the default window; the Reports page has
+        # the filters and the full breakdowns.
+        ctx["stats"] = stats.dashboard_stats(stats.StatsParams.from_request(self.request))
         return ctx
 
 

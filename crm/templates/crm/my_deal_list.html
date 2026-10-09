@@ -16,7 +16,7 @@
               <a href="{% url 'crm:my_deal_detail' d.pk %}" class="link link-hover font-medium">{{ d.name }}</a>
               {% if d.organisation %}<div class="text-sm opacity-70">{{ d.organisation.name }}</div>{% endif %}
             </div>
-            {% with n=d.outstanding_docs|add:d.outstanding_sigs|add:d.needs_quote %}
+            {% with n=d.outstanding|length %}
               {% if n %}<span class="badge badge-warning badge-sm">{{ n }} action{{ n|pluralize }} needed</span>{% endif %}
             {% endwith %}
             {% if d.current_stage %}

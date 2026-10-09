@@ -98,12 +98,10 @@ urlpatterns = [
     path("deals/<int:pk>/raise-invoice/", views.DealRaiseInvoiceView.as_view(), name="deal_raise_invoice"),
 
     # Customer portal (/my/) — the logged-in customer's own view of the CRM.
-    # Inline HTMX editing: each record has a page, a card partial and an edit
-    # endpoint (see crm/views.py for the contract).
-    path("my/company/", views.MyCompanyView.as_view(), name="my_company"),
+    # The deal page is their home; person/company cards on it edit inline via
+    # a card partial and an edit endpoint (see crm/views/customer.py).
     path("my/company/<int:pk>/card/", views.MyCompanyCardView.as_view(), name="my_company_card"),
     path("my/company/<int:pk>/edit/", views.MyCompanyEditView.as_view(), name="my_company_edit"),
-    path("my/people/", views.MyPeopleView.as_view(), name="my_people"),
     path("my/people/<int:pk>/card/", views.MyPersonCardView.as_view(), name="my_person_card"),
     path("my/people/<int:pk>/edit/", views.MyPersonEditView.as_view(), name="my_person_edit"),
     path("my/deals/", views.MyDealListView.as_view(), name="my_deals"),
@@ -114,6 +112,10 @@ urlpatterns = [
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/
     path("deals/<int:pk>/portal-link/", views.IssuePortalLinkView.as_view(), name="deal_issue_portal_link"),
     path("deals/<int:pk>/portal-link/email/", views.EmailPortalLinkView.as_view(), name="deal_email_portal_link"),
+    # The old Company / People pages folded into the deal page — bookmarks
+    # land on `/`, which routes a customer to their deal (or deals list).
+    path("my/company/", RedirectView.as_view(pattern_name="dashboard")),
+    path("my/people/", RedirectView.as_view(pattern_name="dashboard")),
     # The old wizard portal is gone — these shims catch magic links and
     # bookmarks minted before its removal and land them on the /my/ deal page.
     path("portal/deals/<int:pk>/", RedirectView.as_view(pattern_name="crm:my_deal_detail")),

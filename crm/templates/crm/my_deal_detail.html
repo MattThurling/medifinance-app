@@ -5,18 +5,54 @@
 
 {% block content %}
 <div class="max-w-2xl space-y-6">
-  <div>
-    <p class="text-sm opacity-60 mb-1">
-      <a href="{% url 'crm:my_deals' %}" class="link link-hover">Your deals</a> / {{ deal.name }}
-    </p>
-    <div class="flex items-center gap-3">
-      <h1 class="text-2xl font-semibold">{{ deal.name }}</h1>
-      {% if deal.current_stage %}
-        <span class="badge badge-ghost">{{ deal.current_stage.get_name_display }}</span>
+  {# ---- Header ---- #}
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <h1 class="text-2xl font-semibold">{{ deal.name }}</h1>
+        {% if deal.current_stage %}
+          <span class="badge badge-ghost">{{ deal.current_stage.get_name_display }}</span>
+        {% endif %}
+      </div>
+      {% if deal.organisation %}<p class="opacity-70 mt-1">{{ deal.organisation.name }}</p>{% endif %}
+      {% if deal.owner %}
+        <p class="text-sm opacity-60 mt-1">Your contact: {{ deal.owner.full_name }}</p>
       {% endif %}
     </div>
-    {% if deal.organisation %}<p class="opacity-70 mt-1">{{ deal.organisation.name }}</p>{% endif %}
+    <a href="{% url 'crm:my_deals' %}" class="btn btn-sm btn-ghost whitespace-nowrap">
+      {% icon "list" class="h-4 w-4" %} All deals
+    </a>
   </div>
+
+  {# ---- What we still need from you ---- #}
+  {% if outstanding %}
+    <div class="alert alert-warning items-start" id="outstanding">
+      {% icon "circle-alert" class="h-5 w-5 shrink-0" %}
+      <div>
+        <h2 class="font-semibold">What we still need from you</h2>
+        <ul class="list-disc list-inside text-sm mt-1 space-y-0.5">
+          {% for item in outstanding %}
+            <li><a href="#{{ item.anchor }}" class="link link-hover">{{ item.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-success" id="outstanding">
+      {% icon "circle-check" class="h-5 w-5 shrink-0" %}
+      <span>Nothing outstanding — thank you. We'll be in touch if we need anything else.</span>
+    </div>
+  {% endif %}
+
+  {# ---- Your details (customer + co-applicants; inline edit) ---- #}
+  {% for person in people %}
+    {% include "crm/_my_person_card.html" %}
+  {% endfor %}
+
+  {# ---- Company details (inline edit) ---- #}
+  {% if org %}
+    {% include "crm/_my_company_card.html" %}
+  {% endif %}
 
   {# ---- Summary ---- #}
   <div class="card bg-base-100 shadow w-full">
@@ -32,9 +68,6 @@
             <div><dt class="opacity-60 inline">Monthly payment&nbsp;</dt><dd class="inline">£{{ deal.selected_quote.monthly_payment|floatformat:2|intcomma }}</dd></div>
           {% endif %}
         {% endif %}
-        {% if deal.owner %}
-          <div><dt class="opacity-60 inline">Your contact&nbsp;</dt><dd class="inline">{{ deal.owner.full_name }}</dd></div>
-        {% endif %}
       </dl>
       {% if not deal.selected_quote and not quotes %}
         <p class="text-sm opacity-70 mt-2">No quote has been chosen yet.</p>
@@ -49,7 +82,7 @@
 
   {# ---- Documents — upload/replace inline (card hidden until requested) ---- #}
   {% if documents %}
-    <div class="card bg-base-100 shadow w-full">
+    <div class="card bg-base-100 shadow w-full" id="documents">
       <div class="card-body">
         <h2 class="card-title text-base">{% icon "file-text" class="h-5 w-5 opacity-70" %} Documents</h2>
         <p class="text-sm opacity-70">Please upload the documents requested below.</p>
@@ -64,7 +97,7 @@
 
   {# ---- Signatures (card hidden until a request exists) ---- #}
   {% if signature_requests %}
-    <div class="card bg-base-100 shadow w-full">
+    <div class="card bg-base-100 shadow w-full" id="signatures">
       <div class="card-body">
         <h2 class="card-title text-base">{% icon "signature" class="h-5 w-5 opacity-70" %} Signatures</h2>
         <ul class="divide-y divide-base-200">

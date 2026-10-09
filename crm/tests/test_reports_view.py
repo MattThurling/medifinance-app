@@ -98,12 +98,13 @@ class DashboardStatsTests(TestCase):
         self.assertContains(response, reverse("toggle_api_access"))
         self.assertIn("stats", response.context)
 
-    def test_customer_dashboard_is_unchanged(self):
+    def test_customer_never_sees_stats(self):
+        """Customers are routed away from the dashboard; their deal page
+        carries no stats, charts or report links."""
         user, deal = make_customer_with_deal()
         self.client.force_login(user)
-        response = self.client.get(reverse("dashboard"))
-        self.assertEqual(response.status_code, 200)
+        response = self.client.get(reverse("dashboard"), follow=True)
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[deal.pk]))
         self.assertNotIn("stats", response.context)
-        self.assertEqual(list(response.context["customer_deals"]), [deal])
         self.assertNotContains(response, "vendor/chart.umd.min.js")
         self.assertNotContains(response, reverse("crm:reports"))

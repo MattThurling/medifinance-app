@@ -1,6 +1,7 @@
-{% load icons %}
-{% comment %}Display state of one company card. Edit swaps in the form partial in place.{% endcomment %}
-<div class="card bg-base-100 shadow w-full">
+{% load icons crm_extras %}
+{% comment %}Display state of one company card. Edit swaps in the form partial in place. `id` is the deal page anchor.{% endcomment %}
+{% with missing=org|missing_fields %}
+<div class="card bg-base-100 shadow w-full" id="company">
   <div class="card-body">
     <div class="flex items-start justify-between gap-3">
       <div>
@@ -9,12 +10,19 @@
           <p class="text-xs opacity-60 mt-1">Companies House {{ org.companies_house_number }}</p>
         {% endif %}
       </div>
-      <button class="btn btn-sm btn-ghost"
+      <button class="btn btn-sm {% if missing %}btn-primary{% else %}btn-ghost{% endif %}"
               hx-get="{% url 'crm:my_company_edit' org.pk %}"
               hx-target="closest .card" hx-swap="outerHTML">
-        {% icon "pencil" class="h-4 w-4" %} Edit
+        {% icon "pencil" class="h-4 w-4" %} {% if missing %}Fill in{% else %}Edit{% endif %}
       </button>
     </div>
+
+    {% if missing %}
+      <p class="text-sm mt-1 flex items-center gap-2">
+        <span class="badge badge-warning badge-sm">Missing</span>
+        <span>{{ missing|join:", " }}</span>
+      </p>
+    {% endif %}
 
     <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-3 text-sm">
       <div>
@@ -32,3 +40,4 @@
     </p>
   </div>
 </div>
+{% endwith %}

@@ -8,17 +8,38 @@ from django.core.exceptions import PermissionDenied  # noqa: F401 (documentation
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.models import MagicLink
 from crm.models import Note
+from crm.portal_links import issue_portal_link_for_deal
 
 from .factories import (
     make_associate,
     make_contact,
+    make_customer,
     make_customer_with_deal,
+    make_deal,
     make_document,
     make_quote,
 )
 
 HTMX = {"HTTP_HX_REQUEST": "true"}
+
+
+def complete_details(deal):
+    """Fill in every key field the checklist looks at, so a deal starts with
+    nothing outstanding on the people/company side."""
+    for person in [deal.customer, *deal.co_applicants.all()]:
+        person.date_of_birth = "1980-01-01"
+        person.phone = "01234 567890"
+        person.home_address_line1 = "1 Test Street"
+        person.home_address_postcode = "AB1 2CD"
+        person.save()
+    org = deal.organisation
+    if org is not None:
+        org.address_line1 = "2 Trade Road"
+        org.address_postcode = "AB1 2CD"
+        org.phone = "01234 000000"
+        org.save()
 
 
 def company_form_data(org, **overrides):
@@ -61,8 +82,6 @@ class AccessControlTests(TestCase):
 
     def _urls(self):
         return [
-            reverse("crm:my_company"),
-            reverse("crm:my_people"),
             reverse("crm:my_deals"),
             reverse("crm:my_deal_detail", args=[self.deal.pk]),
             reverse("crm:my_company_edit", args=[self.deal.organisation_id]),
@@ -81,23 +100,46 @@ class AccessControlTests(TestCase):
 
     def test_customer_pages_render_with_nav(self):
         self.client.force_login(self.customer)
-        for url in [reverse("crm:my_company"), reverse("crm:my_people"),
-                    reverse("crm:my_deals"), reverse("crm:my_deal_detail", args=[self.deal.pk])]:
+        for url in [reverse("crm:my_deals"), reverse("crm:my_deal_detail", args=[self.deal.pk])]:
             with self.subTest(url=url):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "Your account")  # customer nav title
+                self.assertContains(response, "Your deals")  # the one customer nav item
                 # No staff nav: the exact hrefs staff items render with.
                 content = response.content.decode()
                 self.assertNotIn('href="/deals/"', content)
                 self.assertNotIn('href="/contacts/"', content)
                 self.assertNotIn('href="/organisations/"', content)
 
-    def test_customer_dashboard_shows_portal_cards(self):
+    def test_root_routes_single_deal_customer_to_deal_page(self):
         self.client.force_login(self.customer)
         response = self.client.get(reverse("dashboard"))
-        self.assertContains(response, reverse("crm:my_company"))
-        self.assertContains(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+
+    def test_root_routes_multi_deal_customer_to_list(self):
+        make_deal(customer=self.deal.customer, organisation=self.deal.organisation)
+        self.client.force_login(self.customer)
+        response = self.client.get(reverse("dashboard"))
+        self.assertRedirects(response, reverse("crm:my_deals"))
+
+    def test_root_routes_customer_without_deals_to_list(self):
+        self.client.force_login(make_customer())
+        response = self.client.get(reverse("dashboard"))
+        self.assertRedirects(response, reverse("crm:my_deals"))
+
+    def test_old_company_and_people_pages_redirect_home(self):
+        self.client.force_login(self.customer)
+        for path in ["/my/company/", "/my/people/"]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertRedirects(response, reverse("dashboard"), target_status_code=302)
+
+    def test_magic_link_lands_on_the_deal_page(self):
+        link, _warning = issue_portal_link_for_deal(self.deal)
+        self.assertEqual(link.redirect_url, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        response = self.client.get(reverse("consume_magic_link", args=[link.token]))
+        self.assertRedirects(response, link.redirect_url)
+        self.assertTrue(MagicLink.objects.get(pk=link.pk).is_consumed)
 
 
 class IsolationTests(TestCase):
@@ -141,15 +183,26 @@ class IsolationTests(TestCase):
         colleague = make_contact(organisation=self.deal_a.organisation,
                                  first_name="Colleague", last_name="Hidden")
         self.client.force_login(self.customer_a)
-        response = self.client.get(reverse("crm:my_people"))
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal_a.pk]))
         self.assertNotContains(response, "Colleague Hidden")
 
     def test_co_applicants_are_in_people(self):
         co = make_contact(first_name="Co", last_name="Applicant")
         self.deal_a.co_applicants.add(co)
         self.client.force_login(self.customer_a)
-        response = self.client.get(reverse("crm:my_people"))
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal_a.pk]))
         self.assertContains(response, "Co Applicant")
+        self.assertContains(response, reverse("crm:my_person_edit", args=[co.pk]))
+
+    def test_deal_page_shows_only_that_deals_people(self):
+        """A co-applicant on deal A must not appear on the customer's deal B."""
+        co = make_contact(first_name="Only", last_name="OnA")
+        self.deal_a.co_applicants.add(co)
+        deal_other = make_deal(customer=self.deal_a.customer, organisation=self.deal_a.organisation)
+        self.client.force_login(self.customer_a)
+        response = self.client.get(reverse("crm:my_deal_detail", args=[deal_other.pk]))
+        self.assertNotContains(response, "Only OnA")
+        self.assertContains(response, reverse("crm:my_person_edit", args=[self.deal_a.customer_id]))
 
 
 class InlineEditTests(TestCase):
@@ -250,14 +303,14 @@ class InlineEditTests(TestCase):
 
     def test_non_htmx_get_redirects_to_page(self):
         response = self.client.get(reverse("crm:my_company_edit", args=[self.org.pk]))
-        self.assertRedirects(response, reverse("crm:my_company"))
+        self.assertRedirects(response, reverse("dashboard"), target_status_code=302)
 
     def test_non_htmx_post_saves_and_redirects(self):
         response = self.client.post(
             reverse("crm:my_company_edit", args=[self.org.pk]),
             company_form_data(self.org, address_line1="99 Fallback Way"),
         )
-        self.assertRedirects(response, reverse("crm:my_company"))
+        self.assertRedirects(response, reverse("dashboard"), target_status_code=302)
         self.org.refresh_from_db()
         self.assertEqual(self.org.address_line1, "99 Fallback Way")
 
@@ -463,29 +516,55 @@ class ActionBadgeTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.customer, cls.deal = make_customer_with_deal()
+        complete_details(cls.deal)
 
     def setUp(self):
         self.client.force_login(self.customer)
 
+    def test_missing_details_count_and_are_listed(self):
+        contact = self.deal.customer
+        contact.date_of_birth = None
+        contact.save(update_fields=["date_of_birth"])
+        org = self.deal.organisation
+        org.phone = ""
+        org.save(update_fields=["phone"])
+
+        response = self.client.get(reverse("crm:my_deals"))
+        self.assertContains(response, "2 actions needed")
+
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, "What we still need from you")
+        self.assertContains(response, "Your details: date of birth")
+        self.assertContains(response, f'href="#person-{contact.pk}"')
+        self.assertContains(response, "Company details: phone")
+        self.assertContains(response, 'href="#company"')
+        self.assertContains(response, ">Missing</span>")
+        self.assertContains(response, "<span>date of birth</span>")
+
+    def test_nothing_outstanding_shows_success(self):
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, "Nothing outstanding")
+        self.assertNotContains(response, "What we still need from you")
+
     def test_badge_counts_outstanding_items(self):
         make_document(self.deal, name="Bank statements")  # requested
         make_signature_request(self.deal)  # sent
-        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
-            with self.subTest(url=url):
-                response = self.client.get(url)
-                self.assertContains(response, "2 actions needed")
+        response = self.client.get(reverse("crm:my_deals"))
+        self.assertContains(response, "2 actions needed")
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, "Upload: Bank statements")
+        self.assertContains(response, 'href="#documents"')
+        self.assertContains(response, 'href="#signatures"')
 
     def test_no_badge_when_everything_done(self):
         doc = make_document(self.deal, name="Bank statements")
         doc.attach(_pdf(), by=self.customer)
         make_signature_request(self.deal, status=SignatureRequest.Status.COMPLETED)
-        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
-            with self.subTest(url=url):
-                response = self.client.get(url)
-                self.assertNotContains(response, "needed")
+        response = self.client.get(reverse("crm:my_deals"))
+        self.assertNotContains(response, "needed")
 
     def test_counts_do_not_multiply(self):
-        """Two docs + two signatures = 4, not 2×2 (distinct=True regression)."""
+        """Two docs + two signatures = 4, not 2×2 (join-multiplication regression)."""
         make_document(self.deal, name="A")
         make_document(self.deal, name="B")
         make_signature_request(self.deal)
@@ -498,6 +577,7 @@ class QuoteSelectionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.customer, cls.deal = make_customer_with_deal()
+        complete_details(cls.deal)
         cls.other_customer, cls.other_deal = make_customer_with_deal()
 
     def setUp(self):
@@ -571,13 +651,12 @@ class QuoteSelectionTests(TestCase):
         self.assertEqual(self.deal.selected_quote_id, self.quote.pk)
 
     def test_unselected_quote_counts_in_badge(self):
-        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
-            with self.subTest(url=url):
-                self.assertContains(self.client.get(url), "1 action needed")
+        self.assertContains(self.client.get(reverse("crm:my_deals")), "1 action needed")
+        detail = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(detail, "Choose your quote")
+        self.assertContains(detail, 'href="#quotes"')
         self._select()
-        for url in [reverse("crm:my_deals"), reverse("dashboard")]:
-            with self.subTest(url=url):
-                self.assertNotContains(self.client.get(url), "needed")
+        self.assertNotContains(self.client.get(reverse("crm:my_deals")), "needed")
 
 
 class CommittedQuoteCardTests(TestCase):

@@ -1,6 +1,6 @@
 {% load icons %}
 {% comment %}Edit state of one person card.{% endcomment %}
-<form class="card bg-base-100 shadow w-full"
+<form class="card bg-base-100 shadow w-full" id="person-{{ person.pk }}"
       hx-post="{% url 'crm:my_person_edit' person.pk %}"
       hx-target="this" hx-swap="outerHTML">
   {% csrf_token %}

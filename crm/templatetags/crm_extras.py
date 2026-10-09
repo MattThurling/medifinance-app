@@ -9,7 +9,8 @@ from django import template
 from django.utils.safestring import SafeString, mark_safe
 from markdown_it import MarkdownIt
 
-from crm.models import Stage, XeroConnection
+from crm.models import Contact, Stage, XeroConnection
+from crm.portal_checklist import contact_missing_fields, organisation_missing_fields
 
 register = template.Library()
 
@@ -66,3 +67,12 @@ def money(value, places: int = 2) -> str:
     except (InvalidOperation, ValueError, TypeError):
         return str(value)
     return f"£{amount:,.{int(places)}f}"
+
+
+@register.filter(name="missing_fields")
+def missing_fields(obj) -> list[str]:
+    """Blank key details on a Contact or Organisation, for the customer
+    portal's person/company cards (see crm.portal_checklist)."""
+    if isinstance(obj, Contact):
+        return contact_missing_fields(obj)
+    return organisation_missing_fields(obj)

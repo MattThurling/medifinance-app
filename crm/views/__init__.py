@@ -89,12 +89,10 @@ from .rateband import RateBandAddView, RatesView, RateUploadView
 from .customer import (
     MyCompanyCardView,
     MyCompanyEditView,
-    MyCompanyView,
     MyDealDetailView,
     MyDealListView,
     MyDealQuoteSelectView,
     MyDealSignView,
-    MyPeopleView,
     MyPersonCardView,
     MyPersonEditView,
 )
@@ -170,12 +168,10 @@ __all__ = [
     "RateUploadView",
     "MyCompanyCardView",
     "MyCompanyEditView",
-    "MyCompanyView",
     "MyDealDetailView",
     "MyDealListView",
     "MyDealQuoteSelectView",
     "MyDealSignView",
-    "MyPeopleView",
     "MyPersonCardView",
     "MyPersonEditView",
 ]

@@ -1,6 +1,6 @@
 {% load icons %}
 {% comment %}Edit state of one company card. Save posts back; Cancel restores the display card.{% endcomment %}
-<form class="card bg-base-100 shadow w-full"
+<form class="card bg-base-100 shadow w-full" id="company"
       hx-post="{% url 'crm:my_company_edit' org.pk %}"
       hx-target="this" hx-swap="outerHTML">
   {% csrf_token %}

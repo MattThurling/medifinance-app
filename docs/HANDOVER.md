@@ -60,7 +60,7 @@ All four core records + User carry a unique, nullable `hubspot_id`. Each model d
 - **Deal overview** (`deal_detail.html`): header + meta, amount card, xs tables for Quotes / Applicants / Documents with icon actions, vertical **timeline** of stages (both sides, secondary colour, `+` to add). Responsive: amount above quotes, timeline below docs on small screens.
 - **Quotes / Stages / Documents** managed inline from the deal (each via `?deal=<pk>` create views).
 - **Searchable selects** (HTMX): company/contact FK fields query `/search/{contacts,organisations}/` (≤20 results) instead of dumping every row into a `<select>`. Reusable `_combobox.html`.
-- **Customer portal** (magic link → 4-step wizard, plain white layout, no sidebar): Quotes → Company Details → Applicants → Documents → thank-you. Steps indicator (`_portal_steps.html`). Completing Applicants records an "Info Received" stage.
+- **Customer portal** (`/my/`, same app shell as staff with a one-item sidebar): the magic link lands on the deal page `/my/deals/<pk>/`, which is the customer's home — a derived "What we still need from you" summary (`crm/portal_checklist.py`: blank key details, quote to choose, requested documents, outstanding signatures), inline-editable (HTMX) cards for each applicant and the company, then quotes, documents, signatures and repayments. `/my/deals/` lists all deals with an "N actions needed" badge. `/` routes a customer to their deal (one deal) or the list.
 - **Email** (SMTP/SSL via `mail.medi-finance.co.uk:465` as `info@medi-finance.co.uk`): "Email link to customer" + password reset. Console backend until `EMAIL_HOST_PASSWORD` is set.
 
 ## HubSpot migration
@@ -82,7 +82,7 @@ accounts/   User, MagicLink, permissions, emails, templatetags/icons
 crm/        models, views, forms, urls, admin, signals,
             management/commands/import_hubspot.py, templates/crm/, templatetags/crm_extras
 medifinance/ settings, urls, wsgi
-templates/  base, _app_layout (staff sidebar), _portal_layout (plain), dashboard, email/, portal/
+templates/  base, _app_layout (sidebar; staff + customer), _portal_layout (plain; supplier invoice pages only), dashboard (staff), email/, portal/
 static/     src/input.css → dist/output.css (Tailwind), vendor/htmx, vendor/chart.umd.min (Chart.js), js/combobox, js/charts
 docs/       DEPLOYMENT, HUBSPOT_IMPORT, HUBSPOT_EXPORT_QUERIES, HANDOVER
 ```

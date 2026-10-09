@@ -121,7 +121,7 @@ class StaffPagesRenderTests(TestCase):
 
 
 class PortalPagesRenderTests(TestCase):
-    """The customer-facing wizard pages render for their owner."""
+    """The customer-facing portal pages render for their owner."""
 
     @classmethod
     def setUpTestData(cls):
@@ -141,8 +141,12 @@ class PortalPagesRenderTests(TestCase):
     def test_portal_pages(self):
         self._ok(reverse("crm:my_deals"))
         self._ok(reverse("crm:my_deal_detail", args=[self.deal.pk]))
-        self._ok(reverse("crm:my_company"))
-        self._ok(reverse("crm:my_people"))
+
+    def test_old_company_and_people_pages_redirect(self):
+        for path in ("/my/company/", "/my/people/"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertRedirects(response, reverse("dashboard"), target_status_code=302)
 
     def test_old_wizard_paths_redirect_to_my_deal(self):
         """Magic links minted before the wizard's removal still land somewhere."""
@@ -153,8 +157,9 @@ class PortalPagesRenderTests(TestCase):
                     response, reverse("crm:my_deal_detail", args=[self.deal.pk])
                 )
 
-    def test_customer_dashboard(self):
-        self._ok(reverse("dashboard"))
+    def test_customer_root_redirects_to_their_deal(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
 
 
 class AdminCanRenderEverythingTest(TestCase):

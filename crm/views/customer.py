@@ -1,12 +1,12 @@
 """Customer portal views — the /my/ section.
 
-A logged-in customer gets the same app shell as staff with a three-item nav
-(Company / People / Deals) and inline HTMX editing: each record renders as a
-card partial whose Edit button swaps in a form partial in place; saving swaps
-the card back. Everything is scoped through request.user — foreign records
-404.
+A logged-in customer's home is their deal page: a "what we still need from
+you" summary (see crm/portal_checklist.py), inline-editable cards for each
+applicant and the company, then quotes, documents, signatures and
+repayments. `/` routes them there (or to the deals list when they have
+several). Everything is scoped through request.user — foreign records 404.
 
-The HTMX contract, used by every section:
+The HTMX contract for the person/company cards:
 - GET  …/<pk>/card/  -> display partial (Cancel's target)
 - GET  …/<pk>/edit/  -> form partial
 - POST …/<pk>/edit/  -> valid: display partial; invalid: form partial w/ errors
@@ -17,14 +17,15 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.contrib import messages
-from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Q, Value, When
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
 from .. import docuseal
 from ..forms import CustomerCompanyForm, CustomerInfoForm, QuoteSelectionForm
-from ..models import Contact, Deal, Document, Note, Organisation, Quote, SignatureRequest
+from ..models import Contact, Deal, Note, Organisation
+from ..portal_checklist import deal_people, outstanding_items
 from .shared import CustomerRequiredMixin
 
 
@@ -72,41 +73,14 @@ def customer_people(user):
 
 
 def customer_deals(user):
-    """Same scoping rule as the wizard's _PortalDealMixin.
+    """Deals the customer may see: those where they are the customer contact.
 
-    Annotates each deal with its outstanding customer actions — documents
-    still to provide and signature requests still to sign — so lists and the
-    dashboard can badge "N actions needed" without N+1 queries.
-    `distinct=True` on both Counts: two reverse joins would otherwise
-    multiply each other's rows."""
+    Prefetches everything `portal_checklist.outstanding_items` reads so the
+    deals list can badge "N actions needed" per row without N+1 queries."""
     return (
         Deal.objects.filter(customer__user=user)
-        .select_related("organisation", "selected_quote")
-        .annotate(
-            outstanding_docs=Count(
-                "documents",
-                filter=Q(documents__status=Document.Status.REQUESTED),
-                distinct=True,
-            ),
-            outstanding_sigs=Count(
-                "signature_requests",
-                filter=Q(signature_requests__status__in=[
-                    SignatureRequest.Status.SENT, SignatureRequest.Status.OPENED,
-                ]),
-                distinct=True,
-            ),
-            # 1 when quotes exist but none is chosen yet — badge-summable
-            # alongside the two counts above.
-            needs_quote=Case(
-                When(
-                    Q(selected_quote__isnull=True)
-                    & Exists(Quote.objects.filter(deal=OuterRef("pk"))),
-                    then=Value(1),
-                ),
-                default=Value(0),
-                output_field=IntegerField(),
-            ),
-        )
+        .select_related("customer", "organisation", "selected_quote")
+        .prefetch_related("documents", "signature_requests", "quotes", "co_applicants")
         .order_by("-created_at")
     )
 
@@ -192,22 +166,13 @@ class _CompanyMixin:
     object_name = "org"
     card_template = "crm/_my_company_card.html"
     form_template = "crm/_my_company_form.html"
-    page_url = "crm:my_company"
+    page_url = "dashboard"
 
     def get_queryset(self):
         return customer_organisations(self.request.user)
 
     def note_kwargs(self, obj):
         return {"organisation": obj}
-
-
-class MyCompanyView(CustomerRequiredMixin, View):
-    def get(self, request):
-        return render(
-            request,
-            "crm/my_company.html",
-            {"organisations": customer_organisations(request.user)},
-        )
 
 
 class MyCompanyCardView(_CompanyMixin, _CardPartialView):
@@ -226,22 +191,13 @@ class _PersonMixin:
     object_name = "person"
     card_template = "crm/_my_person_card.html"
     form_template = "crm/_my_person_form.html"
-    page_url = "crm:my_people"
+    page_url = "dashboard"
 
     def get_queryset(self):
         return customer_people(self.request.user)
 
     def note_kwargs(self, obj):
         return {"contact": obj}
-
-
-class MyPeopleView(CustomerRequiredMixin, View):
-    def get(self, request):
-        return render(
-            request,
-            "crm/my_people.html",
-            {"people": customer_people(request.user)},
-        )
 
 
 class MyPersonCardView(_PersonMixin, _CardPartialView):
@@ -252,28 +208,38 @@ class MyPersonEditView(_PersonMixin, _EditPartialView):
     pass
 
 
-# --- Deals (read-only this slice) ------------------------------------------
+# --- Deals -----------------------------------------------------------------
 
 class MyDealListView(CustomerRequiredMixin, View):
+    """All of the customer's deals, current and past, each badged with how
+    many things are still needed on it."""
+
     def get(self, request):
-        return render(
-            request,
-            "crm/my_deal_list.html",
-            {"deals": customer_deals(request.user)},
-        )
+        deals = list(customer_deals(request.user))
+        for deal in deals:
+            deal.outstanding = outstanding_items(deal, user=request.user)
+        return render(request, "crm/my_deal_list.html", {"deals": deals})
 
 
 class MyDealDetailView(CustomerRequiredMixin, View):
+    """The customer's home: one deal, everything we need from them on it."""
+
     def get(self, request, pk):
         deal = get_object_or_404(
             customer_deals(request.user).select_related("owner"), pk=pk
         )
         amount = deal.finance_amount
+        # Same scope as the person edit endpoints, restricted to this deal.
+        allowed = set(customer_people(request.user).values_list("pk", flat=True))
+        people = [p for p in deal_people(deal) if p.pk in allowed]
         return render(
             request,
             "crm/my_deal_detail.html",
             {
                 "deal": deal,
+                "outstanding": outstanding_items(deal, user=request.user),
+                "people": people,
+                "org": deal.organisation,
                 "amount_display": f"£{amount:,.2f}" if amount is not None else None,
                 "documents": deal.documents.all(),
                 "quotes": deal.quotes.all(),

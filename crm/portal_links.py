@@ -7,6 +7,7 @@ and no `messages` framework available) can reuse the exact same logic.
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 from accounts.models import MagicLink, Role
 
@@ -17,8 +18,8 @@ class NoCustomerEmailError(Exception):
 
 def issue_portal_link_for_deal(deal, *, created_by=None):
     """Resolve (or create) the customer User for `deal.customer` and issue a
-    single-use MagicLink that lands on the customer dashboard (their
-    portal home, with the deal one click away).
+    single-use MagicLink that lands straight on that deal's portal page —
+    the one screen that shows what we still need from them.
 
     Returns ``(link, duplicate_user_warning)`` where the second element is a
     human-readable string when the contact's email is already attached to a
@@ -70,7 +71,7 @@ def issue_portal_link_for_deal(deal, *, created_by=None):
 
     link = MagicLink.issue(
         user=link_user,
-        redirect_url="/",  # the customer dashboard — their portal home
+        redirect_url=reverse("crm:my_deal_detail", args=[deal.pk]),
         created_by=created_by,
     )
     return link, dup_warning
