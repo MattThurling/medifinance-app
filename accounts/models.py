@@ -200,6 +200,12 @@ class ApiKey(models.Model):
         default=True,
         help_text="Untick to revoke without deleting (preserves audit history).",
     )
+    is_sandbox = models.BooleanField(
+        default=False,
+        help_text="Sandbox key: POST /api/deals/ runs full validation and "
+                  "returns a fake reference, but creates no deal and sends no "
+                  "email. Issue one per partner for integration testing.",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     last_used_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
@@ -214,6 +220,8 @@ class ApiKey(models.Model):
 
     def __str__(self) -> str:
         status = "active" if self.is_active else "revoked"
+        if self.is_sandbox:
+            status += " · sandbox"
         return f"{self.organisation.name} ({self.prefix}… · {status})"
 
     @classmethod
@@ -221,7 +229,8 @@ class ApiKey(models.Model):
         return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
     @classmethod
-    def issue(cls, *, organisation, created_by=None) -> tuple["ApiKey", str]:
+    def issue(cls, *, organisation, created_by=None,
+              is_sandbox: bool = False) -> tuple["ApiKey", str]:
         """Mint a new key for `organisation`. Returns ``(instance, raw_key)`` —
         the raw key is the only time the secret is ever surfaced; store it
         somewhere safe before navigating away."""
@@ -231,6 +240,7 @@ class ApiKey(models.Model):
             prefix=raw[:cls.PREFIX_VISIBLE_LEN],
             hashed_key=cls._hash(raw),
             created_by=created_by,
+            is_sandbox=is_sandbox,
         )
         return instance, raw
 

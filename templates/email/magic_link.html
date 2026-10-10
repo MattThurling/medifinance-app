@@ -15,8 +15,14 @@
             <td style="padding:32px;">
               <p style="margin:0 0 16px;">Hello,</p>
               <p style="margin:0 0 16px;">
+                {% if via_partner %}
+                A finance application <strong>{{ deal_name }}</strong> was started
+                for this email address through {{ via_partner }}, which arranges
+                finance with Medifinance.
+                {% else %}
                 {{ owner_name }} at Medifinance has shared your application
                 <strong>{{ deal_name }}</strong> with you.
+                {% endif %}
               </p>
               <p style="margin:0 0 24px;">
                 Use the secure link below to review your quote and complete your details.
@@ -38,6 +44,13 @@
                 {{ expires_at|date:"j M Y, H:i" }}. If it stops working, ask your
                 Medifinance contact to send a new one.
               </p>
+              {% if via_partner %}
+              <p style="margin:16px 0 0; font-size:13px; color:#6b7280;">
+                If you didn't request this, you can ignore this email. Nothing
+                will happen unless you open the link, and no finance is agreed
+                at this stage.
+              </p>
+              {% endif %}
             </td>
           </tr>
         </table>

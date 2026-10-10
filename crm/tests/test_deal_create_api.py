@@ -184,12 +184,19 @@ class DealCreateApiHappyPathTests(TestCase):
 
     def test_response_contains_deal_summary(self):
         response = self._post()
-        self.assertEqual(
-            set(response.json()),
+        # The v1 keys are all still there (additive contract)…
+        self.assertLessEqual(
             {"id", "name", "amount", "deduplicated"},
+            set(response.json()),
         )
         self.assertEqual(response.json()["amount"], "25000.00")
         self.assertFalse(response.json()["deduplicated"])
+        # …plus the agent-facing ones.
+        body = response.json()
+        self.assertEqual(body["application_reference"], f"MF-{body['id']}")
+        self.assertEqual(body["status"], "awaiting_customer")
+        self.assertIn("jane@example.com", body["message"])
+        self.assertFalse(body["sandbox"])
 
     def test_attaches_standard_document_requests(self):
         response = self._post()

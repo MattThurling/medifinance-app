@@ -7,6 +7,7 @@ from .models import (
     Note,
     Organisation,
     Participation,
+    PartnerApiRequest,
     Proposal,
     Quote,
     RateBand,
@@ -98,9 +99,9 @@ class ParticipationInline(admin.StackedInline):
 
 @admin.register(Deal)
 class DealAdmin(admin.ModelAdmin):
-    list_display = ("name", "type", "source", "owner", "customer", "hubspot_id", "created_at")
+    list_display = ("name", "type", "source", "channel", "owner", "customer", "hubspot_id", "created_at")
     list_select_related = ("owner", "customer", "organisation")
-    list_filter = ("type", "source", "owner")
+    list_filter = ("type", "source", "channel", "owner")
     search_fields = (
         "name",
         "hubspot_id",
@@ -114,6 +115,15 @@ class DealAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("name", "owner", "customer", "organisation")}),
         ("Associations", {"fields": ("introducer",)}),
+        (
+            "Partner API",
+            {
+                "fields": ("channel", "agent_client", "partner_product_id",
+                           "asset_category", "company_type"),
+                "classes": ("collapse",),
+                "description": "Set by POST /api/deals/ when the partner supplied them.",
+            },
+        ),
         (
             "Other financials",
             {
@@ -234,3 +244,22 @@ class NoteAdmin(admin.ModelAdmin):
     search_fields = ("content", "hubspot_id", "contact__first_name", "contact__last_name", "organisation__name", "deal__name")
     autocomplete_fields = ("contact", "organisation", "deal", "author")
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(PartnerApiRequest)
+class PartnerApiRequestAdmin(admin.ModelAdmin):
+    """Read-only audit log of partner API submissions."""
+
+    list_display = ("created_at", "organisation", "channel", "agent_client", "email",
+                    "outcome", "status_code", "deal", "idempotency_key")
+    list_filter = ("outcome", "channel", "organisation")
+    list_select_related = ("organisation", "deal", "api_key")
+    search_fields = ("email", "idempotency_key", "deal__name", "organisation__name")
+    date_hierarchy = "created_at"
+    readonly_fields = [f.name for f in PartnerApiRequest._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

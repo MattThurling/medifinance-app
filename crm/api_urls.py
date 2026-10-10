@@ -4,6 +4,8 @@ Two surfaces:
 - /api/deals/         — GET: internal extension API (session auth);
                         POST: public deal-create API (bearer-token auth)
 - /api/quotes/        — public quote API (bearer-token auth)
+- /api/applications/<reference>/status/
+                      — public application status (bearer-token auth)
 """
 
 from django.urls import path
@@ -16,4 +18,9 @@ urlpatterns = [
     path("deals/", api.DealRootApi.as_view(), name="deal_list"),
     path("deals/<int:pk>/", api.DealDetailApi.as_view(), name="deal_detail"),
     path("quotes/", api.QuoteApi.as_view(), name="quote"),
+    path(
+        "applications/<str:reference>/status/",
+        api.ApplicationStatusApi.as_view(),
+        name="application_status",
+    ),
 ]
