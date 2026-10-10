@@ -512,12 +512,12 @@ layout (main content left, amount + timeline right).
       <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary btn-block">
-          Send application to {{ deal.customer.first_name|default:"customer" }}
+          Send magic link to {{ deal.customer.first_name|default:"customer" }}
         </button>
       </form>
       <form method="post" action="{% url 'crm:deal_issue_portal_link' deal.pk %}" class="mt-2 text-center">
         {% csrf_token %}
-        <button type="submit" class="link link-hover text-xs opacity-60">or generate a link to send manually</button>
+        <button type="submit" class="link link-hover text-xs opacity-60">or generate a magic link to send manually</button>
       </form>
     </div>
     {% endif %}
