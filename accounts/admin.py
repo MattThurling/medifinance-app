@@ -62,20 +62,20 @@ class MagicLinkAdmin(admin.ModelAdmin):
 
 @admin.register(ApiKey)
 class ApiKeyAdmin(admin.ModelAdmin):
-    list_display = ("organisation", "prefix", "is_active", "last_used_at", "created_at", "created_by")
-    list_filter = ("is_active",)
+    list_display = ("organisation", "prefix", "is_active", "is_sandbox", "last_used_at", "created_at", "created_by")
+    list_filter = ("is_active", "is_sandbox")
     list_select_related = ("organisation", "created_by")
     search_fields = ("prefix", "organisation__name")
     autocomplete_fields = ("organisation",)
     readonly_fields = ("prefix", "hashed_key", "created_at", "last_used_at", "created_by")
-    fields = ("organisation", "is_active", "prefix", "hashed_key",
+    fields = ("organisation", "is_active", "is_sandbox", "prefix", "hashed_key",
               "created_at", "last_used_at", "created_by")
 
     def get_fields(self, request, obj=None):
         # On the create form only the integrator's org matters; everything
         # else is generated.
         if obj is None:
-            return ("organisation",)
+            return ("organisation", "is_sandbox")
         return super().get_fields(request, obj)
 
     def save_model(self, request, obj, form, change):
@@ -86,16 +86,18 @@ class ApiKeyAdmin(admin.ModelAdmin):
         # half-built `obj` first.
         new_obj, raw_key = ApiKey.issue(
             organisation=obj.organisation, created_by=request.user,
+            is_sandbox=obj.is_sandbox,
         )
         # Mutate the in-flight obj so admin's redirect to the change page works.
         obj.pk = new_obj.pk
         obj.prefix = new_obj.prefix
         obj.hashed_key = new_obj.hashed_key
         obj.is_active = new_obj.is_active
+        obj.is_sandbox = new_obj.is_sandbox
         obj.created_at = new_obj.created_at
         obj.created_by = new_obj.created_by
         messages.warning(
             request,
-            f"API key for {new_obj.organisation.name}: {raw_key} "
+            f"{'Sandbox ' if new_obj.is_sandbox else ''}API key for {new_obj.organisation.name}: {raw_key} "
             f"— copy it now, this is the only time it will be shown.",
         )

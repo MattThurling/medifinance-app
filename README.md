@@ -102,6 +102,18 @@ class SomeAdminView(AdminRequiredMixin, TemplateView): ...
 
 Per-row permissions are wired through django-guardian. On `Deal` save, the owner gets `view_deal` and `change_deal` on that row (see `crm/signals.py`).
 
+## Partner API
+
+Suppliers and other introducers create finance applications with
+`POST /api/deals/` (bearer-key auth, see `accounts.models.ApiKey`) and can
+poll `GET /api/applications/<reference>/status/`. The contract — including the
+optional `channel` / `company_type` / `product_id` fields for guest and
+AI-agent submissions, `Idempotency-Key` replay, the structured `errors`
+format, rate limits and sandbox keys — is documented for partners in
+[`docs/partner-api.md`](docs/partner-api.md). The quote endpoint is in
+[`docs/QUOTE_API.md`](docs/QUOTE_API.md). Every submission is logged to
+`crm.PartnerApiRequest` (read-only in admin).
+
 ## Browser extension API
 
 The **`chrome-extension`** repo (a separate folder/repo) fills partner/bank

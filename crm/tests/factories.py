@@ -190,12 +190,15 @@ def make_xero_invoice(deal: Deal, **extra) -> XeroInvoice:
 
 def make_api_key(*, organisation: Organisation | None = None,
                  created_by=None,
-                 is_active: bool = True) -> tuple[ApiKey, str]:
+                 is_active: bool = True,
+                 is_sandbox: bool = False) -> tuple[ApiKey, str]:
     """Mint an ApiKey. Returns ``(instance, raw_key)``; tests usually want
     both — the instance to assert on, the raw key to pass as a Bearer token.
     Auto-creates the owning Organisation when one isn't supplied."""
     organisation = organisation or make_organisation(name=f"Integrator {_next()}")
-    instance, raw = ApiKey.issue(organisation=organisation, created_by=created_by)
+    instance, raw = ApiKey.issue(
+        organisation=organisation, created_by=created_by, is_sandbox=is_sandbox,
+    )
     if not is_active:
         instance.is_active = False
         instance.save(update_fields=["is_active"])

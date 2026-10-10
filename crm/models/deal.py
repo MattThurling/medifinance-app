@@ -92,6 +92,45 @@ class Deal(TimestampedModel):
                   "of the customer's organisations; can be set later.",
     )
 
+    class Channel(models.TextChoices):
+        """How a partner-API application was submitted. `web` is the partner's
+        own site with a signed-in customer; `web-guest` the same site with no
+        account; `mcp` an AI agent (Claude, ChatGPT…) via the partner's MCP
+        server; `api` a direct server-to-server integration."""
+        WEB = "web", "Web (signed in)"
+        WEB_GUEST = "web-guest", "Web (guest)"
+        MCP = "mcp", "AI agent (MCP)"
+        API = "api", "API"
+
+    class CompanyType(models.TextChoices):
+        LIMITED_COMPANY = "limited_company", "Limited company"
+        SOLE_TRADER = "sole_trader", "Sole trader"
+        PARTNERSHIP = "partnership", "Partnership"
+        OTHER = "other", "Other"
+
+    # Partner-API attribution. All optional/defaulted: only set on deals that
+    # arrived via POST /api/deals/, and only when the partner supplied them.
+    channel = models.CharField(
+        max_length=32, choices=Channel.choices, blank=True, default="",
+        help_text="Submission channel reported by the partner (web, web-guest, mcp, api).",
+    )
+    agent_client = models.CharField(
+        max_length=64, blank=True, default="",
+        help_text="Free text: the AI client that submitted (e.g. claude, chatgpt). Informational only.",
+    )
+    partner_product_id = models.CharField(
+        max_length=100, blank=True, default="",
+        help_text="The partner's own product/SKU id for the asset being financed.",
+    )
+    asset_category = models.CharField(
+        max_length=100, blank=True, default="",
+        help_text="Partner-supplied asset category (e.g. imaging, surgery).",
+    )
+    company_type = models.CharField(
+        max_length=32, choices=CompanyType.choices, blank=True, default="",
+        help_text="The applicant's business type as given at application.",
+    )
+
     # Optional associations
     introducer = models.ForeignKey(
         Organisation,

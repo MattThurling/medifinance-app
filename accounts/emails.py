@@ -37,13 +37,21 @@ def _send_with_retry(message: EmailMultiAlternatives) -> None:
             time.sleep(2 * 2 ** attempt)
 
 
-def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner_name: str, expires_at) -> None:
-    """Email a customer their single-use portal link."""
+def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner_name: str,
+                          expires_at, via_partner: str | None = None) -> None:
+    """Email a customer their single-use portal link.
+
+    `via_partner` names the partner (e.g. a supplier's website or AI agent)
+    that started the application through the partner API. When set, the email
+    explains who asked for it and makes clear the recipient can ignore it if
+    they weren't expecting it — a guest or an agent may have typed the wrong
+    address, and nothing proceeds unless the recipient opens the link."""
     context = {
         "link_url": link_url,
         "deal_name": deal_name,
         "owner_name": owner_name,
         "expires_at": expires_at,
+        "via_partner": via_partner,
     }
     subject = "Your Medifinance application link"
     text_body = render_to_string("email/magic_link.txt", context)

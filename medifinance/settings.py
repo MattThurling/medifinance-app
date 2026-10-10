@@ -257,6 +257,20 @@ API_DEAL_DEDUP_SECONDS = int(os.getenv("API_DEAL_DEDUP_SECONDS", "86400"))
 API_DEAL_RATE_LIMIT_HOUR = int(os.getenv("API_DEAL_RATE_LIMIT_HOUR", "5"))
 API_DEAL_RATE_LIMIT_DAY = int(os.getenv("API_DEAL_RATE_LIMIT_DAY", "25"))
 
+# Per-recipient limit across ALL partner keys: new API deals for one applicant
+# email per rolling hour. Guards the "anyone can trigger an email to any
+# address" surface now that partners accept guest and AI-agent submissions.
+API_DEAL_EMAIL_RATE_LIMIT_HOUR = int(os.getenv("API_DEAL_EMAIL_RATE_LIMIT_HOUR", "3"))
+
+# Sensible bounds on the amount a partner may submit. Outside these the API
+# returns 422 with a clear message rather than creating an unfundable deal.
+API_DEAL_MIN_AMOUNT = int(os.getenv("API_DEAL_MIN_AMOUNT", "1000"))
+API_DEAL_MAX_AMOUNT = int(os.getenv("API_DEAL_MAX_AMOUNT", "10000000"))
+
+# Seconds a stored successful response is replayed for a repeat POST carrying
+# the same Idempotency-Key header (same key, same body).
+API_IDEMPOTENCY_SECONDS = int(os.getenv("API_IDEMPOTENCY_SECONDS", "86400"))
+
 # Comma-separated list of staff addresses notified about new API-created deals.
 NOTIFY_EMAILS = [
     e.strip() for e in os.getenv("NOTIFY_EMAILS", "mnthurling@gmail.com").split(",") if e.strip()

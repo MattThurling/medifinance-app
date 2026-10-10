@@ -24,6 +24,7 @@ from .signature import (
     signature_signed_upload_path,
 )
 from .note import Note
+from .api_request import PartnerApiRequest
 
 __all__ = [
     "TimestampedModel",
@@ -47,4 +48,5 @@ __all__ = [
     "signature_audit_upload_path",
     "signature_signed_upload_path",
     "Note",
+    "PartnerApiRequest",
 ]
