@@ -34,6 +34,7 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["type"].help_text = ""  # the dropdown explains itself
         # Hide retired types from the dropdown, except the one already on the
         # deal being edited (so saving the form doesn't silently change it).
         current = self.instance.type
