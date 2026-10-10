@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import OuterRef, ProtectedError, Q, Subquery, Sum
 from django.db.models.functions import Coalesce, Greatest
+from django.http import Http404
 from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import ListView
@@ -10,6 +11,7 @@ from django.views.generic import ListView
 from accounts.models import Role
 from accounts.permissions import StaffRequiredMixin
 
+from ..access import get_visible_deal_or_404, scope_to_visible_deals, visible_deals
 from ..models import (
     Document,
     Note,
@@ -109,8 +111,12 @@ class SearchableListView(ListView):
     paginate_by = 25
     search_fields: list[str] = []
 
+    def get_base_queryset(self):
+        """The rows to search over. Override to scope by user."""
+        return super().get_queryset()
+
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = self.get_base_queryset()
         q = self.request.GET.get("q", "").strip()
         if q and self.search_fields:
             cond = Q()
@@ -156,12 +162,68 @@ class SortableListMixin:
         return ctx
 
 
+class VisibleDealsMixin:
+    """For Deal CBVs: the queryset is the deals this user may see, so a deal
+    belonging to someone else 404s like a missing one. Put it after the
+    role-check mixin in the bases."""
+
+    def get_queryset(self):
+        return visible_deals(self.request.user)
+
+
+class VisibleDealChildMixin:
+    """For CBVs over a deal's children (Quote, Proposal, Participation,
+    Document ...): restrict `super().get_queryset()` to visible deals."""
+
+    def get_queryset(self):
+        return scope_to_visible_deals(super().get_queryset(), self.request.user)
+
+
+class ParentDealMixin:
+    """Resolve the parent deal into `self.parent_deal` (404 if the user can't
+    see it). Reads `?deal=<pk>` by default, or the URL `pk` kwarg when
+    `parent_deal_from_url` is set.
+
+    Runs in `dispatch()`, so it MUST come after `StaffRequiredMixin` in the
+    bases: the role check (403) has to happen before the lookup (404),
+    otherwise anonymous users could probe which deal ids exist."""
+
+    parent_deal_from_url = False
+    parent_deal_select_related: tuple[str, ...] = ()
+
+    def dispatch(self, request, *args, **kwargs):
+        pk = kwargs.get("pk") if self.parent_deal_from_url else request.GET.get("deal")
+        if not pk:
+            raise Http404("?deal query parameter required")
+        try:
+            self.parent_deal = get_visible_deal_or_404(
+                request.user, pk, *self.parent_deal_select_related
+            )
+        except (ValueError, TypeError) as exc:
+            raise Http404("Deal not found") from exc
+        return super().dispatch(request, *args, **kwargs)
+
+
 class OwnerFilterMixin:
     """Whitelist-based `?owner=` filtering shared by the deal, contact and
     organisation lists: `me`, `none`, or a user pk. Views call
-    `apply_owner_filter(qs)` explicitly, alongside their other filters."""
+    `apply_owner_filter(qs)` explicitly, alongside their other filters.
+
+    Deal-based views set `lock_owner_for_associates = True`: an associate's
+    queryset is already restricted to their own deals, so the filter becomes
+    a no-op and the dropdown is hidden (`owner_filter_locked` in context).
+    Contact and organisation lists leave it off — the address book is shared,
+    and "My contacts" is a legitimate filter there."""
+
+    lock_owner_for_associates = False
+
+    @property
+    def owner_filter_locked(self) -> bool:
+        return self.lock_owner_for_associates and self.request.user.is_associate
 
     def apply_owner_filter(self, qs):
+        if self.owner_filter_locked:
+            return qs
         owner = self.request.GET.get("owner", "")
         if owner == "me":
             qs = qs.filter(owner=self.request.user)
@@ -173,12 +235,19 @@ class OwnerFilterMixin:
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["owner_choices"] = (
-            get_user_model()
-            .objects.filter(is_active=True, role__in=[Role.ADMIN, Role.ASSOCIATE])
-            .order_by("first_name", "last_name")
-        )
-        ctx["owner_filter"] = self.request.GET.get("owner", "")
+        locked = self.owner_filter_locked
+        ctx["owner_filter_locked"] = locked
+        if locked:
+            # Keep colleagues' names out of the page entirely.
+            ctx["owner_choices"] = []
+            ctx["owner_filter"] = "me"
+        else:
+            ctx["owner_choices"] = (
+                get_user_model()
+                .objects.filter(is_active=True, role__in=[Role.ADMIN, Role.ASSOCIATE])
+                .order_by("first_name", "last_name")
+            )
+            ctx["owner_filter"] = self.request.GET.get("owner", "")
         return ctx
 
 
@@ -212,7 +281,16 @@ class _OwnerFormMixin:
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        owner_id = ctx["form"]["owner"].value()
+        form = ctx["form"]
+        if "owner" not in form.fields:
+            # Associates don't get to pick an owner (OwnerInitialFormMixin
+            # removes the field); the template renders nothing for it.
+            ctx["owner_locked"] = True
+            ctx["owner_selected_id"] = ""
+            ctx["owner_selected_label"] = ""
+            return ctx
+        ctx["owner_locked"] = False
+        owner_id = form["owner"].value()
         ctx["owner_selected_id"] = owner_id or ""
         ctx["owner_selected_label"] = (
             get_user_model().objects.filter(pk=owner_id).first() if owner_id else ""

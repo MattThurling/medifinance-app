@@ -19,21 +19,19 @@ from django.views.decorators.csrf import csrf_exempt
 from accounts.permissions import StaffRequiredMixin
 
 from .. import docuseal
+from ..access import scope_to_visible_deals, visible_deals
 from ..forms import SignatureRequestForm
-from ..models import Contact, Deal, SignatureRequest
+from ..models import Contact, SignatureRequest
+from .shared import ParentDealMixin
 
 
 logger = logging.getLogger(__name__)
 
 
 def _can_access_signature(user, sr: SignatureRequest) -> bool:
-    """Staff see any signature request; a customer only their own deal's."""
-    if not user.is_authenticated:
-        return False
-    if user.is_admin or user.is_associate:
-        return True
-    customer = sr.deal.customer
-    return user.is_customer and customer is not None and customer.user_id == user.id
+    """Anyone who can see the request's deal — admins, the owning associate,
+    or the deal's customer."""
+    return visible_deals(user).filter(pk=sr.deal_id).exists()
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -133,17 +131,24 @@ class DocuSealWebhookView(View):
         sr.save()
 
 
-class SignatureRequestCreateView(StaffRequiredMixin, View):
-    """Staff: send a deal off for e-signature."""
+class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
+    """Staff: send a deal off for e-signature. The deal comes from the URL
+    pk; `ParentDealMixin` 404s if this user can't see it."""
 
     template_name = "crm/signature_request_form.html"
+    parent_deal_from_url = True
+    parent_deal_select_related = ("customer",)
 
-    def dispatch(self, request, *args, pk=None, **kwargs):
-        self.deal = get_object_or_404(Deal.objects.select_related("customer"), pk=pk)
-        if not docuseal.is_configured():
-            messages.error(request, "DocuSeal isn't configured on this environment yet.")
-            return redirect(self.deal.get_absolute_url())
-        return super().dispatch(request, *args, **kwargs)
+    @property
+    def deal(self):
+        return self.parent_deal
+
+    def _unconfigured(self):
+        """Redirect back to the deal when DocuSeal isn't set up, else None."""
+        if docuseal.is_configured():
+            return None
+        messages.error(self.request, "DocuSeal isn't configured on this environment yet.")
+        return redirect(self.deal.get_absolute_url())
 
     def _signers(self):
         pks = [c.pk for c in (self.deal.customer, *self.deal.co_applicants.all()) if c]
@@ -167,12 +172,16 @@ class SignatureRequestCreateView(StaffRequiredMixin, View):
         return SignatureRequestForm(data, initial=initial, templates=templates, signers=self._signers())
 
     def get(self, request, **kwargs):
+        if (resp := self._unconfigured()) is not None:
+            return resp
         form = self._form()
         if form is None:
             return redirect(self.deal.get_absolute_url())
         return render(request, self.template_name, {"form": form, "parent_deal": self.deal})
 
     def post(self, request, **kwargs):
+        if (resp := self._unconfigured()) is not None:
+            return resp
         form = self._form(request.POST)
         if form is None:
             return redirect(self.deal.get_absolute_url())
@@ -216,7 +225,10 @@ class SignatureRequestVoidView(StaffRequiredMixin, View):
     """Staff: cancel an in-flight signature request (POST only — inline)."""
 
     def post(self, request, pk):
-        sr = get_object_or_404(SignatureRequest.objects.select_related("deal"), pk=pk)
+        sr = get_object_or_404(
+            scope_to_visible_deals(SignatureRequest.objects.select_related("deal"), request.user),
+            pk=pk,
+        )
         if not sr.is_active:
             messages.error(request, "Only a pending signature request can be voided.")
             return redirect(sr.deal.get_absolute_url())
@@ -236,7 +248,10 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
     submission and creates a fresh one to the same signer (POST only)."""
 
     def post(self, request, pk):
-        old = get_object_or_404(SignatureRequest.objects.select_related("deal"), pk=pk)
+        old = get_object_or_404(
+            scope_to_visible_deals(SignatureRequest.objects.select_related("deal"), request.user),
+            pk=pk,
+        )
         deal = old.deal
         if old.status == SignatureRequest.Status.COMPLETED:
             messages.error(request, "That request has already been completed.")

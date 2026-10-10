@@ -12,6 +12,7 @@ from django.utils import timezone
 from crm.models import Deal, Note, Stage
 
 from .factories import (
+    make_admin,
     make_associate,
     make_deal,
     make_document,
@@ -28,7 +29,9 @@ def _names(response):
 class DealListTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.staff = make_associate()
+        # Admin: sees every deal and can use the owner filter. Associate
+        # scoping is covered in test_associate_scoping.
+        cls.staff = make_admin()
 
     def setUp(self):
         self.client.force_login(self.staff)

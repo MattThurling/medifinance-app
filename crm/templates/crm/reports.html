@@ -6,7 +6,7 @@
 {% block content %}
 <div class="flex items-center justify-between gap-4 mb-1">
   <h1 class="text-xl font-semibold">Reports</h1>
-  {% if params.owner != "me" %}
+  {% if params.owner != "me" and not owner_filter_locked %}
     <a href="?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}owner=me" class="btn btn-sm btn-outline">
       {% icon "user" class="h-4 w-4" %} My stats
     </a>
@@ -72,7 +72,8 @@
   </div>
 </div>
 
-{# ---- By owner ---------------------------------------------------------- #}
+{# ---- By owner (admin-only — names every staff member) ------------------ #}
+{% if user.is_admin %}
 <h2 class="text-lg font-semibold mb-2">By owner</h2>
 <p class="text-sm opacity-60 mb-3">Deals and win rate are for deals created in the period; live, funded and commission for deals that went live in it.</p>
 <div class="card bg-base-100 shadow mb-6">
@@ -114,6 +115,7 @@
     </table>
   </div>
 </div>
+{% endif %}
 
 {# ---- By source --------------------------------------------------------- #}
 <h2 class="text-lg font-semibold mb-2">By source</h2>

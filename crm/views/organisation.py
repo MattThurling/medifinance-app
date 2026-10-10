@@ -5,8 +5,9 @@ from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from accounts.permissions import StaffRequiredMixin
 
+from ..access import visible_deals
 from ..forms import OrganisationForm
-from ..models import Deal, Organisation
+from ..models import Organisation
 from .shared import (
     OwnerFilterMixin,
     ProtectedDeleteMixin,
@@ -54,8 +55,11 @@ class OrganisationDetailView(StaffRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["contacts"] = self.object.contacts.all()
+        # The address book is shared, but the deals on it are not.
         ctx["deals"] = _deal_summaries(
-            Deal.objects.filter(organisation=self.object).select_related("owner", "customer")
+            visible_deals(self.request.user)
+            .filter(organisation=self.object)
+            .select_related("owner", "customer")
         )
         ctx["notes"] = self.object.notes.select_related("author")
         return ctx

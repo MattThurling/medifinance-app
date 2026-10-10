@@ -37,6 +37,7 @@ from django.views.decorators.csrf import csrf_exempt
 from accounts.models import ApiKey, SiteSettings
 
 from . import pricing
+from .access import visible_deals
 from .models import Contact, Deal, Document, Participation, Quote, RateBand
 
 # Per-token rate limits for POST /api/deals/. Counts deals created by this
@@ -84,7 +85,7 @@ def _deal_list_row(deal: Deal) -> dict:
     return {
         "id": deal.pk,
         "name": deal.name,
-        "customer": customer.full_name or customer.email,
+        "customer": (customer.full_name or customer.email) if customer else None,
         "business": deal.organisation.name if deal.organisation else None,
         "funded_amount": _money(deal.funded_amount),
     }
@@ -144,7 +145,7 @@ class DealListApi(StaffApiView):
 
     def get(self, request):
         qs = (
-            Deal.objects
+            visible_deals(request.user)
             .select_related("customer", "organisation", "owner")
             .order_by("-created_at")
         )
@@ -169,7 +170,7 @@ class DealDetailApi(StaffApiView):
     def get(self, request, pk):
         try:
             deal = (
-                Deal.objects
+                visible_deals(request.user)
                 .select_related(
                     "customer", "organisation", "owner",
                     "selected_quote", "selected_quote__rate",

@@ -9,34 +9,23 @@ from django.views.generic import CreateView, DeleteView
 
 from accounts.permissions import StaffRequiredMixin
 
+from ..access import visible_deals
 from ..forms import DocumentRequestForm, DocumentUploadForm
-from ..models import Deal, Document, Note
+from ..models import Document, Note
+from .shared import ParentDealMixin, VisibleDealChildMixin
 
 
 def _can_access_document(user, doc: Document) -> bool:
-    """Staff see any document; a customer only their own deal's."""
-    if not user.is_authenticated:
-        return False
-    if user.is_admin or user.is_associate:
-        return True
-    return user.is_customer and doc.deal.customer.user_id == user.id
+    """Anyone who can see the document's deal — admins, the owning
+    associate, or the deal's customer."""
+    return visible_deals(user).filter(pk=doc.deal_id).exists()
 
 
-class DocumentCreateView(StaffRequiredMixin, CreateView):
+class DocumentCreateView(StaffRequiredMixin, ParentDealMixin, CreateView):
     """Staff: add a document request to a deal (file uploaded later)."""
 
     model = Document
     form_class = DocumentRequestForm
-
-    def setup(self, request, *args, **kwargs):
-        super().setup(request, *args, **kwargs)
-        deal_pk = request.GET.get("deal")
-        if not deal_pk:
-            raise Http404("?deal query parameter required")
-        try:
-            self.parent_deal = Deal.objects.get(pk=deal_pk)
-        except (Deal.DoesNotExist, ValueError, TypeError) as exc:
-            raise Http404("Deal not found") from exc
 
     def form_valid(self, form):
         form.instance.deal = self.parent_deal
@@ -51,7 +40,7 @@ class DocumentCreateView(StaffRequiredMixin, CreateView):
         return self.parent_deal.get_absolute_url()
 
 
-class DocumentDeleteView(StaffRequiredMixin, DeleteView):
+class DocumentDeleteView(StaffRequiredMixin, VisibleDealChildMixin, DeleteView):
     """Staff: remove a document request (POST only — inline, no confirm page)."""
 
     model = Document

@@ -103,6 +103,10 @@ class StatsParams:
             user_id=request.user.pk,
         )
         kwargs.update(overrides)
+        # Associates only ever see their own numbers, whatever the query
+        # string (or caller) asked for.
+        if getattr(request.user, "is_associate", False):
+            kwargs["owner"] = "me"
         return cls(**kwargs)
 
     @property
@@ -639,12 +643,14 @@ def dashboard_stats(params: StatsParams) -> dict:
     }
 
 
-def report_stats(params: StatsParams) -> dict:
-    """Everything, for the Reports page."""
+def report_stats(params: StatsParams, *, include_owners: bool = True) -> dict:
+    """Everything, for the Reports page. ``include_owners=False`` leaves out
+    the per-staff league table (it names every staff member, so it's
+    admin-only)."""
     s = DealStats(params)
     pipeline = s.pipeline()
     series = s.series()
-    owners = s.by_owner()
+    owners = s.by_owner() if include_owners else []
     sources = s.by_source()
     conv = s.conversion()
     return {

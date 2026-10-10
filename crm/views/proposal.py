@@ -1,5 +1,4 @@
 from django.contrib import messages
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views import View
@@ -7,8 +6,10 @@ from django.views.generic import CreateView, UpdateView
 
 from accounts.permissions import StaffRequiredMixin
 
+from ..access import scope_to_visible_deals
 from ..forms import ProposalForm
 from ..models import Deal, Proposal, Stage
+from .shared import ParentDealMixin, VisibleDealChildMixin
 
 # Map a Proposal.Status -> the Stage.Name to emit when a proposal is created
 # with, or its status flips to, that status. WITHDRAWN deliberately absent:
@@ -28,26 +29,18 @@ class ProposalSelectView(StaffRequiredMixin, View):
     """Set `Deal.selected_proposal` from a radio button on the deal detail page."""
 
     def post(self, request, pk):
-        proposal = get_object_or_404(Proposal.objects.select_related("deal"), pk=pk)
+        proposal = get_object_or_404(
+            scope_to_visible_deals(Proposal.objects.select_related("deal"), request.user), pk=pk
+        )
         Deal.objects.filter(pk=proposal.deal_id).update(selected_proposal=proposal)
         return redirect(proposal.deal.get_absolute_url())
 
 
-class ProposalCreateView(StaffRequiredMixin, CreateView):
+class ProposalCreateView(StaffRequiredMixin, ParentDealMixin, CreateView):
     """Create a proposal. Requires `?deal=<pk>` — the deal is set from URL, not the form."""
 
     model = Proposal
     form_class = ProposalForm
-
-    def setup(self, request, *args, **kwargs):
-        super().setup(request, *args, **kwargs)
-        deal_pk = request.GET.get("deal")
-        if not deal_pk:
-            raise Http404("?deal query parameter required")
-        try:
-            self.parent_deal = Deal.objects.get(pk=deal_pk)
-        except (Deal.DoesNotExist, ValueError, TypeError) as exc:
-            raise Http404("Deal not found") from exc
 
     def form_valid(self, form):
         form.instance.deal = self.parent_deal
@@ -71,7 +64,7 @@ class ProposalCreateView(StaffRequiredMixin, CreateView):
         return self.parent_deal.get_absolute_url()
 
 
-class ProposalUpdateView(StaffRequiredMixin, UpdateView):
+class ProposalUpdateView(StaffRequiredMixin, VisibleDealChildMixin, UpdateView):
     model = Proposal
     form_class = ProposalForm
 
@@ -111,8 +104,11 @@ class ProposalNotifyClientView(StaffRequiredMixin, View):
 
     def post(self, request, pk):
         proposal = get_object_or_404(
-            Proposal.objects.select_related(
-                "deal", "deal__customer", "deal__selected_quote", "lender",
+            scope_to_visible_deals(
+                Proposal.objects.select_related(
+                    "deal", "deal__customer", "deal__selected_quote", "lender",
+                ),
+                request.user,
             ),
             pk=pk,
         )

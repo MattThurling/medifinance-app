@@ -142,7 +142,9 @@ class FinanceUrlAccessMatrixTests(TestCase):
         cls.customer = make_customer()
         cls.finance_associate = make_associate(is_finance=True)
         cls.finance_admin = make_admin(is_finance=True)
-        cls.deal = make_deal(owner=cls.associate)
+        # Owned by the finance associate: deal pages are owner-scoped for
+        # associates, and these tests are about the finance flag, not that.
+        cls.deal = make_deal(owner=cls.finance_associate)
 
     def _finance_get_urls(self):
         return [
@@ -210,7 +212,9 @@ class FinanceUrlAccessMatrixTests(TestCase):
         self._assert_all_allowed("finance admin")
 
     def test_deal_detail_hides_xero_card_from_non_finance_staff(self):
-        self.client.force_login(self.associate)
+        # A non-finance admin: sees every deal, so the only thing hiding the
+        # card is the missing finance flag.
+        self.client.force_login(self.admin)
         response = self.client.get(reverse("crm:deal_detail", args=[self.deal.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Xero invoices")

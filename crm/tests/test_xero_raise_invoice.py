@@ -25,7 +25,7 @@ class RaiseInvoicePrefillTests(TestCase):
         make_xero_connection()
 
     def _deal_with_lender(self, **deal_extra):
-        deal = make_deal(**deal_extra)
+        deal = make_deal(owner=self.finance, **deal_extra)
         lender = make_organisation(name="Big Lender Ltd")
         proposal = make_proposal(deal, lender=lender, proposal_number="BL-9876")
         deal.selected_proposal = proposal
@@ -44,7 +44,7 @@ class RaiseInvoicePrefillTests(TestCase):
         self.assertEqual(form.initial["reference"], f"{deal.name} · BL-9876")
 
     def test_reference_without_proposal_number(self):
-        deal = make_deal()
+        deal = make_deal(owner=self.finance)
         proposal = make_proposal(deal)
         deal.selected_proposal = proposal
         deal.save(update_fields=["selected_proposal"])
@@ -52,7 +52,7 @@ class RaiseInvoicePrefillTests(TestCase):
         self.assertEqual(response.context["form"].initial["reference"], deal.name)
 
     def test_requires_selected_proposal(self):
-        deal = make_deal()
+        deal = make_deal(owner=self.finance)
         response = self.client.get(
             reverse("crm:deal_raise_invoice", args=[deal.pk]), follow=True,
         )

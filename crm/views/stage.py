@@ -1,29 +1,19 @@
-from django.http import Http404
 from django.views.generic import CreateView
 
 from accounts.permissions import StaffRequiredMixin
 
 from ..forms import StageForm
-from ..models import Deal, Stage
+from ..models import Stage
+from .shared import ParentDealMixin
 
 # Stages are an immutable event log — only Create. To "undo" a stage change,
 # just add another stage event with the previous value.
 
-class StageCreateView(StaffRequiredMixin, CreateView):
+class StageCreateView(StaffRequiredMixin, ParentDealMixin, CreateView):
     """Record a stage change. Requires `?deal=<pk>`."""
 
     model = Stage
     form_class = StageForm
-
-    def setup(self, request, *args, **kwargs):
-        super().setup(request, *args, **kwargs)
-        deal_pk = request.GET.get("deal")
-        if not deal_pk:
-            raise Http404("?deal query parameter required")
-        try:
-            self.parent_deal = Deal.objects.get(pk=deal_pk)
-        except (Deal.DoesNotExist, ValueError, TypeError) as exc:
-            raise Http404("Deal not found") from exc
 
     def form_valid(self, form):
         form.instance.deal = self.parent_deal

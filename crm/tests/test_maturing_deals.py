@@ -10,7 +10,7 @@ from django.utils import timezone
 from crm.models import Stage
 from crm.pricing import add_months
 
-from .factories import make_associate, make_deal, make_participation, make_quote
+from .factories import make_admin, make_associate, make_deal, make_participation, make_quote
 
 
 def _names(response):
@@ -69,7 +69,7 @@ class MaturityDateTests(TestCase):
 class MaturingListTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.staff = make_associate()
+        cls.staff = make_admin()  # owner filter is admin-only
         cls.today = timezone.localdate()
 
     def setUp(self):

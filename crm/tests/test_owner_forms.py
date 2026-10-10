@@ -8,13 +8,16 @@ from django.urls import reverse
 
 from crm.models import Contact, Deal, Organisation
 
-from .factories import make_associate, make_contact, make_deal, make_organisation
+from .factories import make_admin, make_associate, make_contact, make_deal, make_organisation
 
 
 class OwnerFormTestCase(TestCase):
+    """Owner-picking is an admin privilege — associates have the field
+    removed (see test_associate_scoping)."""
+
     @classmethod
     def setUpTestData(cls):
-        cls.staff = make_associate()
+        cls.staff = make_admin()
         cls.colleague = make_associate()
 
     def setUp(self):

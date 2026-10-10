@@ -508,8 +508,10 @@ class DealSigningTests(TestCase):
         self.assertEqual(self.client.get(url).status_code, 200)  # own deal
         self.client.force_login(self.other_customer)
         self.assertEqual(self.client.get(url).status_code, 403)  # foreign
+        self.client.force_login(self.deal.owner)
+        self.assertEqual(self.client.get(url).status_code, 200)  # owning associate
         self.client.force_login(make_associate())
-        self.assertEqual(self.client.get(url).status_code, 200)  # staff
+        self.assertEqual(self.client.get(url).status_code, 403)  # other associate
 
 
 class ActionBadgeTests(TestCase):

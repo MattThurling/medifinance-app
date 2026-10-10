@@ -17,12 +17,14 @@ from django.views.generic import (
 from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
 from .. import docuseal, pricing, stats
+from ..access import get_visible_deal_or_404, visible_deals
 from ..forms import DealForm, XeroInvoiceForm
 from ..models import Contact, Deal, Stage, XeroInvoice
 from .shared import (
     OwnerFilterMixin,
     SearchableListView,
     SortableListMixin,
+    VisibleDealsMixin,
     _attach_activity_labels,
     _deal_summaries,
     _OwnerFormMixin,
@@ -31,6 +33,10 @@ from .shared import (
 
 class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, SearchableListView):
     model = Deal
+    lock_owner_for_associates = True
+
+    def get_base_queryset(self):
+        return visible_deals(self.request.user)
     search_fields = [
         "name",
         "hubspot_id",
@@ -104,6 +110,7 @@ class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
     model = Deal
     template_name = "crm/deal_maturing_list.html"
     paginate_by = 50
+    lock_owner_for_associates = True
 
     WINDOW_CHOICES = (3, 6, 12, 24)  # months
     DEFAULT_WINDOW = 12
@@ -137,7 +144,7 @@ class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
 
     def _live_deals(self):
         qs = _deal_summaries(
-            Deal.objects.select_related(
+            visible_deals(self.request.user).select_related(
                 "owner", "customer", "organisation", "selected_quote"
             )
         ).filter(current_stage_name=Stage.Name.DEAL_LIVE)
@@ -176,11 +183,14 @@ class ReportsView(OwnerFilterMixin, StaffRequiredMixin, TemplateView):
     same vocabulary as the Deals list so rows can deep-link into it."""
 
     template_name = "crm/reports.html"
+    lock_owner_for_associates = True
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)  # owner_choices / owner_filter
         params = stats.StatsParams.from_request(self.request)
-        ctx.update(stats.report_stats(params))
+        # The "By owner" league table is admin-only; associates see their own
+        # numbers (StatsParams forces owner=me for them).
+        ctx.update(stats.report_stats(params, include_owners=self.request.user.is_admin))
         ctx["period_choices"] = list(stats.PERIODS.items())
         ctx["type_choices"] = Deal.Type.choices
         ctx["type_filter"] = params.type
@@ -195,7 +205,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
     model = Deal
 
     def get_queryset(self):
-        return super().get_queryset().select_related(
+        return visible_deals(self.request.user).select_related(
             "owner",
             "customer",
             "organisation",
@@ -301,11 +311,11 @@ class DealCreateView(StaffRequiredMixin, _DealFormMixin, CreateView):
         return super().get_success_url()
 
 
-class DealUpdateView(StaffRequiredMixin, _DealFormMixin, UpdateView):
+class DealUpdateView(StaffRequiredMixin, VisibleDealsMixin, _DealFormMixin, UpdateView):
     model = Deal
 
 
-class DealDeleteView(StaffRequiredMixin, DeleteView):
+class DealDeleteView(StaffRequiredMixin, VisibleDealsMixin, DeleteView):
     model = Deal
     success_url = reverse_lazy("crm:deal_list")
 
@@ -314,7 +324,7 @@ class DealApplicantAddView(StaffRequiredMixin, View):
     """Attach an existing contact from the customer's organisation as a co-applicant."""
 
     def post(self, request, pk):
-        deal = get_object_or_404(Deal.objects.select_related("organisation"), pk=pk)
+        deal = get_visible_deal_or_404(request.user, pk, "organisation")
         contact = get_object_or_404(Contact, pk=request.POST.get("contact"))
         if deal.organisation_id is None:
             messages.error(request, "Set the deal's organisation before adding applicants.")
@@ -333,12 +343,9 @@ class RequestDealCommissionInvoiceView(StaffRequiredMixin, View):
     this deal. Requires a selected Proposal so the email names the lender."""
 
     def post(self, request, pk):
-        deal = get_object_or_404(
-            Deal.objects.select_related(
-                "organisation", "customer",
-                "selected_proposal", "selected_proposal__lender",
-            ),
-            pk=pk,
+        deal = get_visible_deal_or_404(
+            request.user, pk,
+            "organisation", "customer", "selected_proposal", "selected_proposal__lender",
         )
 
         selected = deal.selected_proposal
@@ -399,11 +406,8 @@ class DealRaiseInvoiceView(FinanceRequiredMixin, View):
         }
 
     def get(self, request, pk):
-        deal = get_object_or_404(
-            Deal.objects.select_related(
-                "organisation", "selected_proposal", "selected_proposal__lender",
-            ),
-            pk=pk,
+        deal = get_visible_deal_or_404(
+            request.user, pk, "organisation", "selected_proposal", "selected_proposal__lender",
         )
         from .. import xero as xero_helpers
         if xero_helpers.get_active_connection() is None:
@@ -423,7 +427,7 @@ class DealRaiseInvoiceView(FinanceRequiredMixin, View):
         from decimal import Decimal as D
         from .. import xero as xero_helpers
 
-        deal = get_object_or_404(Deal.objects.select_related("organisation"), pk=pk)
+        deal = get_visible_deal_or_404(request.user, pk, "organisation")
         form = XeroInvoiceForm(request.POST)
         if not form.is_valid():
             return render(request, self.template_name, {"form": form, "deal": deal})

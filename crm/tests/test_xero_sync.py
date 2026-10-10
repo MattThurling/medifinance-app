@@ -56,7 +56,7 @@ class XeroSyncViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.finance = make_associate(is_finance=True)
-        cls.deal = make_deal()
+        cls.deal = make_deal(owner=cls.finance)
 
     def setUp(self):
         self.client.force_login(self.finance)

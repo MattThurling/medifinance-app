@@ -24,6 +24,7 @@
       <option value="{{ code }}" {% if params.source == code %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
+  {% if not owner_filter_locked %}
   <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
     <option value="">All owners</option>
     <option value="me" {% if params.owner == "me" %}selected{% endif %}>My deals</option>
@@ -32,7 +33,8 @@
       <option value="{{ u.pk }}" {% if params.owner == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
     {% endfor %}
   </select>
-  {% if params.owner or params.type or params.source or params.period != "12m" %}
+  {% endif %}
+  {% if params.type or params.source or params.period != "12m" or params.owner and not owner_filter_locked %}
     <a href="{{ request.path }}" class="btn btn-ghost btn-sm">Reset</a>
   {% endif %}
 </form>

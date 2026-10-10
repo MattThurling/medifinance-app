@@ -16,7 +16,7 @@ TEMPLATES = [{"id": 7, "name": "Finance agreement"}]
 class SignatureRequestCreateViewTests(TestCase):
     def setUp(self):
         self.staff = factories.make_associate()
-        self.deal = factories.make_deal()
+        self.deal = factories.make_deal(owner=self.staff)
         self.url = reverse("crm:deal_sign", args=[self.deal.pk])
         self.client.force_login(self.staff)
 
@@ -85,7 +85,7 @@ class SignatureRequestCreateViewTests(TestCase):
 class SignatureVoidResendTests(TestCase):
     def setUp(self):
         self.staff = factories.make_associate()
-        self.deal = factories.make_deal()
+        self.deal = factories.make_deal(owner=self.staff)
         self.sr = factories.make_signature_request(
             self.deal, submission_id=555, template_id=7, signer_email="jane@example.com")
         self.client.force_login(self.staff)

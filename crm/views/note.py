@@ -5,6 +5,7 @@ from django.views import View
 
 from accounts.permissions import StaffRequiredMixin
 
+from ..access import visible_deals
 from ..models import Contact, Deal, Note, Organisation
 
 
@@ -19,7 +20,9 @@ class NoteCreateView(StaffRequiredMixin, View):
         if len(given) != 1:
             raise Http404("Provide exactly one of contact, organisation or deal.")
         field = given[0]
-        parent = get_object_or_404(self.parents[field], pk=request.POST[field])
+        # Contacts and orgs are a shared address book; deals are scoped.
+        qs = visible_deals(request.user) if field == "deal" else self.parents[field].objects.all()
+        parent = get_object_or_404(qs, pk=request.POST[field])
 
         content = request.POST.get("content", "").strip()
         if content:

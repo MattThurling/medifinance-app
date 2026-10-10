@@ -19,8 +19,8 @@ from .factories import (
 )
 
 
-def _deal(deal_type=None, amount=50_000):
-    _, deal = make_customer_with_deal()
+def _deal(deal_type=None, amount=50_000, owner=None):
+    _, deal = make_customer_with_deal(owner=owner)
     if deal_type:
         Deal.objects.filter(pk=deal.pk).update(type=deal_type)
         deal.refresh_from_db()
@@ -137,8 +137,8 @@ class QuoteViewFormSelectionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.staff = make_associate()
-        cls.af_deal = _deal()
-        cls.cf_deal = _deal("commercial_finance", amount=None)
+        cls.af_deal = _deal(owner=cls.staff)
+        cls.cf_deal = _deal("commercial_finance", amount=None, owner=cls.staff)
         cls.lender = make_organisation(name="CF Lender Ltd")
         make_rate_band(term_months=60)
 
@@ -179,9 +179,9 @@ class RateOptionsEndpointTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.deal = _deal()
-        cls.band60 = make_rate_band(term_months=60)
         cls.staff = make_associate()
+        cls.deal = _deal(owner=cls.staff)
+        cls.band60 = make_rate_band(term_months=60)
 
     def setUp(self):
         self.client.force_login(self.staff)

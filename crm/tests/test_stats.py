@@ -15,7 +15,7 @@ from crm import stats
 from crm.models import Deal, Stage
 from crm.stats import DealStats, StatsParams
 
-from .factories import make_associate, make_deal, make_participation
+from .factories import make_admin, make_associate, make_deal, make_participation
 
 # A fixed "now" mid-month, so ±N-day offsets never straddle a month boundary
 # in ways that make the series assertions fiddly.
@@ -75,11 +75,11 @@ class WindowTests(TestCase):
 
     def test_from_request_whitelists(self):
         rf = RequestFactory()
-        user = make_associate()
+        user = make_admin()
 
-        def build(qs):
+        def build(qs, as_user=user):
             req = rf.get("/reports/", qs)
-            req.user = user
+            req.user = as_user
             return StatsParams.from_request(req)
 
         p = build({"period": "30d", "type": "asset_finance", "source": "introducer", "owner": "me"})
@@ -90,6 +90,16 @@ class WindowTests(TestCase):
         p = build({"type": "none", "source": "none", "owner": "none"})
         self.assertEqual((p.type, p.source, p.owner), ("none", "none", "none"))
         self.assertEqual(build({"owner": "42"}).owner, "42")
+
+    def test_from_request_forces_me_for_associates(self):
+        rf = RequestFactory()
+        associate = make_associate()
+        for qs in ({}, {"owner": ""}, {"owner": "none"}, {"owner": "42"}):
+            req = rf.get("/reports/", qs)
+            req.user = associate
+            p = StatsParams.from_request(req)
+            self.assertEqual(p.owner, "me", qs)
+            self.assertEqual(p.user_id, associate.pk)
 
     def test_list_query_drops_empty(self):
         self.assertEqual(params(type="asset_finance").list_query(stage="lost"),

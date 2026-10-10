@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Value
 from django.db.models.functions import Coalesce, Lower
 from django.urls import reverse_lazy
@@ -8,8 +9,9 @@ from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 from accounts.models import Role
 from accounts.permissions import StaffRequiredMixin
 
+from ..access import visible_deals
 from ..forms import ContactForm
-from ..models import Contact, Deal, Organisation
+from ..models import Contact, Organisation
 from .shared import (
     OwnerFilterMixin,
     ProtectedDeleteMixin,
@@ -50,7 +52,12 @@ class ContactDetailView(StaffRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["deals"] = _deal_summaries(self.object.deals.select_related("owner", "organisation"))
+        # The address book is shared, but the deals on it are not.
+        ctx["deals"] = _deal_summaries(
+            visible_deals(self.request.user)
+            .filter(customer=self.object)
+            .select_related("owner", "organisation")
+        )
         ctx["notes"] = self.object.notes.select_related("author")
         return ctx
 
@@ -71,9 +78,11 @@ class ContactCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
         deal_pk = request.GET.get("deal")
         if deal_pk:
             try:
-                self.parent_deal = Deal.objects.select_related("organisation").get(pk=deal_pk)
+                self.parent_deal = (
+                    visible_deals(request.user).select_related("organisation").get(pk=deal_pk)
+                )
                 self.parent_organisation = self.parent_deal.organisation
-            except (Deal.DoesNotExist, ValueError, TypeError):
+            except (ObjectDoesNotExist, ValueError, TypeError):
                 pass
 
         if self.parent_organisation is None:

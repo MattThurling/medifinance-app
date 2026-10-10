@@ -1,11 +1,11 @@
 from django.contrib import messages
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.views import View
 
 from accounts.permissions import StaffRequiredMixin
 
-from ..models import Deal
+from ..access import get_visible_deal_or_404
 
 
 class _PortalLinkMixin(StaffRequiredMixin):
@@ -33,7 +33,7 @@ class IssuePortalLinkView(_PortalLinkMixin, View):
     """Generate a portal link and show its URL to staff for manual sending."""
 
     def post(self, request, pk):
-        deal = get_object_or_404(Deal.objects.select_related("customer"), pk=pk)
+        deal = get_visible_deal_or_404(request.user, pk, "customer")
         link, full_url = self.issue_link(request, deal)
         if link is None:
             return redirect(deal.get_absolute_url())
@@ -49,7 +49,7 @@ class EmailPortalLinkView(_PortalLinkMixin, View):
     """Generate a portal link and email it to the customer via the configured backend."""
 
     def post(self, request, pk):
-        deal = get_object_or_404(Deal.objects.select_related("customer", "owner"), pk=pk)
+        deal = get_visible_deal_or_404(request.user, pk, "customer", "owner")
         link, full_url = self.issue_link(request, deal)
         if link is None:
             return redirect(deal.get_absolute_url())

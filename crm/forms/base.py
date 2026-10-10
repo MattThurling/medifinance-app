@@ -2,6 +2,9 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from django import forms
+from django.contrib.auth import get_user_model
+
+from accounts.models import Role
 
 
 def _parse_amount(raw: str) -> "int | None":
@@ -45,12 +48,32 @@ class DaisyUIFormMixin:
 
 
 class OwnerInitialFormMixin:
-    """Defaults `owner` to the logged-in staff member on create forms."""
+    """Owner handling shared by the Deal, Contact and Organisation forms.
+
+    * Admin: the owner combobox is offered (limited to staff users, never
+      customers) and defaults to themselves on create.
+    * Associate: the field is removed. New records are owned by the
+      associate; on edit the existing owner is left untouched. Because the
+      field isn't on the form, a forged ``owner=<pk>`` in the POST is
+      ignored by ModelForm, so an associate can't hand a record away.
+    """
 
     def __init__(self, *args, current_user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if current_user is not None and not self.instance.pk:
-            self.fields["owner"].initial = current_user
+        owner = self.fields.get("owner")
+        if owner is None:
+            return
+        # Role filter only (no is_active): an admin re-saving a record owned
+        # by a deactivated colleague must not trip validation.
+        owner.queryset = get_user_model().objects.filter(
+            role__in=[Role.ADMIN, Role.ASSOCIATE]
+        )
+        if current_user is not None and current_user.is_associate:
+            del self.fields["owner"]
+            if not self.instance.pk:
+                self.instance.owner = current_user
+        elif current_user is not None and not self.instance.pk:
+            owner.initial = current_user
 
 
 ADDRESS_FIELDS_ORG = [

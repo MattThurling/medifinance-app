@@ -9,8 +9,10 @@ from django.views.generic import CreateView, DeleteView, UpdateView
 
 from accounts.permissions import StaffRequiredMixin
 
+from ..access import scope_to_visible_deals
 from ..forms import ParticipationForm, SupplierInvoiceForm
-from ..models import Deal, Participation, ParticipationInvoiceLink, Stage
+from ..models import Participation, ParticipationInvoiceLink, Stage
+from .shared import ParentDealMixin, VisibleDealChildMixin
 
 
 logger = logging.getLogger(__name__)
@@ -18,21 +20,11 @@ logger = logging.getLogger(__name__)
 # Participations represent suppliers contributing to a deal's funded amount.
 # Managed in the context of a parent Deal, same pattern as Quote / Proposal.
 
-class ParticipationCreateView(StaffRequiredMixin, CreateView):
+class ParticipationCreateView(StaffRequiredMixin, ParentDealMixin, CreateView):
     """Create a participation. Requires `?deal=<pk>` — the deal is set from URL, not the form."""
 
     model = Participation
     form_class = ParticipationForm
-
-    def setup(self, request, *args, **kwargs):
-        super().setup(request, *args, **kwargs)
-        deal_pk = request.GET.get("deal")
-        if not deal_pk:
-            raise Http404("?deal query parameter required")
-        try:
-            self.parent_deal = Deal.objects.get(pk=deal_pk)
-        except (Deal.DoesNotExist, ValueError, TypeError) as exc:
-            raise Http404("Deal not found") from exc
 
     def form_valid(self, form):
         form.instance.deal = self.parent_deal
@@ -50,7 +42,7 @@ class ParticipationCreateView(StaffRequiredMixin, CreateView):
         return self.parent_deal.get_absolute_url()
 
 
-class ParticipationUpdateView(StaffRequiredMixin, UpdateView):
+class ParticipationUpdateView(StaffRequiredMixin, VisibleDealChildMixin, UpdateView):
     model = Participation
     form_class = ParticipationForm
 
@@ -69,7 +61,7 @@ class ParticipationUpdateView(StaffRequiredMixin, UpdateView):
         return self.object.deal.get_absolute_url()
 
 
-class ParticipationDeleteView(StaffRequiredMixin, DeleteView):
+class ParticipationDeleteView(StaffRequiredMixin, VisibleDealChildMixin, DeleteView):
     """Staff: remove a participation (POST only — inline, no confirm page)."""
 
     model = Participation
@@ -86,7 +78,10 @@ class ParticipationInvoiceDownloadView(StaffRequiredMixin, View):
     private GCS bucket stays private — same pattern as DocumentDownloadView."""
 
     def get(self, request, pk):
-        p = get_object_or_404(Participation.objects.select_related("deal"), pk=pk)
+        p = get_object_or_404(
+            scope_to_visible_deals(Participation.objects.select_related("deal"), request.user),
+            pk=pk,
+        )
         if not p.invoice:
             raise Http404("No invoice file uploaded yet.")
         filename = p.invoice.name.rsplit("/", 1)[-1]
@@ -100,10 +95,13 @@ class RequestParticipationInvoiceView(StaffRequiredMixin, View):
 
     def post(self, request, pk):
         participation = get_object_or_404(
-            Participation.objects.select_related(
-                "deal", "deal__organisation", "deal__customer",
-                "deal__selected_proposal", "deal__selected_proposal__lender",
-                "organisation", "invoice_contact",
+            scope_to_visible_deals(
+                Participation.objects.select_related(
+                    "deal", "deal__organisation", "deal__customer",
+                    "deal__selected_proposal", "deal__selected_proposal__lender",
+                    "organisation", "invoice_contact",
+                ),
+                request.user,
             ),
             pk=pk,
         )

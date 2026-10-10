@@ -19,7 +19,8 @@ from .factories import (
 class ReportsViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.staff = make_associate(first_name="Rae", last_name="Reporter")
+        # Admin: the owner filter and "By owner" table are admin-only.
+        cls.staff = make_admin(first_name="Rae", last_name="Reporter")
         cls.deal = make_deal(owner=cls.staff, source=Deal.Source.INTRODUCER)
         make_participation(cls.deal, amount="2500")
         Stage.objects.create(deal=cls.deal, name=Stage.Name.DEAL_LIVE)
