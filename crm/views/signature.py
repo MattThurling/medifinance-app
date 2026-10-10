@@ -78,7 +78,9 @@ class DocuSealWebhookView(View):
                 if sr is None:
                     logger.info("DocuSeal webhook %s for unknown submission %s", event, submission_id)
                 elif event in ("form.viewed", "form.started"):
-                    if sr.status == SignatureRequest.Status.SENT:
+                    # A pending request can be opened from the portal before
+                    # the email goes out.
+                    if sr.status in (SignatureRequest.Status.PENDING, SignatureRequest.Status.SENT):
                         sr.status = SignatureRequest.Status.OPENED
                         sr.opened_at = timezone.now()
                         sr.save(update_fields=["status", "opened_at", "updated_at"])
@@ -132,8 +134,11 @@ class DocuSealWebhookView(View):
 
 
 class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
-    """Staff: send a deal off for e-signature. The deal comes from the URL
-    pk; `ParentDealMixin` 404s if this user can't see it."""
+    """Staff: create a signature request on a deal. The submission is created
+    on DocuSeal straight away (so the prefilled values are locked in) but the
+    signer is NOT emailed — that's a separate, deliberate click
+    (`SignatureRequestSendView`). The deal comes from the URL pk;
+    `ParentDealMixin` 404s if this user can't see it."""
 
     template_name = "crm/signature_request_form.html"
     parent_deal_from_url = True
@@ -196,7 +201,7 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
                 signer_email=form.cleaned_data["signer_email"],
                 signer_name=form.cleaned_data["signer_name"],
                 values=docuseal.build_prefill_values(self.deal),
-                message=form.cleaned_data["message"] or None,
+                send_email=False,
             )
         except docuseal.DocuSealError as exc:
             messages.error(request, f"DocuSeal rejected the request: {exc}")
@@ -212,13 +217,47 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
             signer=form.cleaned_data["signer"],
             signer_email=form.cleaned_data["signer_email"],
             signer_name=form.cleaned_data["signer_name"],
+            message=form.cleaned_data["message"] or "",
+            status=SignatureRequest.Status.PENDING,
             created_by=request.user,
         )
         messages.success(
             request,
-            f"“{template_name or 'Signature request'}” sent to {form.cleaned_data['signer_email']} for signature.",
+            f"“{template_name or 'Signature request'}” is ready for "
+            f"{form.cleaned_data['signer_email']} in their portal. Use the send button to email them the link.",
         )
         return redirect(self.deal.get_absolute_url())
+
+
+class SignatureRequestSendView(StaffRequiredMixin, View):
+    """Staff: email the signing link for a pending request (POST only —
+    inline). The submission already exists on DocuSeal and is already in the
+    customer's portal; this just triggers the email."""
+
+    def post(self, request, pk):
+        sr = get_object_or_404(
+            scope_to_visible_deals(SignatureRequest.objects.select_related("deal"), request.user),
+            pk=pk,
+        )
+        if not sr.is_pending:
+            messages.error(request, "That signature request has already been sent.")
+            return redirect(sr.deal.get_absolute_url())
+        if not sr.submitter_id:
+            messages.error(request, "Can't send: DocuSeal didn't return a signer id for this request.")
+            return redirect(sr.deal.get_absolute_url())
+        try:
+            docuseal.send_submitter_email(sr.submitter_id, message=sr.message or None)
+        except docuseal.DocuSealError as exc:
+            messages.error(request, f"Couldn't send via DocuSeal: {exc}")
+            return redirect(sr.deal.get_absolute_url())
+        sr.status = SignatureRequest.Status.SENT
+        sr.sent_at = timezone.now()
+        sr.save(update_fields=["status", "sent_at", "updated_at"])
+        messages.success(
+            request,
+            f"“{sr.template_name or 'Signature request'}” sent to {sr.signer_email} for signature.",
+        )
+        return redirect(sr.deal.get_absolute_url())
 
 
 class SignatureRequestVoidView(StaffRequiredMixin, View):
@@ -230,7 +269,7 @@ class SignatureRequestVoidView(StaffRequiredMixin, View):
             pk=pk,
         )
         if not sr.is_active:
-            messages.error(request, "Only a pending signature request can be voided.")
+            messages.error(request, "Only a signature request that's still awaiting signature can be voided.")
             return redirect(sr.deal.get_absolute_url())
         try:
             docuseal.archive_submission(sr.submission_id)
@@ -245,7 +284,8 @@ class SignatureRequestVoidView(StaffRequiredMixin, View):
 
 class SignatureRequestResendView(StaffRequiredMixin, View):
     """Staff: re-send a pending or declined request — voids the old DocuSeal
-    submission and creates a fresh one to the same signer (POST only)."""
+    submission and creates a fresh one to the same signer, emailed straight
+    away (POST only). Pending (never-emailed) requests use Send instead."""
 
     def post(self, request, pk):
         old = get_object_or_404(
@@ -256,6 +296,9 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
         if old.status == SignatureRequest.Status.COMPLETED:
             messages.error(request, "That request has already been completed.")
             return redirect(deal.get_absolute_url())
+        if old.is_pending:
+            messages.error(request, "That request hasn't been sent yet — use Send instead.")
+            return redirect(deal.get_absolute_url())
         try:
             if old.is_active:
                 docuseal.archive_submission(old.submission_id)
@@ -264,6 +307,7 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
                 signer_email=old.signer_email,
                 signer_name=old.signer_name,
                 values=docuseal.build_prefill_values(deal),
+                message=old.message or None,
             )
         except docuseal.DocuSealError as exc:
             messages.error(request, f"Couldn't re-send via DocuSeal: {exc}")
@@ -281,6 +325,9 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
             signer=old.signer,
             signer_email=old.signer_email,
             signer_name=old.signer_name,
+            message=old.message,
+            status=SignatureRequest.Status.SENT,
+            sent_at=timezone.now(),
             created_by=request.user,
         )
         messages.success(

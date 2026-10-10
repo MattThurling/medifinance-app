@@ -365,16 +365,22 @@ layout (main content left, amount + timeline right).
                 <td>{{ sr.signer_name|default:sr.signer_email }}</td>
                 <td>{{ sr.template_name }}</td>
                 <td>
-                  {% if sr.status == "sent" %}<span class="badge badge-info badge-xs" title="Sent to {{ sr.signer_email }}">Sent</span>
+                  {% if sr.status == "pending" %}<span class="badge badge-ghost badge-xs" title="In the customer's portal — not yet emailed to {{ sr.signer_email }}">Pending</span>
+                  {% elif sr.status == "sent" %}<span class="badge badge-info badge-xs" title="Sent to {{ sr.signer_email }}">Sent</span>
                   {% elif sr.status == "opened" %}<span class="badge badge-warning badge-xs" title="Opened by {{ sr.signer_email }}">Opened</span>
                   {% elif sr.status == "completed" %}<span class="badge badge-success badge-xs" title="Signed by {{ sr.signer_email }}">Signed</span>
                   {% elif sr.status == "declined" %}<span class="badge badge-error badge-xs" title="{{ sr.decline_reason|default:'Declined' }}">Declined</span>
                   {% elif sr.status == "voided" %}<span class="badge badge-ghost badge-xs">Voided</span>
                   {% endif %}
                 </td>
-                <td>{{ sr.created_at|date:"j M Y" }}</td>
+                <td>{% if sr.sent_at %}{{ sr.sent_at|date:"j M Y" }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
                 <td class="text-right whitespace-nowrap">
-                  {% if sr.is_active or sr.status == "declined" %}
+                  {% if sr.is_pending %}
+                    <form method="post" action="{% url 'crm:signature_send' sr.pk %}" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Send to {{ sr.signer_email }} for signature">{% icon "send" class="h-3.5 w-3.5" %}</button>
+                    </form>
+                  {% elif sr.is_active or sr.status == "declined" %}
                     <form method="post" action="{% url 'crm:signature_resend' sr.pk %}" class="inline">
                       {% csrf_token %}
                       <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Re-send for signature">{% icon "rotate-cw" class="h-3.5 w-3.5" %}</button>
@@ -401,7 +407,7 @@ layout (main content left, amount + timeline right).
         </table>
         {% if docuseal_configured %}
           <a href="{% url 'crm:deal_sign' deal.pk %}"
-             class="btn btn-circle btn-xs btn-outline mt-3" title="Send for signature" aria-label="Send for signature">
+             class="btn btn-circle btn-xs btn-outline mt-3" title="New signature request" aria-label="New signature request">
             {% icon "plus" class="h-3.5 w-3.5" %}
           </a>
         {% endif %}

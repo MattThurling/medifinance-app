@@ -22,6 +22,7 @@ class SignatureRequest(TimestampedModel):
     and from where."""
 
     class Status(models.TextChoices):
+        PENDING = "pending", "Pending"    # live on DocuSeal + in the portal, signer not yet emailed
         SENT = "sent", "Sent"
         OPENED = "opened", "Opened"
         COMPLETED = "completed", "Completed"
@@ -46,8 +47,12 @@ class SignatureRequest(TimestampedModel):
     # Snapshots — the Contact's details may change after sending.
     signer_email = models.EmailField()
     signer_name = models.CharField(max_length=255, blank=True)
+    # Optional note for the signature-request email. Kept here because the
+    # request is created first and emailed later (see SignatureRequestSendView).
+    message = models.TextField(blank=True)
 
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.SENT)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    sent_at = models.DateTimeField(null=True, blank=True)
     opened_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     declined_at = models.DateTimeField(null=True, blank=True)
@@ -73,6 +78,13 @@ class SignatureRequest(TimestampedModel):
         return f"{label} → {self.signer_email} ({self.get_status_display()})"
 
     @property
+    def is_pending(self) -> bool:
+        """Created but the signer hasn't been emailed yet. They can still sign
+        it from their portal — only the email is outstanding."""
+        return self.status == self.Status.PENDING
+
+    @property
     def is_active(self) -> bool:
-        return self.status in (self.Status.SENT, self.Status.OPENED)
+        """Awaiting a signature (whether or not the email has gone out)."""
+        return self.status in (self.Status.PENDING, self.Status.SENT, self.Status.OPENED)
 

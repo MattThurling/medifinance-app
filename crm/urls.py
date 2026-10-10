@@ -82,6 +82,7 @@ urlpatterns = [
 
     # DocuSeal e-signing — send a deal for signature, manage the request
     path("deals/<int:pk>/sign/", views.SignatureRequestCreateView.as_view(), name="deal_sign"),
+    path("signatures/<int:pk>/send/", views.SignatureRequestSendView.as_view(), name="signature_send"),
     path("signatures/<int:pk>/resend/", views.SignatureRequestResendView.as_view(), name="signature_resend"),
     path("signatures/<int:pk>/void/", views.SignatureRequestVoidView.as_view(), name="signature_void"),
     path("signatures/<int:pk>/signed/", views.SignatureSignedFileDownloadView.as_view(), name="signature_signed_download"),

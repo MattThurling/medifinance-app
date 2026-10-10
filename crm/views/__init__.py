@@ -75,6 +75,7 @@ from .signature import (
     SignatureAuditDownloadView,
     SignatureRequestCreateView,
     SignatureRequestResendView,
+    SignatureRequestSendView,
     SignatureRequestVoidView,
     SignatureSignedFileDownloadView,
 )
@@ -156,6 +157,7 @@ __all__ = [
     "SignatureAuditDownloadView",
     "SignatureRequestCreateView",
     "SignatureRequestResendView",
+    "SignatureRequestSendView",
     "SignatureRequestVoidView",
     "SignatureSignedFileDownloadView",
     "XeroCallbackView",

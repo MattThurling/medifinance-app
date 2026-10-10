@@ -15,12 +15,12 @@ class SignatureRequestForm(DaisyUIFormMixin, forms.Form):
         required=False,
         help_text="Which applicant this signature is recorded against.",
     )
-    signer_email = forms.EmailField(help_text="Where the signing link is sent.")
+    signer_email = forms.EmailField(help_text="Where the signing link will be sent.")
     signer_name = forms.CharField(max_length=255, required=False)
     message = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 3}),
         required=False,
-        help_text="Optional note included in the signature-request email.",
+        help_text="Optional note included in the email when you send the request.",
     )
 
     def __init__(self, *args, templates: list[dict], signers, **kwargs):

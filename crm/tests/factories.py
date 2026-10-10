@@ -155,6 +155,12 @@ def make_signature_request(deal: Deal, *, submission_id: int | None = None,
     extra.setdefault("template_id", 1)
     extra.setdefault("template_name", "Test agreement")
     extra.setdefault("signer_email", f"signer-{_next()}@example.com")
+    extra.setdefault("submitter_id", _next() + 20_000)
+    # Model default is PENDING (created, not yet emailed); most tests want a
+    # request that's been emailed, so default to SENT here.
+    extra.setdefault("status", SignatureRequest.Status.SENT)
+    if extra["status"] != SignatureRequest.Status.PENDING:
+        extra.setdefault("sent_at", timezone.now())
     return SignatureRequest.objects.create(
         deal=deal,
         submission_id=submission_id or _next() + 10_000,

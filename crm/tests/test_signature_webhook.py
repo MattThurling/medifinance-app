@@ -57,6 +57,14 @@ class DocuSealWebhookTests(TestCase):
         self.assertEqual(self.sr.status, SignatureRequest.Status.OPENED)
         self.assertIsNotNone(self.sr.opened_at)
 
+    def test_viewed_flips_pending_to_opened(self):
+        # Opened from the portal before the email was ever sent.
+        self.sr.status = SignatureRequest.Status.PENDING
+        self.sr.save(update_fields=["status"])
+        self._post("form.viewed", {"submission_id": 555})
+        self.sr.refresh_from_db()
+        self.assertEqual(self.sr.status, SignatureRequest.Status.OPENED)
+
     def test_declined_records_reason(self):
         r = self._post("form.declined", {"submission_id": 555, "decline_reason": "Wrong amount"})
         self.assertEqual(r.status_code, 200)

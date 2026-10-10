@@ -87,7 +87,7 @@ def outstanding_items(deal: Deal, *, user=None) -> list[Item]:
             items.append(Item(f"Upload: {doc.name}", "documents"))
 
     for sr in deal.signature_requests.all():
-        if sr.status in (SignatureRequest.Status.SENT, SignatureRequest.Status.OPENED):
+        if sr.is_active:  # pending / sent / opened — all signable from the portal
             items.append(Item(f"Sign: {sr.template_name or 'Agreement'}", "signatures"))
 
     return items

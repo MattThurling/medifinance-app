@@ -83,7 +83,11 @@ class OutstandingItemsTests(TestCase):
         provided.status = Document.Status.PROVIDED
         provided.save(update_fields=["status"])
         make_signature_request(self.deal, template_name="HP agreement")
+        make_signature_request(self.deal, template_name="Guarantee",
+                               status=SignatureRequest.Status.PENDING)  # not emailed, still signable
         make_signature_request(self.deal, status=SignatureRequest.Status.COMPLETED)
         make_quote(self.deal)
-        self.assertEqual(self.labels(),
-                         ["Choose your quote", "Upload: Bank statements", "Sign: HP agreement"])
+        self.assertEqual(self.labels(), [
+            "Choose your quote", "Upload: Bank statements",
+            "Sign: Guarantee", "Sign: HP agreement",  # newest request first
+        ])

@@ -81,11 +81,7 @@ def create_submission(
         "submitters": [submitter],
     }
     if message:
-        # A custom message replaces DocuSeal's whole email body — without the
-        # {{submitter.link}} placeholder the email would have no signing link.
-        if "{{submitter.link}}" not in message:
-            message = f"{message}\n\n{{{{submitter.link}}}}"
-        payload["message"] = {"body": message}
+        payload["message"] = _email_message(message)
     body = _request("POST", "/submissions", json=payload).json()
 
     # Older DocuSeal versions return the submitters list directly; newer ones
@@ -103,6 +99,25 @@ def create_submission(
         "submitter_id": submitters[0].get("id") if submitters else None,
         "slug": submitters[0].get("slug") if submitters else None,
     }
+
+
+def _email_message(message: str) -> dict:
+    """DocuSeal's `message` payload. A custom message replaces the whole
+    email body — without the {{submitter.link}} placeholder the email would
+    have no signing link."""
+    if "{{submitter.link}}" not in message:
+        message = f"{message}\n\n{{{{submitter.link}}}}"
+    return {"body": message}
+
+
+def send_submitter_email(submitter_id: int, *, message: str | None = None) -> None:
+    """Email the signing link to a submitter — for submissions created with
+    `send_email=False`, this is the actual "send". Also works as a re-send
+    on a live submission."""
+    payload: dict = {"send_email": True}
+    if message:
+        payload["message"] = _email_message(message)
+    _request("PUT", f"/submitters/{submitter_id}", json=payload)
 
 
 def get_submission(submission_id: int) -> dict:
