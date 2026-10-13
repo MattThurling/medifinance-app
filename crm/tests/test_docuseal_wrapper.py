@@ -1,6 +1,7 @@
 """The DocuSeal wrapper: auth header, payload shapes, response normalisation
 and error surfacing — all against a mocked `requests`, no instance needed."""
 
+from decimal import Decimal
 from unittest import mock
 
 from django.conf import settings
@@ -118,7 +119,58 @@ class PrefillValuesTests(TestCase):
     def test_prefill_handles_missing_customer(self):
         deal = factories.make_deal()
         deal.customer = None
+        deal.organisation = None
         values = docuseal.build_prefill_values(deal)
         self.assertEqual(values["Client Name"], "")
         self.assertEqual(values["Client Address"], "")
         self.assertEqual(values["Customer Email"], "")
+        self.assertNotIn("Client Company", values)
+
+    def test_prefill_fees_formatted_when_set(self):
+        deal = factories.make_deal(
+            initial_fee=Decimal("1250.50"),
+            final_fee=Decimal("300"),
+            commission=Decimal("12345.678"),
+            non_completion_fee=Decimal("2.5"),
+        )
+        values = docuseal.build_prefill_values(deal)
+        self.assertEqual(values["Initial Fee"], "1,250.50")
+        self.assertEqual(values["Final Fee"], "300.00")
+        self.assertEqual(values["Commission"], "12,345.68")
+        self.assertEqual(values["Non-completion Fee"], "2.50%")
+
+    def test_prefill_omits_null_fees(self):
+        deal = factories.make_deal()
+        values = docuseal.build_prefill_values(deal)
+        for key in ("Initial Fee", "Final Fee", "Commission", "Non-completion Fee"):
+            self.assertNotIn(key, values)
+
+    def test_client_company_uses_deal_organisation_formal_name(self):
+        org = factories.make_organisation(
+            name="Smiles", legal_name="Smiles Dental Ltd", trading_name="Smiles",
+        )
+        deal = factories.make_deal(organisation=org)
+        values = docuseal.build_prefill_values(deal)
+        self.assertEqual(values["Client Company"], "Smiles Dental Ltd trading as Smiles")
+        self.assertEqual(values["Organisation"], "Smiles")
+
+    def test_client_company_falls_back_to_customers_only_organisation(self):
+        org = factories.make_organisation(name="Harley Practice")
+        customer = factories.make_contact(organisation=org)
+        deal = factories.make_deal(customer=customer)
+        deal.organisation = None
+        values = docuseal.build_prefill_values(deal)
+        self.assertEqual(values["Client Company"], "Harley Practice")
+
+    def test_client_company_blank_when_customer_has_several_organisations(self):
+        customer = factories.make_contact(organisation=factories.make_organisation())
+        customer.organisations.add(factories.make_organisation())
+        deal = factories.make_deal(customer=customer)
+        deal.organisation = None
+        self.assertNotIn("Client Company", docuseal.build_prefill_values(deal))
+
+    def test_client_company_blank_when_customer_has_no_organisation(self):
+        customer = factories.make_contact()
+        deal = factories.make_deal(customer=customer)
+        deal.organisation = None
+        self.assertNotIn("Client Company", docuseal.build_prefill_values(deal))

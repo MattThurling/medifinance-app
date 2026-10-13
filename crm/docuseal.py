@@ -146,7 +146,10 @@ def download_file(url: str) -> bytes:
 def build_prefill_values(deal) -> dict:
     """Field values every template can draw on. The convention: DocuSeal
     template fields must be named exactly like these keys ("Client Name",
-    "Amount", …) to get prefilled; fields a template doesn't have are ignored.
+    "Amount", "Initial Fee", "Final Fee", "Commission", "Non-completion Fee",
+    "Client Company", …) to get prefilled; fields a template doesn't have are
+    ignored. Money and company keys are omitted when the deal has no value,
+    so the signer gets an empty field rather than "None".
     """
     customer = deal.customer
     values = {
@@ -157,6 +160,33 @@ def build_prefill_values(deal) -> dict:
         "Organisation": deal.organisation.name if deal.organisation else "",
         "Date": timezone.now().date().strftime("%d/%m/%Y"),
     }
-    if deal.finance_amount is not None:
-        values["Amount"] = f"{deal.finance_amount:,.2f}"
+    for key, amount in (
+        ("Amount", deal.finance_amount),
+        ("Initial Fee", deal.initial_fee),
+        ("Final Fee", deal.final_fee),
+        ("Commission", deal.commission),
+    ):
+        if amount is not None:
+            values[key] = f"{amount:,.2f}"
+    if deal.non_completion_fee is not None:
+        values["Non-completion Fee"] = f"{deal.non_completion_fee:.2f}%"
+    company = _client_company(deal)
+    if company:
+        values["Client Company"] = company
     return values
+
+
+def _client_company(deal) -> str:
+    """The company name for the agreement: the deal's organisation, else the
+    customer's organisation when they belong to exactly one (several or none
+    is a guess we don't make). Empty string when nothing fits — the caller
+    leaves the field for the signer. Uses `formal_name` so the legal name and
+    'trading as' form match the supplier-invoice email."""
+    if deal.organisation is not None:
+        return deal.organisation.formal_name
+    if deal.customer is None:
+        return ""
+    orgs = list(deal.customer.organisations.all())
+    if len(orgs) == 1:
+        return orgs[0].formal_name
+    return ""
