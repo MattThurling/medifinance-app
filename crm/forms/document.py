@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 
 from ..models import Document
 from .base import DaisyUIFormMixin
@@ -41,4 +42,15 @@ class DocumentUploadForm(forms.Form):
         files = self.cleaned_data.get("file") or []
         if not files:
             raise forms.ValidationError("Please choose a file to upload.")
+        max_file = settings.DOCUMENT_UPLOAD_MAX_FILE_MB
+        max_total = settings.DOCUMENT_UPLOAD_MAX_TOTAL_MB
+        for f in files:
+            if f.size > max_file * 1024 * 1024:
+                raise forms.ValidationError(
+                    f"“{f.name}” is too large. Each file must be under {max_file} MB."
+                )
+        if sum(f.size for f in files) > max_total * 1024 * 1024:
+            raise forms.ValidationError(
+                f"Those files add up to more than {max_total} MB. Please upload fewer at a time."
+            )
         return files

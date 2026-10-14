@@ -177,3 +177,46 @@ class MultiFileUploadTests(TestCase):
         single.attach(self._pdf("id.pdf", b"%PDF"), by=self.customer)
         response = self.client.get(reverse("crm:document_download", args=[single.pk]))
         self.assertTrue(response["Content-Disposition"].startswith("inline"))
+
+
+@override_settings(
+    MEDIA_ROOT=tempfile.mkdtemp(),
+    DOCUMENT_UPLOAD_MAX_FILE_MB=1,
+    DOCUMENT_UPLOAD_MAX_TOTAL_MB=2,
+)
+class UploadSizeLimitTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.deal = make_customer_with_deal()
+
+    def setUp(self):
+        self.doc = make_document(self.deal, name="Bank statements")
+        self.client.force_login(self.customer)
+        self.url = reverse("crm:document_upload", args=[self.doc.pk])
+
+    def _pdf(self, name, size):
+        return SimpleUploadedFile(name, b"x" * size, content_type="application/pdf")
+
+    def test_file_over_per_file_limit_is_rejected_with_reason(self):
+        response = self.client.post(
+            self.url, {"file": self._pdf("big.pdf", 1024 * 1024 + 1)}, HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("“big.pdf” is too large. Each file must be under 1 MB.", response.content.decode())
+        self.doc.refresh_from_db()
+        self.assertFalse(self.doc.is_provided)
+
+    def test_files_over_total_limit_are_rejected(self):
+        files = [self._pdf(f"{n}.pdf", 900 * 1024) for n in range(3)]  # 2.6 MB, each under 1 MB
+        response = self.client.post(self.url, {"file": files})
+        self.assertEqual(response.status_code, 302)
+        self.doc.refresh_from_db()
+        self.assertFalse(self.doc.is_provided)
+        messages = [m.message for m in response.wsgi_request._messages]
+        self.assertTrue(any("more than 2 MB" in m for m in messages), messages)
+
+    def test_files_within_limits_are_accepted(self):
+        files = [self._pdf(f"{n}.pdf", 500 * 1024) for n in range(3)]  # 1.5 MB total
+        self.client.post(self.url, {"file": files})
+        self.doc.refresh_from_db()
+        self.assertTrue(self.doc.is_provided)

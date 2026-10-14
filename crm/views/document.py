@@ -82,13 +82,14 @@ class DocumentUploadView(LoginRequiredMixin, View):
                 return render(request, "crm/_my_document_row.html", {"d": doc})
             messages.success(request, f"“{doc.name}” uploaded.")
         else:
+            error = next(iter(form.errors.get("file", [])), "Please choose a file.")
             if is_htmx:
                 return render(
                     request,
                     "crm/_my_document_row.html",
-                    {"d": doc, "upload_error": "Please choose a file."},
+                    {"d": doc, "upload_error": error},
                 )
-            messages.error(request, f"Couldn't upload “{doc.name}”. Please choose a file.")
+            messages.error(request, f"Couldn't upload “{doc.name}”. {error}")
 
         if request.user.is_customer:
             return redirect("crm:my_deal_detail", pk=doc.deal_id)

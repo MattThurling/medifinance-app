@@ -140,6 +140,12 @@ STORAGES = {
 # Media (uploaded documents). Local filesystem by default; private Cloud Storage
 # bucket when GS_BUCKET_NAME is set (e.g. on Cloud Run). Files are never public —
 # they're served through a permission-checked download view.
+# Document uploads (portal + staff). Per-file and per-request caps, in MB.
+# The total stays under Cloud Run's 32 MiB request limit; several files are
+# zipped in memory so the cap also bounds that.
+DOCUMENT_UPLOAD_MAX_FILE_MB = 10
+DOCUMENT_UPLOAD_MAX_TOTAL_MB = 25
+
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
