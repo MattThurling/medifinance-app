@@ -61,17 +61,19 @@ class DocumentUploadView(LoginRequiredMixin, View):
         if not _can_access_document(request.user, doc):
             raise PermissionDenied
 
-        form = DocumentUploadForm(request.POST, request.FILES, instance=doc)
+        form = DocumentUploadForm(request.POST, request.FILES)
         is_htmx = request.headers.get("HX-Request") == "true"
         if form.is_valid():
-            doc.attach(form.cleaned_data["file"], by=request.user)
+            files = form.cleaned_data["file"]
+            doc.attach(files, by=request.user)
             if request.user.is_customer:
                 # Audit trail for staff — mirrors the portal's inline edits.
+                detail = f" ({len(files)} files)" if len(files) > 1 else ""
                 Note.objects.create(
                     type=Note.Type.CUSTOMER_UPDATE,
                     author=request.user,
                     datetime=timezone.now(),
-                    content=f"Customer uploaded “{doc.name}”.",
+                    content=f"Customer uploaded “{doc.name}”{detail}.",
                     deal=doc.deal,
                 )
             if is_htmx:
@@ -104,4 +106,6 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         if not doc.file:
             raise Http404("No file has been uploaded for this document yet.")
         filename = doc.file.name.rsplit("/", 1)[-1]
-        return FileResponse(doc.file.open("rb"), as_attachment=False, filename=filename)
+        # Zips (multi-file uploads) are saved, not rendered; PDFs open inline.
+        is_zip = filename.lower().endswith(".zip")
+        return FileResponse(doc.file.open("rb"), as_attachment=is_zip, filename=filename)

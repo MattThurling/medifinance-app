@@ -5,6 +5,7 @@ their own deal's documents. The download view streams through Django (the
 storage bucket itself is private) so this gate is the entire access check."""
 
 import tempfile
+import zipfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -117,3 +118,62 @@ class DocumentUploadAccessTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class MultiFileUploadTests(TestCase):
+    """Several files picked at once are stored as one zip; a single file is
+    stored as-is so PDFs keep opening inline."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = make_associate()
+        cls.customer, cls.deal = make_customer_with_deal(owner=cls.staff)
+
+    def setUp(self):
+        self.doc = make_document(self.deal, name="Last 3 months bank statements")
+        self.client.force_login(self.customer)
+        self.url = reverse("crm:document_upload", args=[self.doc.pk])
+
+    def _pdf(self, name, body):
+        return SimpleUploadedFile(name, body, content_type="application/pdf")
+
+    def test_three_files_are_zipped(self):
+        files = [self._pdf("jan.pdf", b"%PDF-jan"), self._pdf("feb.pdf", b"%PDF-feb"), self._pdf("mar.pdf", b"%PDF-mar")]
+        response = self.client.post(self.url, {"file": files})
+        self.assertEqual(response.status_code, 302)
+        self.doc.refresh_from_db()
+        self.assertEqual(self.doc.status, Document.Status.PROVIDED)
+        stored = self.doc.file.name.rsplit("/", 1)[-1]
+        self.assertTrue(stored.startswith("last-3-months-bank-statements"), stored)
+        self.assertTrue(stored.endswith(".zip"), stored)
+        with self.doc.file.open("rb") as fh, zipfile.ZipFile(fh) as archive:
+            self.assertEqual(archive.namelist(), ["jan.pdf", "feb.pdf", "mar.pdf"])
+            self.assertEqual(archive.read("feb.pdf"), b"%PDF-feb")
+
+    def test_single_file_is_not_zipped(self):
+        response = self.client.post(self.url, {"file": self._pdf("only.pdf", b"%PDF-1")})
+        self.assertEqual(response.status_code, 302)
+        self.doc.refresh_from_db()
+        self.assertTrue(self.doc.file.name.endswith(".pdf"), self.doc.file.name)
+        with self.doc.file.open("rb") as fh:
+            self.assertEqual(fh.read(), b"%PDF-1")
+
+    def test_duplicate_names_are_suffixed_inside_zip(self):
+        files = [self._pdf("statement.pdf", b"a"), self._pdf("statement.pdf", b"b"), self._pdf("notes", b"c")]
+        self.client.post(self.url, {"file": files})
+        self.doc.refresh_from_db()
+        with self.doc.file.open("rb") as fh, zipfile.ZipFile(fh) as archive:
+            self.assertEqual(archive.namelist(), ["statement.pdf", "statement (2).pdf", "notes"])
+            self.assertEqual(archive.read("statement (2).pdf"), b"b")
+
+    def test_zip_downloads_as_attachment_but_pdf_opens_inline(self):
+        self.client.post(self.url, {"file": [self._pdf("a.pdf", b"a"), self._pdf("b.pdf", b"b")]})
+        response = self.client.get(reverse("crm:document_download", args=[self.doc.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["Content-Disposition"].startswith("attachment"))
+
+        single = make_document(self.deal, name="Photo ID")
+        single.attach(self._pdf("id.pdf", b"%PDF"), by=self.customer)
+        response = self.client.get(reverse("crm:document_download", args=[single.pk]))
+        self.assertTrue(response["Content-Disposition"].startswith("inline"))

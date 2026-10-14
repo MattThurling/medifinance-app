@@ -391,6 +391,17 @@ class DealDocumentUploadTests(TestCase):
         self.assertEqual(note.author, self.customer)
         self.assertIn("Bank statements", note.content)
 
+    def test_htmx_multi_file_upload_notes_file_count(self):
+        response = self.client.post(
+            reverse("crm:document_upload", args=[self.doc.pk]),
+            {"file": [_pdf(), _pdf(), _pdf()]},
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Provided", response.content.decode())
+        note = Note.objects.get(type=Note.Type.CUSTOMER_UPDATE)
+        self.assertIn("(3 files)", note.content)
+
     def test_htmx_upload_without_file_returns_error_row_no_note(self):
         response = self.client.post(
             reverse("crm:document_upload", args=[self.doc.pk]), {}, **HTMX

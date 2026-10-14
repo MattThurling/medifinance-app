@@ -14,7 +14,7 @@ Context: `d` (Document), optional `upload_error` (string).
         {% csrf_token %}
         <label class="link link-hover text-sm cursor-pointer">
           replace
-          <input type="file" name="file" class="hidden" onchange="this.form.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" />
+          <input type="file" name="file" multiple class="hidden" onchange="this.form.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" />
         </label>
       </form>
     {% else %}
@@ -22,9 +22,10 @@ Context: `d` (Document), optional `upload_error` (string).
       <form hx-post="{% url 'crm:document_upload' d.pk %}" hx-encoding="multipart/form-data"
             hx-target="closest li" hx-swap="outerHTML" class="flex items-center gap-2">
         {% csrf_token %}
-        <input type="file" name="file" required class="file-input file-input-bordered file-input-sm" />
+        <input type="file" name="file" multiple required class="file-input file-input-bordered file-input-sm" />
         <button type="submit" class="btn btn-primary btn-sm">Upload</button>
       </form>
+      <span class="text-xs opacity-60 w-full">You can select more than one file.</span>
     {% endif %}
   </span>
   {% if upload_error %}

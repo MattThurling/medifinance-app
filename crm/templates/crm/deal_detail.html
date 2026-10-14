@@ -289,7 +289,7 @@ layout (main content left, amount + timeline right).
                     <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
                     <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
                       {% csrf_token %}
-                      <input id="upload-{{ d.pk }}" type="file" name="file" onchange="this.form.submit()" />
+                      <input id="upload-{{ d.pk }}" type="file" name="file" multiple onchange="this.form.submit()" />
                     </form>
                   {% endif %}
                   <form method="post" action="{% url 'crm:document_delete' d.pk %}" class="inline">
