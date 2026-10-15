@@ -86,6 +86,9 @@ class StatsParams:
     type: str = ""       # "", "none", or a Deal.Type value
     source: str = ""     # "", "none", or a Deal.Source value
     user_id: int | None = None  # resolves owner == "me"
+    # Set for associates linked to an organisation: every stat is restricted
+    # to deals owned by that organisation's staff, whatever ``owner`` says.
+    organisation_id: int | None = None
     now: datetime = field(default_factory=timezone.now)
 
     @classmethod
@@ -103,10 +106,15 @@ class StatsParams:
             user_id=request.user.pk,
         )
         kwargs.update(overrides)
-        # Associates only ever see their own numbers, whatever the query
-        # string (or caller) asked for.
-        if getattr(request.user, "is_associate", False):
-            kwargs["owner"] = "me"
+        # Associates see their organisation's numbers (the owner filter then
+        # picks within it) or, with no organisation, only their own —
+        # whatever the query string (or caller) asked for.
+        user = request.user
+        if getattr(user, "is_associate", False):
+            if user.organisation_id:
+                kwargs["organisation_id"] = user.organisation_id
+            else:
+                kwargs["owner"] = "me"
         return cls(**kwargs)
 
     @property
@@ -141,6 +149,8 @@ class StatsParams:
         """Owner / type / source applied. The period is *not* applied here —
         each stat anchors it to a different date."""
         qs = Deal.objects.all()
+        if self.organisation_id:
+            qs = qs.filter(owner__organisation_id=self.organisation_id)
         if self.owner == "me":
             qs = qs.filter(owner_id=self.user_id)
         elif self.owner == "none":
@@ -448,6 +458,8 @@ class DealStats:
         staff = User.objects.filter(
             is_active=True, role__in=[Role.ADMIN, Role.ASSOCIATE]
         ).order_by("first_name", "last_name")
+        if self.p.organisation_id:
+            staff = staff.filter(organisation_id=self.p.organisation_id)
         for u in staff:
             row(u.pk)["name"] = u.full_name
         for c in self.cohort_rows():
@@ -645,8 +657,8 @@ def dashboard_stats(params: StatsParams) -> dict:
 
 def report_stats(params: StatsParams, *, include_owners: bool = True) -> dict:
     """Everything, for the Reports page. ``include_owners=False`` leaves out
-    the per-staff league table (it names every staff member, so it's
-    admin-only)."""
+    the per-staff league table (it names staff members, so it's only for
+    users who may see colleagues' deals)."""
     s = DealStats(params)
     pipeline = s.pipeline()
     series = s.series()

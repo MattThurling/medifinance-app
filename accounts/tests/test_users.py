@@ -1,6 +1,8 @@
+from django.db.models import ProtectedError
 from django.test import TestCase
 
 from accounts.models import Role, User
+from crm.models import Organisation
 
 
 class UserManagerTests(TestCase):
@@ -74,3 +76,16 @@ class FinanceMemberTests(TestCase):
         )
         self.assertTrue(user.is_finance)
         self.assertFalse(user.is_finance_member)
+
+
+class OrganisationLinkTests(TestCase):
+    def test_defaults_to_none(self):
+        user = User.objects.create_user(email="a@example.com", password="x")
+        self.assertIsNone(user.organisation)
+
+    def test_organisation_with_members_is_protected(self):
+        org = Organisation.objects.create(name="Team")
+        user = User.objects.create_user(email="a@example.com", password="x", organisation=org)
+        self.assertEqual(list(org.members.all()), [user])
+        with self.assertRaises(ProtectedError):
+            org.delete()

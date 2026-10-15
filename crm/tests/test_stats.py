@@ -101,6 +101,19 @@ class WindowTests(TestCase):
             self.assertEqual(p.owner, "me", qs)
             self.assertEqual(p.user_id, associate.pk)
 
+    def test_from_request_scopes_org_associates_to_their_organisation(self):
+        from .factories import make_organisation
+        rf = RequestFactory()
+        org = make_organisation()
+        associate = make_associate(organisation=org)
+        for qs, expected_owner in (({}, ""), ({"owner": "me"}, "me"), ({"owner": "42"}, "42"), ({"owner": "none"}, "none")):
+            req = rf.get("/reports/", qs)
+            req.user = associate
+            p = StatsParams.from_request(req)
+            self.assertEqual(p.owner, expected_owner, qs)
+            self.assertEqual(p.organisation_id, org.pk)
+            self.assertEqual(p.user_id, associate.pk)
+
     def test_list_query_drops_empty(self):
         self.assertEqual(params(type="asset_finance").list_query(stage="lost"),
                          {"type": "asset_finance", "stage": "lost"})
@@ -150,6 +163,29 @@ class PipelineTests(TestCase):
         self.assertEqual(rows["deal_live"]["count"], 1)
         self.assertEqual(rows["lost"]["count"], 1)
         self.assertEqual(rows["lost"]["funded"], Decimal("1000"))
+
+    def test_organisation_filter_restricts_to_its_staff(self):
+        from .factories import make_organisation
+        org = make_organisation()
+        member = make_associate(organisation=org)
+        mine = created(make_deal(owner=member), 10)
+        other_member = make_associate(organisation=org)
+        theirs = created(make_deal(owner=other_member), 10)
+        stray = created(make_deal(owner=make_associate()), 10)
+        unowned = created(make_deal(), 10)
+        Deal.objects.filter(pk=unowned.pk).update(owner=None)
+
+        qs = params(organisation_id=org.pk).base_queryset()
+        self.assertCountEqual(qs, [mine, theirs])
+        self.assertNotIn(stray, qs)
+        # Owner filters narrow within the organisation; nothing escapes it.
+        self.assertCountEqual(params(organisation_id=org.pk, owner=str(other_member.pk)).base_queryset(), [theirs])
+        self.assertCountEqual(params(organisation_id=org.pk, owner="me", user_id=member.pk).base_queryset(), [mine])
+        self.assertEqual(list(params(organisation_id=org.pk, owner=str(stray.owner_id)).base_queryset()), [])
+        self.assertEqual(list(params(organisation_id=org.pk, owner="none").base_queryset()), [])
+        # by_owner names only the organisation's staff.
+        rows = DealStats(params(organisation_id=org.pk)).by_owner()
+        self.assertCountEqual([r["owner_id"] for r in rows], [member.pk, other_member.pk])
 
     def test_owner_type_and_source_filters(self):
         other = make_associate()

@@ -20,7 +20,7 @@
   <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
     <option value="">All owners</option>
     <option value="me" {% if owner_filter == "me" %}selected{% endif %}>My deals</option>
-    <option value="none" {% if owner_filter == "none" %}selected{% endif %}>Unowned</option>
+    {% if user.is_admin %}<option value="none" {% if owner_filter == "none" %}selected{% endif %}>Unowned</option>{% endif %}
     {% for u in owner_choices %}
       <option value="{{ u.pk }}" {% if owner_filter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
     {% endfor %}

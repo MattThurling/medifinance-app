@@ -1,15 +1,13 @@
 from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Value
 from django.db.models.functions import Coalesce, Lower
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
-from accounts.models import Role
 from accounts.permissions import StaffRequiredMixin
 
-from ..access import visible_deals
+from ..access import owner_choices, visible_deals
 from ..forms import ContactForm
 from ..models import Contact, Organisation
 from .shared import (
@@ -147,9 +145,11 @@ class ContactSearchView(_SearchView):
 
 
 class UserSearchView(_SearchView):
-    """Search staff users (admins + associates) for the deal owner combobox."""
+    """Search staff users for the owner combobox — the ones this user may
+    assign (all staff for admins, their organisation's staff for associates;
+    see ``crm.access.owner_choices``)."""
 
     search_fields = ["first_name", "last_name", "email"]
 
     def get_queryset(self):
-        return get_user_model().objects.filter(role__in=[Role.ADMIN, Role.ASSOCIATE])
+        return owner_choices(self.request.user)

@@ -24,14 +24,16 @@ class UserAdmin(BaseUserAdmin):
     model = User
 
     ordering = ("email",)
-    list_display = ("email", "full_name", "role", "is_finance", "is_active", "is_staff", "date_joined")
+    list_display = ("email", "full_name", "role", "organisation", "is_finance", "is_active", "is_staff", "date_joined")
+    list_select_related = ("organisation",)
     list_filter = ("role", "is_finance", "is_active", "is_staff", "is_superuser")
-    search_fields = ("email", "first_name", "last_name", "hubspot_id")
+    search_fields = ("email", "first_name", "last_name", "hubspot_id", "organisation__name")
+    autocomplete_fields = ("organisation",)
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (_("Personal info"), {"fields": ("first_name", "last_name")}),
-        (_("Role"), {"fields": ("role", "is_finance")}),
+        (_("Role & organisation"), {"fields": ("role", "organisation", "is_finance")}),
         (
             _("Permissions"),
             {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")},
@@ -44,7 +46,7 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "role", "password1", "password2"),
+                "fields": ("email", "role", "organisation", "password1", "password2"),
             },
         ),
     )

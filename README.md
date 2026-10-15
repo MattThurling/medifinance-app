@@ -9,7 +9,7 @@ Django CRM, ported from HubSpot. SQLite for dev, Tailwind v4 + DaisyUI v5 for UI
 - SQLite
 
 ## Models
-- `accounts.User` — email login, role of `admin` / `associate` / `customer`
+- `accounts.User` — email login, role of `admin` / `associate` / `customer`; optional `organisation` (a `crm.Organisation`) that groups associates into a team
 - `crm.Organisation`
 - `crm.Contact` — must belong to an Organisation
 - `crm.Deal` — has an `owner` (User) and a `customer` (Contact). Organisation is reached via `deal.customer.organisation`.
@@ -86,7 +86,7 @@ docker run -d --name docuseal -p 3000:3000 -v ~/.docuseal:/data docuseal/docusea
 | Role      | What it gets                                              |
 |-----------|-----------------------------------------------------------|
 | Admin     | Full Django admin, all CRM data                           |
-| Associate | Internal CRM UI                                           |
+| Associate | Internal CRM UI; own deals, plus colleagues' deals when linked to the same Organisation |
 | Customer  | Login only (portal UI is intentionally not built in v1)   |
 
 Use the helpers in `accounts/permissions.py`:
@@ -100,7 +100,7 @@ def some_internal_view(request): ...
 class SomeAdminView(AdminRequiredMixin, TemplateView): ...
 ```
 
-Per-row permissions are wired through django-guardian. On `Deal` save, the owner gets `view_deal` and `change_deal` on that row (see `crm/signals.py`).
+Deal visibility is decided in one place, `crm/access.py`: admins see everything, associates see deals owned by anyone in their `organisation` (or only their own when they have none), customers see deals they are the contact on. django-guardian row perms are also assigned on `Deal` save (see `crm/signals.py`) but nothing reads them yet.
 
 ## Partner API
 

@@ -3,8 +3,11 @@ from decimal import Decimal, InvalidOperation
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 from accounts.models import Role
+
+from ..access import owner_choices
 
 
 def _parse_amount(raw: str) -> "int | None":
@@ -52,9 +55,12 @@ class OwnerInitialFormMixin:
 
     * Admin: the owner combobox is offered (limited to staff users, never
       customers) and defaults to themselves on create.
-    * Associate: the field is removed. New records are owned by the
-      associate; on edit the existing owner is left untouched. Because the
-      field isn't on the form, a forged ``owner=<pk>`` in the POST is
+    * Associate with an organisation: the combobox is offered too, limited
+      to their organisation's staff (``crm.access.owner_choices``), and
+      defaults to themselves on create.
+    * Associate without one: the field is removed. New records are owned by
+      the associate; on edit the existing owner is left untouched. Because
+      the field isn't on the form, a forged ``owner=<pk>`` in the POST is
       ignored by ModelForm, so an associate can't hand a record away.
     """
 
@@ -63,16 +69,27 @@ class OwnerInitialFormMixin:
         owner = self.fields.get("owner")
         if owner is None:
             return
-        # Role filter only (no is_active): an admin re-saving a record owned
-        # by a deactivated colleague must not trip validation.
-        owner.queryset = get_user_model().objects.filter(
-            role__in=[Role.ADMIN, Role.ASSOCIATE]
-        )
-        if current_user is not None and current_user.is_associate:
+        # Role filter only (no is_active): re-saving a record owned by a
+        # deactivated colleague must not trip validation.
+        if current_user is None:
+            owner.queryset = get_user_model().objects.filter(
+                role__in=[Role.ADMIN, Role.ASSOCIATE]
+            )
+            return
+        if current_user.is_associate and not current_user.organisation_id:
             del self.fields["owner"]
             if not self.instance.pk:
                 self.instance.owner = current_user
-        elif current_user is not None and not self.instance.pk:
+            return
+        choices = owner_choices(current_user)
+        if self.instance.pk and self.instance.owner_id:
+            # Keep the current owner selectable even if they have since left
+            # the organisation, so an unrelated edit still validates.
+            choices = get_user_model().objects.filter(
+                Q(pk__in=choices.values("pk")) | Q(pk=self.instance.owner_id)
+            )
+        owner.queryset = choices
+        if not self.instance.pk:
             owner.initial = current_user
 
 

@@ -57,6 +57,17 @@ class User(AbstractBaseUser, PermissionsMixin):
             "Only takes effect for staff (admin/associate)."
         ),
     )
+    organisation = models.ForeignKey(
+        "crm.Organisation",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="members",
+        help_text=(
+            "The organisation this user works for. Associates in the same "
+            "organisation can see and work on each other's deals."
+        ),
+    )
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

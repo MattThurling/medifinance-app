@@ -72,8 +72,8 @@
   </div>
 </div>
 
-{# ---- By owner (admin-only — names every staff member) ------------------ #}
-{% if user.is_admin %}
+{# ---- By owner (hidden when the owner filter is locked — names colleagues) #}
+{% if not owner_filter_locked %}
 <h2 class="text-lg font-semibold mb-2">By owner</h2>
 <p class="text-sm opacity-60 mb-3">Deals and win rate are for deals created in the period; live, funded and commission for deals that went live in it.</p>
 <div class="card bg-base-100 shadow mb-6">

@@ -11,7 +11,7 @@ from django.views.generic import ListView
 from accounts.models import Role
 from accounts.permissions import StaffRequiredMixin
 
-from ..access import get_visible_deal_or_404, scope_to_visible_deals, visible_deals
+from ..access import get_visible_deal_or_404, owner_choices, scope_to_visible_deals, visible_deals
 from ..models import (
     Document,
     Note,
@@ -209,17 +209,21 @@ class OwnerFilterMixin:
     organisation lists: `me`, `none`, or a user pk. Views call
     `apply_owner_filter(qs)` explicitly, alongside their other filters.
 
-    Deal-based views set `lock_owner_for_associates = True`: an associate's
-    queryset is already restricted to their own deals, so the filter becomes
-    a no-op and the dropdown is hidden (`owner_filter_locked` in context).
-    Contact and organisation lists leave it off — the address book is shared,
-    and "My contacts" is a legitimate filter there."""
+    Deal-based views set `lock_owner_for_associates = True`. For an associate
+    with no organisation the queryset is already just their own deals, so the
+    filter becomes a no-op and the dropdown is hidden (`owner_filter_locked`
+    in context). An associate linked to an organisation shares deals with
+    their colleagues, so they keep the dropdown — limited to that
+    organisation's staff (`owner_choices`). Contact and organisation lists
+    leave the lock off — the address book is shared, and "My contacts" is a
+    legitimate filter there."""
 
     lock_owner_for_associates = False
 
     @property
     def owner_filter_locked(self) -> bool:
-        return self.lock_owner_for_associates and self.request.user.is_associate
+        user = self.request.user
+        return self.lock_owner_for_associates and user.is_associate and not user.organisation_id
 
     def apply_owner_filter(self, qs):
         if self.owner_filter_locked:
@@ -242,10 +246,16 @@ class OwnerFilterMixin:
             ctx["owner_choices"] = []
             ctx["owner_filter"] = "me"
         else:
+            if self.lock_owner_for_associates:
+                # Deal views: only the owners whose deals this user can see.
+                choices = owner_choices(self.request.user)
+            else:
+                # Shared address book: any staff member is a valid filter.
+                choices = get_user_model().objects.filter(
+                    role__in=[Role.ADMIN, Role.ASSOCIATE]
+                )
             ctx["owner_choices"] = (
-                get_user_model()
-                .objects.filter(is_active=True, role__in=[Role.ADMIN, Role.ASSOCIATE])
-                .order_by("first_name", "last_name")
+                choices.filter(is_active=True).order_by("first_name", "last_name")
             )
             ctx["owner_filter"] = self.request.GET.get("owner", "")
         return ctx

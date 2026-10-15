@@ -1,4 +1,7 @@
-"""Associates see only their own deals.
+"""Associates with no organisation see only their own deals.
+
+(Associates linked to an organisation share deals with their colleagues —
+see test_organisation_scoping.)
 
 Admins see everything (including unowned deals). Contacts and organisations
 are a shared address book — every staff member can list, search and edit

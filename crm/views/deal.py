@@ -188,9 +188,11 @@ class ReportsView(OwnerFilterMixin, StaffRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)  # owner_choices / owner_filter
         params = stats.StatsParams.from_request(self.request)
-        # The "By owner" league table is admin-only; associates see their own
-        # numbers (StatsParams forces owner=me for them).
-        ctx.update(stats.report_stats(params, include_owners=self.request.user.is_admin))
+        # The "By owner" league table goes with the owner filter: admins and
+        # associates linked to an organisation get it (scoped to the org);
+        # an associate with no organisation sees only their own numbers
+        # (StatsParams forces owner=me for them).
+        ctx.update(stats.report_stats(params, include_owners=not self.owner_filter_locked))
         ctx["period_choices"] = list(stats.PERIODS.items())
         ctx["type_choices"] = Deal.Type.choices
         ctx["type_filter"] = params.type

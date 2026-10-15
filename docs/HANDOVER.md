@@ -37,7 +37,7 @@ Dev logins (password `medifinance123`): `admin@…`, `associate@…`, `customer@
 
 | Model | Notes |
 |---|---|
-| **User** | email login (no username); `role` = admin / associate / customer; `hubspot_id`. Imported & customer users have unusable passwords (use reset / magic link). |
+| **User** | email login (no username); `role` = admin / associate / customer; optional `organisation` (groups associates into a team that shares deals — see `crm/access.py`); `hubspot_id`. Imported & customer users have unusable passwords (use reset / magic link). |
 | **MagicLink** | single-use, 7-day login link for customers. `issue()` / `consume()`. Consumed at `/m/<token>/`. |
 | **Organisation** | `name`, structured UK address (`address_line1/2/city/county/postcode`), `hubspot_id`. |
 | **Contact** | name/email/phone, `date_of_birth`, structured `home_address_*`, **required** `organisation` FK (PROTECT), optional `user` (OneToOne), `hubspot_id`. |
