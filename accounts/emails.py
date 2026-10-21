@@ -7,11 +7,21 @@ EMAIL_BACKEND is configured (console in dev, Mailgun in prod).
 from __future__ import annotations
 
 import time
+from email.mime.image import MIMEImage
+from functools import lru_cache
 from smtplib import SMTPDataError
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+
+# Logo embedded in every HTML email. templates/email/_base.html references it
+# as <img src="cid:medifinance-logo">. Inline (CID) attachment rather than a
+# hosted URL so the logo shows without the client fetching from our server
+# (hosted images are blocked by default in Outlook and many corporate
+# clients), and PNG rather than the site's WebP, which Outlook can't render.
+LOGO_PATH = settings.BASE_DIR / "static" / "img" / "MedifinanceLogo.png"
+LOGO_CID = "medifinance-logo"
 
 
 def _send_with_retry(message: EmailMultiAlternatives) -> None:
@@ -37,6 +47,31 @@ def _send_with_retry(message: EmailMultiAlternatives) -> None:
             time.sleep(2 * 2 ** attempt)
 
 
+@lru_cache(maxsize=1)
+def _logo_bytes() -> bytes:
+    return LOGO_PATH.read_bytes()
+
+
+def _build_message(*, subject: str, text_body: str, html_body: str, to: list[str]) -> EmailMultiAlternatives:
+    """Assemble a branded multipart message: text + HTML alternatives plus the
+    inline logo, as multipart/related so clients render the logo in place
+    rather than listing it as an attachment."""
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        reply_to=[settings.EMAIL_REPLY_TO],
+        to=to,
+    )
+    message.attach_alternative(html_body, "text/html")
+    message.mixed_subtype = "related"
+    logo = MIMEImage(_logo_bytes(), _subtype="png")
+    logo.add_header("Content-ID", f"<{LOGO_CID}>")
+    logo.add_header("Content-Disposition", "inline", filename="MedifinanceLogo.png")
+    message.attach(logo)
+    return message
+
+
 def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner_name: str,
                           expires_at, via_partner: str | None = None) -> None:
     """Email a customer their single-use portal link.
@@ -57,15 +92,7 @@ def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner
     text_body = render_to_string("email/magic_link.txt", context)
     html_body = render_to_string("email/magic_link.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        reply_to=[settings.EMAIL_REPLY_TO],
-        to=[to_email],
-    )
-    message.attach_alternative(html_body, "text/html")
-    _send_with_retry(message)
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=[to_email]))
 
 
 def send_new_deal_notification_email(
@@ -94,15 +121,7 @@ def send_new_deal_notification_email(
     text_body = render_to_string("email/new_deal_notification.txt", context)
     html_body = render_to_string("email/new_deal_notification.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        reply_to=[settings.EMAIL_REPLY_TO],
-        to=settings.NOTIFY_EMAILS,
-    )
-    message.attach_alternative(html_body, "text/html")
-    _send_with_retry(message)
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.NOTIFY_EMAILS))
 
 
 def send_supplier_invoice_submitted_email(
@@ -127,15 +146,7 @@ def send_supplier_invoice_submitted_email(
     text_body = render_to_string("email/supplier_invoice_submitted.txt", context)
     html_body = render_to_string("email/supplier_invoice_submitted.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        reply_to=[settings.EMAIL_REPLY_TO],
-        to=settings.NOTIFY_EMAILS,
-    )
-    message.attach_alternative(html_body, "text/html")
-    _send_with_retry(message)
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.NOTIFY_EMAILS))
 
 
 def send_commission_invoice_request_email(
@@ -166,15 +177,7 @@ def send_commission_invoice_request_email(
     text_body = render_to_string("email/commission_invoice_request.txt", context)
     html_body = render_to_string("email/commission_invoice_request.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        reply_to=[settings.EMAIL_REPLY_TO],
-        to=settings.ACCOUNTS_EMAILS,
-    )
-    message.attach_alternative(html_body, "text/html")
-    _send_with_retry(message)
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.ACCOUNTS_EMAILS))
 
 
 def send_supplier_invoice_request_email(
@@ -213,15 +216,7 @@ def send_supplier_invoice_request_email(
     text_body = render_to_string("email/supplier_invoice_request.txt", context)
     html_body = render_to_string("email/supplier_invoice_request.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        reply_to=[settings.EMAIL_REPLY_TO],
-        to=[to_email],
-    )
-    message.attach_alternative(html_body, "text/html")
-    _send_with_retry(message)
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=[to_email]))
 
 
 def send_proposal_approved_client_email(
@@ -252,12 +247,4 @@ def send_proposal_approved_client_email(
     text_body = render_to_string("email/proposal_approved_client.txt", context)
     html_body = render_to_string("email/proposal_approved_client.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        reply_to=[settings.EMAIL_REPLY_TO],
-        to=[to_email],
-    )
-    message.attach_alternative(html_body, "text/html")
-    _send_with_retry(message)
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=[to_email]))
