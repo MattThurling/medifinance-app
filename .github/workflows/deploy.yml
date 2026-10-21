@@ -175,10 +175,11 @@ jobs:
           ENVVARS="${ENVVARS}|ACCOUNTS_EMAILS=${{ vars.ACCOUNTS_EMAILS || 'mnthurling@gmail.com' }}"
 
           # Roles that must use two-factor authentication (comma-separated:
-          # admin, associate, customer, or all). TWO_FACTOR_REQUIRED_ROLES_PROD
-          # overrides for prod; empty = nobody is forced.
+          # admin, associate, customer, or all). Gated per env like DocuSeal:
+          # dev reads TWO_FACTOR_REQUIRED_ROLES, prod reads
+          # TWO_FACTOR_REQUIRED_ROLES_PROD. Empty/unset = nobody is forced.
           TFA_ROLES="${{ vars.TWO_FACTOR_REQUIRED_ROLES }}"
-          if [ "$SUFFIX" = "prod" ] && [ -n "${{ vars.TWO_FACTOR_REQUIRED_ROLES_PROD }}" ]; then
+          if [ "$SUFFIX" = "prod" ]; then
             TFA_ROLES="${{ vars.TWO_FACTOR_REQUIRED_ROLES_PROD }}"
           fi
           ENVVARS="${ENVVARS}|TWO_FACTOR_REQUIRED_ROLES=${TFA_ROLES}"
