@@ -57,6 +57,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Two-factor gate: must run after AuthenticationMiddleware (needs
+    # request.user) and MessageMiddleware (flashes on forced logout).
+    "accounts.two_factor.TwoFactorMiddleware",
 ]
 
 ROOT_URLCONF = "medifinance.urls"
@@ -104,6 +107,24 @@ ANONYMOUS_USER_NAME = None
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+
+# --- Two-factor authentication (TOTP / authenticator app) --------------------
+# TWO_FACTOR_REQUIRED_ROLES is a comma-separated list of roles (admin,
+# associate, customer) that MUST use 2FA: on their next login they're forced
+# to enrol, and every later login asks for a code. "all" means every role.
+# Unset/empty = nobody is forced, though any user may still opt in from
+# Account → Security. Unknown role names fail the startup system check so a
+# typo can't silently switch the requirement off.
+TWO_FACTOR_REQUIRED_ROLES = [
+    r.strip().lower()
+    for r in os.getenv("TWO_FACTOR_REQUIRED_ROLES", "").split(",")
+    if r.strip()
+]
+# Shown as the account label in authenticator apps.
+TWO_FACTOR_ISSUER = os.getenv("TWO_FACTOR_ISSUER", "Medifinance CRM")
+# Failed code attempts allowed per login session before the user is logged out.
+TWO_FACTOR_MAX_ATTEMPTS = int(os.getenv("TWO_FACTOR_MAX_ATTEMPTS", "5"))
 
 
 AUTH_PASSWORD_VALIDATORS = [

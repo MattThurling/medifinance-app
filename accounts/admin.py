@@ -24,7 +24,7 @@ class UserAdmin(BaseUserAdmin):
     model = User
 
     ordering = ("email",)
-    list_display = ("email", "full_name", "role", "organisation", "is_finance", "is_active", "is_staff", "date_joined")
+    list_display = ("email", "full_name", "role", "organisation", "is_finance", "two_factor", "is_active", "is_staff", "date_joined")
     list_select_related = ("organisation",)
     list_filter = ("role", "is_finance", "is_active", "is_staff", "is_superuser")
     search_fields = ("email", "first_name", "last_name", "hubspot_id", "organisation__name")
@@ -39,8 +39,30 @@ class UserAdmin(BaseUserAdmin):
             {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")},
         ),
         (_("Important dates"), {"fields": ("last_login", "date_joined")}),
+        (_("Two-factor authentication"), {
+            "fields": ("totp_confirmed_at",),
+            "description": "Enrolled when a date is shown. Use the "
+                           "\u201cReset two-factor authentication\u201d action to clear a "
+                           "lost authenticator; users whose role requires 2FA "
+                           "will be asked to enrol again at their next sign-in.",
+        }),
         (_("HubSpot"), {"fields": ("hubspot_id",)}),
     )
+    readonly_fields = ("totp_confirmed_at",)
+    actions = ("reset_two_factor",)
+
+    @admin.display(description="2FA", boolean=True)
+    def two_factor(self, obj):
+        return obj.two_factor_enabled
+
+    @admin.action(description="Reset two-factor authentication (lost authenticator)")
+    def reset_two_factor(self, request, queryset):
+        count = 0
+        for user in queryset:
+            if user.two_factor_enabled:
+                user.reset_totp()
+                count += 1
+        self.message_user(request, f"Two-factor authentication reset for {count} user(s).", messages.SUCCESS)
     add_fieldsets = (
         (
             None,

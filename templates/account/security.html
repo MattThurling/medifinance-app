@@ -1,0 +1,55 @@
+{% extends "_app_layout.html" %}
+{% load icons %}
+
+{% block title %}Security · Medifinance CRM{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold mb-1">Security</h1>
+  <p class="text-sm opacity-70 mb-6">Signed in as <span class="font-medium">{{ user.email }}</span></p>
+
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="card-title text-lg">Two-factor authentication</h2>
+          <p class="text-sm opacity-70 mt-1">
+            A 6-digit code from an authenticator app is asked for each time you sign in, on top of your password.
+          </p>
+        </div>
+        {% if two_factor_enabled %}
+          <span class="badge badge-success gap-1 shrink-0">{% icon "shield-check" class="h-4 w-4" %} On</span>
+        {% else %}
+          <span class="badge badge-ghost shrink-0">Off</span>
+        {% endif %}
+      </div>
+
+      {% if two_factor_required %}
+        <p class="text-sm mt-3">
+          Two-factor authentication is <strong>required</strong> for {{ user.get_role_display|lower }} accounts and can't be turned off here.
+          {% if two_factor_enabled %}If you lose your authenticator, ask an administrator to reset it.{% endif %}
+        </p>
+      {% endif %}
+
+      <div class="card-actions mt-4">
+        {% if not two_factor_enabled %}
+          <a href="{% url 'two_factor_setup' %}" class="btn btn-primary">Set up two-factor authentication</a>
+        {% elif not two_factor_required %}
+          <details class="w-full">
+            <summary class="btn btn-outline btn-error btn-sm">Turn off…</summary>
+            <form method="post" action="{% url 'two_factor_disable' %}" class="mt-3 flex items-end gap-2 max-w-sm">
+              {% csrf_token %}
+              <div class="form-control flex-1">
+                <label class="label" for="id_disable_code"><span class="label-text">Current code from your app</span></label>
+                <input type="text" name="code" id="id_disable_code" inputmode="numeric" autocomplete="one-time-code"
+                       maxlength="7" required class="input input-bordered w-full" />
+              </div>
+              <button type="submit" class="btn btn-error">Turn off</button>
+            </form>
+          </details>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

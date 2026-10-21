@@ -53,6 +53,7 @@ All four core records + User carry a unique, nullable `hubspot_id`. Each model d
 - **admin / associate** = staff (internal UI). **customer** = portal only.
 - Gating: `StaffRequiredMixin`, `AdminRequiredMixin`, `CustomerRequiredMixin`, `@role_required`.
 - guardian: on Deal save a signal grants the owner `view_deal` + `change_deal`; ownership change re-assigns. `ANONYMOUS_USER_NAME=None`.
+- **Two-factor auth** (`accounts/two_factor.py`, TOTP via `pyotp`): `TWO_FACTOR_REQUIRED_ROLES` (env, comma-separated roles or `all`) picks who *must* enrol; anyone else may opt in from the sidebar user menu → Security. `TwoFactorMiddleware` (process_view) redirects authenticated users who owe a code to `/accounts/2fa/setup/` or `/accounts/2fa/verify/`; verification is per login session (`two_factor_verified_user` = user pk). Secrets live on `User.totp_*`; codes are single-use (`totp_last_used_step`); 5 wrong codes = logout. Lost device: Django admin → Users → action "Reset two-factor authentication". Required roles can't turn it off themselves.
 
 ## Features
 

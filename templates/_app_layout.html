@@ -137,6 +137,12 @@
           </div>
           <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-10 w-56 p-2 shadow mb-2">
             <li>
+              <a href="{% url 'two_factor_settings' %}" class="flex items-center gap-2">
+                {% icon "shield-check" %}
+                Security
+              </a>
+            </li>
+            <li>
               <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="flex items-center gap-2 w-full text-left">

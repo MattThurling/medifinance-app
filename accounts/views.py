@@ -3,9 +3,11 @@ from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
 from django.views.generic import TemplateView
 
+from . import two_factor
 from .models import MagicLink, SiteSettings
 
 
@@ -92,3 +94,124 @@ class ConsumeMagicLinkView(View):
         # `login()` needs to know which one to record on the session.
         login(request, link.user, backend="django.contrib.auth.backends.ModelBackend")
         return redirect(link.redirect_url)
+
+
+# --- Two-factor authentication ----------------------------------------------
+
+def _qr_svg(data: str) -> str:
+    """Inline SVG QR code for the otpauth URI — no image files, no PIL."""
+    import qrcode
+    import qrcode.image.svg
+    img = qrcode.make(data, image_factory=qrcode.image.svg.SvgPathImage, box_size=10, border=2)
+    return img.to_string(encoding="unicode")
+
+
+class TwoFactorSetupView(LoginRequiredMixin, View):
+    """Enrol an authenticator app. GET shows a QR code (and the key for
+    manual entry) for a secret held in the session; POST confirms the user
+    scanned it by checking a code. Nothing touches the user row until the
+    code is right."""
+
+    template_name = "registration/two_factor_setup.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and request.user.two_factor_enabled:
+            # Already enrolled — re-enrolling means turning it off first,
+            # which needs a valid code, so a hijacked session can't swap keys.
+            if not two_factor.is_verified(request):
+                return redirect(reverse("two_factor_verify") + "?" + request.META.get("QUERY_STRING", ""))
+            return redirect("two_factor_settings")
+        return super().dispatch(request, *args, **kwargs)
+
+    def _secret(self, request) -> str:
+        secret = request.session.get(two_factor.SESSION_PENDING_SECRET_KEY)
+        if not secret:
+            secret = request.user.generate_totp_secret()
+            request.session[two_factor.SESSION_PENDING_SECRET_KEY] = secret
+        return secret
+
+    def _render(self, request, *, error: str | None = None):
+        secret = self._secret(request)
+        return render(request, self.template_name, {
+            "secret": secret,
+            "secret_grouped": " ".join(secret[i:i + 4] for i in range(0, len(secret), 4)),
+            "qr_svg": _qr_svg(request.user.totp_provisioning_uri(secret)),
+            "error": error,
+            "next": two_factor.safe_next(request, default=""),
+            "required": request.user.two_factor_required,
+        })
+
+    def get(self, request):
+        return self._render(request)
+
+    def post(self, request):
+        secret = self._secret(request)
+        if request.user.confirm_totp(secret, request.POST.get("code", "")):
+            two_factor.mark_verified(request)
+            messages.success(request, "Two-factor authentication is now on for your account.")
+            return redirect(two_factor.safe_next(request, default=reverse("dashboard")))
+        if two_factor.record_failed_attempt(request):
+            return redirect("login")
+        return self._render(request, error="That code didn't match. Check the app and try again.")
+
+
+class TwoFactorVerifyView(LoginRequiredMixin, View):
+    """Second step of login for enrolled users: enter the current code."""
+
+    template_name = "registration/two_factor_verify.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            if not request.user.two_factor_enabled:
+                return redirect("two_factor_setup")
+            if two_factor.is_verified(request):
+                return redirect(two_factor.safe_next(request, default=reverse("dashboard")))
+        return super().dispatch(request, *args, **kwargs)
+
+    def _render(self, request, *, error: str | None = None):
+        return render(request, self.template_name, {
+            "error": error,
+            "next": two_factor.safe_next(request, default=""),
+        })
+
+    def get(self, request):
+        return self._render(request)
+
+    def post(self, request):
+        if request.user.verify_totp(request.POST.get("code", "")):
+            two_factor.mark_verified(request)
+            return redirect(two_factor.safe_next(request, default=reverse("dashboard")))
+        if two_factor.record_failed_attempt(request):
+            return redirect("login")
+        return self._render(request, error="That code didn't match. Codes change every 30 seconds — try the latest one.")
+
+
+class TwoFactorSettingsView(LoginRequiredMixin, TemplateView):
+    """Account → Security: shows whether 2FA is on, with set-up / turn-off."""
+
+    template_name = "account/security.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["two_factor_required"] = self.request.user.two_factor_required
+        ctx["two_factor_enabled"] = self.request.user.two_factor_enabled
+        return ctx
+
+
+class TwoFactorDisableView(LoginRequiredMixin, View):
+    """Turn 2FA off for an opted-in user. Needs a current code so a stolen
+    session can't strip the protection. Refused outright when the role
+    requires it — only an admin can reset those (from Django admin)."""
+
+    def post(self, request):
+        if request.user.two_factor_required:
+            raise PermissionDenied
+        if not request.user.two_factor_enabled:
+            return redirect("two_factor_settings")
+        if not request.user.verify_totp(request.POST.get("code", "")):
+            messages.error(request, "That code didn't match, so two-factor authentication stays on.")
+            return redirect("two_factor_settings")
+        request.user.reset_totp()
+        request.session.pop(two_factor.SESSION_VERIFIED_KEY, None)
+        messages.warning(request, "Two-factor authentication has been turned off for your account.")
+        return redirect("two_factor_settings")

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Enter your code · Medifinance CRM{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex items-center justify-center px-4">
+  <div class="card w-full max-w-md bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title text-2xl">Enter your code</h1>
+      <p class="text-sm opacity-70 mb-4">Open your authenticator app and enter the 6-digit code for <span class="font-medium">{{ user.email }}</span>.</p>
+
+      <form method="post">
+        {% csrf_token %}
+        {% if error %}
+          <div class="alert alert-error mb-4"><span>{{ error }}</span></div>
+        {% endif %}
+        <div class="form-control mb-4">
+          <label class="label" for="id_code"><span class="label-text">6-digit code</span></label>
+          <input type="text" name="code" id="id_code" inputmode="numeric" pattern="[0-9 ]*" autocomplete="one-time-code"
+                 maxlength="7" required autofocus class="input input-bordered w-full text-center text-lg tracking-[0.4em]" />
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Continue</button>
+        <input type="hidden" name="next" value="{{ next }}" />
+      </form>
+
+      <p class="text-xs opacity-60 mt-3">Lost your authenticator? Ask an administrator to reset two-factor authentication on your account.</p>
+
+      <form method="post" action="{% url 'logout' %}" class="mt-2 text-center">
+        {% csrf_token %}
+        <button type="submit" class="link link-hover text-sm opacity-70">Sign out</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

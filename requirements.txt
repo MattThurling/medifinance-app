@@ -4,6 +4,10 @@ python-dotenv
 django-anymail[mailgun]
 requests
 
+# Two-factor authentication: TOTP codes + QR for authenticator-app enrolment
+pyotp
+qrcode
+
 # Note content: Markdown rendering + HTML sanitizing
 markdown-it-py
 linkify-it-py

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Set up two-factor authentication · Medifinance CRM{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex items-center justify-center px-4 py-8">
+  <div class="card w-full max-w-md bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title text-2xl">Set up two-factor authentication</h1>
+      {% if required %}
+        <p class="text-sm opacity-70">Your role requires a second factor to sign in. This only takes a minute.</p>
+      {% else %}
+        <p class="text-sm opacity-70">Add a second step to your sign-in using an authenticator app.</p>
+      {% endif %}
+
+      <ol class="list-decimal list-inside text-sm space-y-3 mt-2">
+        <li>Install an authenticator app if you don't have one — Google Authenticator, Microsoft Authenticator, Authy and 1Password all work.</li>
+        <li>
+          Scan this code with the app:
+          <div class="flex justify-center my-3">
+            <div class="rounded-box bg-white p-2 [&>svg]:h-48 [&>svg]:w-48" aria-label="QR code for your authenticator app">{{ qr_svg|safe }}</div>
+          </div>
+          <details class="text-xs opacity-80">
+            <summary class="cursor-pointer">Can't scan? Enter the key by hand</summary>
+            <p class="mt-2">Account: <span class="font-medium">{{ user.email }}</span></p>
+            <p class="mt-1">Key: <code class="font-mono tracking-wider select-all">{{ secret_grouped }}</code></p>
+            <p class="mt-1">Type: time-based (TOTP), 6 digits, 30 seconds.</p>
+          </details>
+        </li>
+        <li>Enter the 6-digit code the app shows to finish.</li>
+      </ol>
+
+      <form method="post" class="mt-4">
+        {% csrf_token %}
+        {% if error %}
+          <div class="alert alert-error mb-4"><span>{{ error }}</span></div>
+        {% endif %}
+        <div class="form-control mb-4">
+          <label class="label" for="id_code"><span class="label-text">6-digit code</span></label>
+          <input type="text" name="code" id="id_code" inputmode="numeric" pattern="[0-9 ]*" autocomplete="one-time-code"
+                 maxlength="7" required autofocus class="input input-bordered w-full text-center text-lg tracking-[0.4em]" />
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Turn on two-factor authentication</button>
+        <input type="hidden" name="next" value="{{ next }}" />
+      </form>
+
+      <form method="post" action="{% url 'logout' %}" class="mt-2 text-center">
+        {% csrf_token %}
+        <button type="submit" class="link link-hover text-sm opacity-70">Sign out instead</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
