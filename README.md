@@ -86,7 +86,7 @@ docker run -d --name docuseal -p 3000:3000 -v ~/.docuseal:/data docuseal/docusea
 | Role      | What it gets                                              |
 |-----------|-----------------------------------------------------------|
 | Admin     | Full Django admin, all CRM data                           |
-| Associate | Internal CRM UI; own deals, plus colleagues' deals when linked to the same Organisation |
+| Associate | Internal CRM UI; own deals (plus colleagues' when linked to the same Organisation). Contacts and organisations: everything except records owned by staff outside their team — unowned ones are visible, as is anything attached to a deal they can see |
 | Customer  | Login only (portal UI is intentionally not built in v1)   |
 
 Use the helpers in `accounts/permissions.py`:
@@ -100,7 +100,7 @@ def some_internal_view(request): ...
 class SomeAdminView(AdminRequiredMixin, TemplateView): ...
 ```
 
-Deal visibility is decided in one place, `crm/access.py`: admins see everything, associates see deals owned by anyone in their `organisation` (or only their own when they have none), customers see deals they are the contact on. django-guardian row perms are also assigned on `Deal` save (see `crm/signals.py`) but nothing reads them yet.
+Row visibility is decided in one place, `crm/access.py` (`visible_deals`, `visible_contacts`, `visible_organisations`): admins see everything; associates see deals owned by anyone in their `organisation` (or only their own when they have none); customers see deals they are the contact on. Contacts and organisations are softer for associates: they see records owned by their team or by nobody, plus anything attached to a visible deal (customer, co-applicants, organisation, introducer, suppliers, lenders); only records owned by staff outside their team are hidden. The organisation combobox search stays open to all staff so any lender/supplier/introducer can be picked. django-guardian row perms are also assigned on `Deal` save (see `crm/signals.py`) but nothing reads them yet.
 
 ## Partner API
 

@@ -1,10 +1,13 @@
 """Contact list: sortable columns and the owner filter — and that they
-compose with search."""
+compose with search.
+
+Runs as an admin so every row is visible; associate scoping of the list is
+covered in test_associate_scoping / test_organisation_scoping."""
 
 from django.test import TestCase
 from django.urls import reverse
 
-from .factories import make_associate, make_contact
+from .factories import make_admin, make_associate, make_contact
 
 
 def _names(response):
@@ -14,7 +17,7 @@ def _names(response):
 class ContactListTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.staff = make_associate()
+        cls.staff = make_admin()
 
     def setUp(self):
         self.client.force_login(self.staff)

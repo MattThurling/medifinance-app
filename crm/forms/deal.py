@@ -1,6 +1,8 @@
 from django import forms
+from django.db.models import Q
 
-from ..models import Deal
+from ..access import visible_contacts
+from ..models import Contact, Deal
 from .base import DaisyUIFormMixin, OwnerInitialFormMixin
 
 
@@ -32,8 +34,20 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
             "term_end_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, current_user=None, **kwargs):
+        super().__init__(*args, current_user=current_user, **kwargs)
+        # The customer must be a contact this user may see. `organisation`
+        # and `introducer` stay unscoped on purpose: the organisation picker
+        # is open to everyone (see OrganisationSearchView).
+        if current_user is not None:
+            customers = visible_contacts(current_user)
+            if self.instance.pk and self.instance.customer_id:
+                # Keep the saved customer valid on edit even if this user
+                # can't otherwise see them, so an unrelated edit still saves.
+                customers = Contact.objects.filter(
+                    Q(pk__in=customers.values("pk")) | Q(pk=self.instance.customer_id)
+                )
+            self.fields["customer"].queryset = customers
         self.fields["type"].help_text = ""  # the dropdown explains itself
         # Hide retired types from the dropdown, except the one already on the
         # deal being edited (so saving the form doesn't silently change it).

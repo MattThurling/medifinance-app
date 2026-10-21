@@ -7,7 +7,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from accounts.permissions import StaffRequiredMixin
 
-from ..access import owner_choices, visible_deals
+from ..access import owner_choices, visible_contacts, visible_deals, visible_organisations
 from ..forms import ContactForm
 from ..models import Contact, Organisation
 from .shared import (
@@ -15,6 +15,7 @@ from .shared import (
     ProtectedDeleteMixin,
     SearchableListView,
     SortableListMixin,
+    VisibleContactsMixin,
     _deal_summaries,
     _OwnerFormMixin,
     _SearchView,
@@ -32,6 +33,9 @@ class ContactListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, S
         "created": F("created_at"),
     }
 
+    def get_base_queryset(self):
+        return visible_contacts(self.request.user)
+
     def get_queryset(self):
         qs = super().get_queryset().select_related("owner").prefetch_related("organisations")
         qs = self.apply_owner_filter(qs)
@@ -43,14 +47,13 @@ class ContactDetailView(StaffRequiredMixin, DetailView):
 
     def get_queryset(self):
         return (
-            super().get_queryset()
+            visible_contacts(self.request.user)
             .select_related("user", "owner")
             .prefetch_related("organisations")
         )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # The address book is shared, but the deals on it are not.
         ctx["deals"] = _deal_summaries(
             visible_deals(self.request.user)
             .filter(customer=self.object)
@@ -87,7 +90,7 @@ class ContactCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
             org_pk = request.GET.get("organisation")
             if org_pk:
                 try:
-                    self.parent_organisation = Organisation.objects.get(pk=org_pk)
+                    self.parent_organisation = visible_organisations(request.user).get(pk=org_pk)
                 except (Organisation.DoesNotExist, ValueError, TypeError):
                     pass
 
@@ -122,7 +125,7 @@ class ContactCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
         return self.object.get_absolute_url()
 
 
-class ContactUpdateView(StaffRequiredMixin, _OwnerFormMixin, UpdateView):
+class ContactUpdateView(StaffRequiredMixin, VisibleContactsMixin, _OwnerFormMixin, UpdateView):
     model = Contact
     form_class = ContactForm
 
@@ -130,18 +133,21 @@ class ContactUpdateView(StaffRequiredMixin, _OwnerFormMixin, UpdateView):
         return self.object.get_absolute_url()
 
 
-class ContactDeleteView(StaffRequiredMixin, ProtectedDeleteMixin, DeleteView):
+class ContactDeleteView(StaffRequiredMixin, VisibleContactsMixin, ProtectedDeleteMixin, DeleteView):
     model = Contact
     success_url = reverse_lazy("crm:contact_list")
     protected_message = "Can't delete this contact — they're the customer on one or more deals."
 
 
 class ContactSearchView(_SearchView):
+    """Contact combobox (deal customer, proposal contact, invoice contact):
+    only the contacts this user may see."""
+
     model = Contact
     search_fields = ["first_name", "last_name", "email", "organisations__name"]
 
     def get_queryset(self):
-        return Contact.objects.prefetch_related("organisations")
+        return visible_contacts(self.request.user).prefetch_related("organisations")
 
 
 class UserSearchView(_SearchView):

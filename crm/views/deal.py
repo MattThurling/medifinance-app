@@ -17,7 +17,7 @@ from django.views.generic import (
 from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
 from .. import docuseal, pricing, stats
-from ..access import get_visible_deal_or_404, visible_deals
+from ..access import get_visible_deal_or_404, visible_contacts, visible_deals
 from ..forms import DealForm, XeroInvoiceForm
 from ..models import Contact, Deal, Stage, XeroInvoice
 from .shared import (
@@ -33,7 +33,6 @@ from .shared import (
 
 class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, SearchableListView):
     model = Deal
-    lock_owner_for_associates = True
 
     def get_base_queryset(self):
         return visible_deals(self.request.user)
@@ -110,7 +109,6 @@ class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
     model = Deal
     template_name = "crm/deal_maturing_list.html"
     paginate_by = 50
-    lock_owner_for_associates = True
 
     WINDOW_CHOICES = (3, 6, 12, 24)  # months
     DEFAULT_WINDOW = 12
@@ -183,7 +181,6 @@ class ReportsView(OwnerFilterMixin, StaffRequiredMixin, TemplateView):
     same vocabulary as the Deals list so rows can deep-link into it."""
 
     template_name = "crm/reports.html"
-    lock_owner_for_associates = True
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)  # owner_choices / owner_filter
@@ -238,10 +235,13 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         applicants = [a for a in (deal.customer, *deal.co_applicants.all()) if a]
         ctx["applicants"] = applicants
 
-        # Other contacts in the deal's organisation that staff can attach as applicants
+        # Other contacts in the deal's organisation that this user can see
+        # and attach as applicants.
         org = deal.organisation
         ctx["available_applicants"] = (
-            org.contacts.exclude(pk__in=[a.pk for a in applicants])
+            visible_contacts(self.request.user)
+            .filter(organisations=org)
+            .exclude(pk__in=[a.pk for a in applicants])
             if org else Contact.objects.none()
         )
 
@@ -292,7 +292,7 @@ class DealCreateView(StaffRequiredMixin, _DealFormMixin, CreateView):
         contact_pk = request.GET.get("customer")
         if contact_pk:
             try:
-                self.parent_contact = Contact.objects.get(pk=contact_pk)
+                self.parent_contact = visible_contacts(request.user).get(pk=contact_pk)
             except (Contact.DoesNotExist, ValueError, TypeError):
                 pass
 
@@ -327,7 +327,7 @@ class DealApplicantAddView(StaffRequiredMixin, View):
 
     def post(self, request, pk):
         deal = get_visible_deal_or_404(request.user, pk, "organisation")
-        contact = get_object_or_404(Contact, pk=request.POST.get("contact"))
+        contact = get_object_or_404(visible_contacts(request.user), pk=request.POST.get("contact"))
         if deal.organisation_id is None:
             messages.error(request, "Set the deal's organisation before adding applicants.")
         elif not contact.organisations.filter(pk=deal.organisation_id).exists():

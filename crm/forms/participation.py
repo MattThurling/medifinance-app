@@ -31,6 +31,10 @@ class ParticipationForm(DaisyUIFormMixin, forms.ModelForm):
     On Commercial Finance deals a participation is just a funded amount — the
     supplier/invoice fields are dropped entirely so posted values are ignored,
     not merely hidden.
+
+    `organisation` and `invoice_contact` are deliberately unscoped; the
+    contact combobox only offers visible contacts (which includes every
+    unowned one).
     """
 
     class Meta:

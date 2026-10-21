@@ -17,6 +17,7 @@
       />
       <button class="btn btn-sm join-item">Search</button>
     </div>
+    {% if not owner_filter_locked %}
     <select name="owner" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
       <option value="">All owners</option>
       <option value="me" {% if owner_filter == "me" %}selected{% endif %}>My organisations</option>
@@ -25,6 +26,7 @@
         <option value="{{ u.pk }}" {% if owner_filter == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
       {% endfor %}
     </select>
+    {% endif %}
     <select name="sector" class="select select-bordered select-sm w-44" onchange="this.form.submit()">
       <option value="">All sectors</option>
       <option value="none" {% if sector_filter == "none" %}selected{% endif %}>No sector</option>

@@ -1,26 +1,31 @@
 """Associates linked to an organisation share deals with their colleagues.
 
 `User.organisation` groups associates into a team: everyone in the same
-organisation sees — and can act on — every deal owned by anyone in it,
-exactly as if it were their own. Deals owned by staff in other organisations,
-or by nobody, stay out of reach. The owner filter and owner field open up
-for them, limited to the organisation's staff. An associate with no
-organisation keeps the own-deals-only behaviour (test_associate_scoping).
+organisation sees — and can act on — every deal, contact and organisation
+owned by anyone in it, exactly as if it were their own. Deals owned by staff
+in other organisations, or by nobody, stay out of reach; contacts and
+organisations are softer — unowned ones are visible to everyone, and only
+those owned by staff outside the team are hidden. The owner filter and owner
+field open up for them, limited to the organisation's staff. An associate
+with no organisation keeps the own-records-only behaviour
+(test_associate_scoping).
 """
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from crm.access import owner_choices, visible_deals
+from crm.access import owner_choices, visible_contacts, visible_deals, visible_organisations
 from crm.models import Contact, Deal, Note, Organisation
 
 from .factories import (
     make_admin,
     make_associate,
+    make_contact,
     make_deal,
     make_document,
     make_organisation,
+    make_participation,
     make_quote,
 )
 
@@ -235,7 +240,8 @@ class OwnerFieldTests(OrgScopingTestCase):
 
     def test_omitted_owner_stays_empty(self):
         # Organisation.owner is optional, so an omitted owner is saved as
-        # none rather than silently defaulting to the submitter.
+        # none rather than silently defaulting to the submitter — and the
+        # unowned org is still visible to its creator.
         response = self.client.post(reverse("crm:organisation_create"), {"name": "No owner given"})
         org = Organisation.objects.get(name="No owner given")
         self.assertRedirects(response, org.get_absolute_url())
@@ -243,6 +249,10 @@ class OwnerFieldTests(OrgScopingTestCase):
 
     def test_edit_keeps_owner_who_left_the_organisation(self):
         contact = Contact.objects.create(first_name="Old", last_name="Timer", owner=self.colleague)
+        # Keep the contact reachable once the colleague has left: it's the
+        # customer on one of our deals.
+        self.own.customer = contact
+        self.own.save(update_fields=["customer"])
         self.colleague.organisation = None
         self.colleague.save(update_fields=["organisation"])
         response = self.client.get(reverse("crm:contact_update", args=[contact.pk]))
@@ -260,6 +270,137 @@ class OwnerFieldTests(OrgScopingTestCase):
         response = self.client.get(reverse("crm:deal_create"))
         self.assertNotIn("owner", response.context["form"].fields)
         self.assertTrue(response.context["owner_locked"])
+
+
+class AddressBookTeamTests(OrgScopingTestCase):
+    """Contacts and organisations are shared across the team the same way
+    deals are. Unowned records (every deal's customer and organisation here,
+    plus `loose_*`) are visible to everyone; records owned by staff outside
+    the team are hidden unless attached to a visible deal."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.mine = make_contact(owner=cls.associate, last_name="Mine")
+        cls.colleague_contact = make_contact(owner=cls.colleague, last_name="Colleague-owned")
+        cls.outsider_contact = make_contact(owner=cls.outsider, last_name="Outsider-owned")
+        cls.loner_contact = make_contact(owner=cls.loner, last_name="Loner-owned")
+        cls.loose_contact = make_contact(last_name="Loose")
+        cls.my_org = make_organisation(name="My Org", owner=cls.associate)
+        cls.colleague_org = make_organisation(name="Colleague Org", owner=cls.colleague)
+        cls.outsider_org = make_organisation(name="Outsider Org", owner=cls.outsider)
+        cls.loose_org = make_organisation(name="Loose Org")
+        # Outsider-owned supplier on a colleague's deal: reachable.
+        cls.supplier = make_organisation(name="Supplier", owner=cls.outsider)
+        make_participation(cls.colleagues, organisation=cls.supplier)
+        cls.unowned_contacts = list(Contact.objects.filter(owner__isnull=True))
+        cls.unowned_orgs = list(Organisation.objects.filter(owner__isnull=True))
+
+    def test_visible_contacts_by_team(self):
+        expected = self.unowned_contacts + [self.mine, self.colleague_contact]
+        self.assertCountEqual(visible_contacts(self.associate), expected)
+        self.assertCountEqual(visible_contacts(self.colleague), expected)
+        self.assertCountEqual(
+            visible_contacts(self.outsider), self.unowned_contacts + [self.outsider_contact],
+        )
+        self.assertCountEqual(
+            visible_contacts(self.loner), self.unowned_contacts + [self.loner_contact],
+        )
+        self.assertCountEqual(visible_contacts(self.admin), Contact.objects.all())
+
+    def test_visible_organisations_by_team(self):
+        expected = self.unowned_orgs + [self.my_org, self.colleague_org, self.supplier]
+        self.assertCountEqual(visible_organisations(self.associate), expected)
+        self.assertCountEqual(visible_organisations(self.colleague), expected)
+        self.assertCountEqual(
+            visible_organisations(self.outsider),
+            self.unowned_orgs + [self.outsider_org, self.supplier],
+        )
+        self.assertCountEqual(visible_organisations(self.loner), self.unowned_orgs)
+        self.assertCountEqual(visible_organisations(self.admin), Organisation.objects.all())
+
+    def test_lists_unlocked_and_limited_to_colleagues(self):
+        response = self.client.get(reverse("crm:contact_list"))
+        self.assertCountEqual(
+            response.context["object_list"],
+            self.unowned_contacts + [self.mine, self.colleague_contact],
+        )
+        self.assertFalse(response.context["owner_filter_locked"])
+        self.assertCountEqual(response.context["owner_choices"], [self.associate, self.colleague])
+        self.assertContains(response, 'name="owner"')
+        self.assertContains(response, ">Unowned</option>")
+        self.assertNotContains(response, "Out Sider")
+        self.assertNotContains(response, "Outsider-owned")
+
+        response = self.client.get(reverse("crm:contact_list"), {"owner": str(self.colleague.pk)})
+        self.assertEqual(list(response.context["object_list"]), [self.colleague_contact])
+        response = self.client.get(reverse("crm:contact_list"), {"owner": str(self.outsider.pk)})
+        self.assertEqual(list(response.context["object_list"]), [])
+        response = self.client.get(reverse("crm:contact_list"), {"owner": "me"})
+        self.assertEqual(list(response.context["object_list"]), [self.mine])
+        response = self.client.get(reverse("crm:contact_list"), {"owner": "none"})
+        self.assertCountEqual(response.context["object_list"], self.unowned_contacts)
+
+        response = self.client.get(reverse("crm:organisation_list"))
+        self.assertCountEqual(
+            response.context["object_list"],
+            self.unowned_orgs + [self.my_org, self.colleague_org, self.supplier],
+        )
+        self.assertFalse(response.context["owner_filter_locked"])
+        self.assertContains(response, ">Unowned</option>")
+        self.assertNotContains(response, "Outsider Org")
+        response = self.client.get(reverse("crm:organisation_list"), {"owner": str(self.colleague.pk)})
+        self.assertEqual(list(response.context["object_list"]), [self.colleague_org])
+
+    def test_colleague_and_unowned_pages_render_outsider_404(self):
+        for name, obj in (
+            ("contact_detail", self.colleague_contact),
+            ("contact_update", self.colleague_contact),
+            ("contact_detail", self.colleagues.customer),
+            ("contact_update", self.loose_contact),
+            ("contact_detail", self.unowned.customer),
+            ("organisation_detail", self.colleague_org),
+            ("organisation_update", self.colleague_org),
+            ("organisation_detail", self.supplier),
+            ("organisation_update", self.loose_org),
+            ("organisation_detail", self.unowned.organisation),
+        ):
+            with self.subTest(view=name, obj=str(obj)):
+                self.assertEqual(self.client.get(reverse(f"crm:{name}", args=[obj.pk])).status_code, 200)
+        for name, obj in (
+            ("contact_detail", self.outsider_contact),
+            ("contact_update", self.loner_contact),
+            ("contact_delete", self.outsider_contact),
+            ("organisation_detail", self.outsider_org),
+            ("organisation_update", self.outsider_org),
+            ("organisation_delete", self.outsider_org),
+        ):
+            with self.subTest(view=name, obj=str(obj)):
+                self.assertEqual(self.client.get(reverse(f"crm:{name}", args=[obj.pk])).status_code, 404)
+
+    def test_can_edit_colleague_contact(self):
+        response = self.client.post(
+            reverse("crm:contact_update", args=[self.colleague_contact.pk]),
+            {"first_name": "Edited", "last_name": "Colleague-owned", "owner": self.colleague.pk},
+        )
+        self.assertRedirects(response, self.colleague_contact.get_absolute_url())
+        self.colleague_contact.refresh_from_db()
+        self.assertEqual(self.colleague_contact.first_name, "Edited")
+
+    def test_contact_search_finds_team_and_unowned_contacts(self):
+        response = self.client.get(reverse("crm:contact_search"), {"q": "owned"})
+        self.assertCountEqual(response.context["results"], [self.colleague_contact])
+        response = self.client.get(reverse("crm:contact_search"), {"q": "Loose"})
+        self.assertEqual(list(response.context["results"]), [self.loose_contact])
+
+    def test_dashboard_counts_the_teams_records(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.context["contacts_count"], len(self.unowned_contacts) + 2)
+        self.assertEqual(response.context["organisations_count"], len(self.unowned_orgs) + 3)
+        self.client.force_login(self.loner)
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.context["contacts_count"], len(self.unowned_contacts) + 1)
+        self.assertEqual(response.context["organisations_count"], len(self.unowned_orgs))
 
 
 class UserSearchTests(OrgScopingTestCase):

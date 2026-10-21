@@ -5,7 +5,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from accounts.permissions import StaffRequiredMixin
 
-from ..access import visible_deals
+from ..access import visible_contacts, visible_deals, visible_organisations
 from ..forms import OrganisationForm
 from ..models import Organisation
 from .shared import (
@@ -14,6 +14,7 @@ from .shared import (
     SearchableListView,
     SectorFilterMixin,
     SortableListMixin,
+    VisibleOrganisationsMixin,
     _deal_summaries,
     _OwnerFormMixin,
     _SearchView,
@@ -39,6 +40,9 @@ class OrganisationListView(
         "created": F("created_at"),
     }
 
+    def get_base_queryset(self):
+        return visible_organisations(self.request.user)
+
     def get_queryset(self):
         qs = super().get_queryset().select_related("owner")
         qs = self.apply_owner_filter(qs)
@@ -50,12 +54,11 @@ class OrganisationDetailView(StaffRequiredMixin, DetailView):
     model = Organisation
 
     def get_queryset(self):
-        return super().get_queryset().select_related("owner")
+        return visible_organisations(self.request.user).select_related("owner")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["contacts"] = self.object.contacts.all()
-        # The address book is shared, but the deals on it are not.
+        ctx["contacts"] = visible_contacts(self.request.user).filter(organisations=self.object)
         ctx["deals"] = _deal_summaries(
             visible_deals(self.request.user)
             .filter(organisation=self.object)
@@ -73,7 +76,7 @@ class OrganisationCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
         return self.object.get_absolute_url()
 
 
-class OrganisationUpdateView(StaffRequiredMixin, _OwnerFormMixin, UpdateView):
+class OrganisationUpdateView(StaffRequiredMixin, VisibleOrganisationsMixin, _OwnerFormMixin, UpdateView):
     model = Organisation
     form_class = OrganisationForm
 
@@ -81,7 +84,9 @@ class OrganisationUpdateView(StaffRequiredMixin, _OwnerFormMixin, UpdateView):
         return self.object.get_absolute_url()
 
 
-class OrganisationDeleteView(StaffRequiredMixin, ProtectedDeleteMixin, DeleteView):
+class OrganisationDeleteView(
+    StaffRequiredMixin, VisibleOrganisationsMixin, ProtectedDeleteMixin, DeleteView
+):
     model = Organisation
     success_url = reverse_lazy("crm:organisation_list")
     protected_message = "Can't delete this organisation — it still has contacts linked to it."
@@ -92,5 +97,10 @@ class OrganisationDeleteView(StaffRequiredMixin, ProtectedDeleteMixin, DeleteVie
 
 
 class OrganisationSearchView(_SearchView):
+    """Organisation combobox. Deliberately unscoped: it also picks lenders,
+    suppliers and introducers, which any associate may attach to a deal even
+    when a colleague outside their team owns the record. Browsing/opening
+    organisations is scoped; picking one isn't."""
+
     model = Organisation
     search_fields = ["name", "legal_name", "trading_name", "companies_house_number"]

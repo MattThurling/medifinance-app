@@ -4,22 +4,25 @@
 see test_organisation_scoping.)
 
 Admins see everything (including unowned deals). Contacts and organisations
-are a shared address book — every staff member can list, search and edit
-them — but the deals shown on their detail pages are scoped. The owner
-field is admin-only: associates have it removed from the deal, contact and
-organisation forms, and new records they create are owned by them.
+are softer: an associate sees the ones they own *or that nobody owns*, plus
+any attached to a deal they can see (customer, co-applicants, organisation,
+introducer, suppliers, lenders ...). Only records owned by another staff
+member 404 like a missing row. The owner field is admin-only: associates
+have it removed from the deal, contact and organisation forms, and new
+records they create are owned by them.
 """
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from crm.access import visible_deals
-from crm.models import Contact, Deal, Note, Organisation, Quote
+from crm.access import visible_contacts, visible_deals, visible_organisations
+from crm.models import Contact, Deal, Note, Organisation, Quote, Stage
 
 from .factories import (
     make_admin,
     make_associate,
+    make_commercial_quote,
     make_contact,
     make_customer,
     make_deal,
@@ -34,19 +37,24 @@ from .factories import (
 
 class ScopingTestCase(TestCase):
     """`own` belongs to the logged-in associate, `theirs` to a colleague,
-    `unowned` to nobody (as the public API creates them)."""
+    `unowned` to nobody (as the public API creates them). Every deal's
+    customer and organisation are unowned (`make_deal`), so they are visible
+    to the associate; `hidden_contact` / `hidden_org` are owned by `other`
+    and on no deal, so they are not."""
 
     @classmethod
     def setUpTestData(cls):
         cls.admin = make_admin()
         cls.associate = make_associate()
-        cls.other = make_associate()
+        cls.other = make_associate(first_name="Other", last_name="Associate")
         cls.customer = make_customer()
         cls.own = make_deal(owner=cls.associate, name="Own deal")
         cls.theirs = make_deal(owner=cls.other, name="Their deal")
         cls.unowned = make_deal(name="Unowned deal")
         Deal.objects.filter(pk=cls.unowned.pk).update(owner=None)
         cls.unowned.refresh_from_db()
+        cls.hidden_contact = make_contact(owner=cls.other, last_name="Hidden")
+        cls.hidden_org = make_organisation(name="Hidden Org", owner=cls.other)
 
     def setUp(self):
         self.client.force_login(self.associate)
@@ -174,14 +182,24 @@ class DealPageTests(ScopingTestCase):
         self.assertEqual(response.status_code, 404)
         self.assertFalse(Note.objects.filter(deal=self.theirs).exists())
 
-    def test_note_on_any_contact_or_org_allowed(self):
-        # The address book is shared, so notes on it are too.
+    def test_note_on_invisible_contact_or_org_404s(self):
+        for field, parent in (
+            ("contact", self.hidden_contact), ("organisation", self.hidden_org),
+        ):
+            with self.subTest(field=field):
+                response = self.client.post(
+                    reverse("crm:note_create"), {field: parent.pk, "content": "psst"},
+                )
+                self.assertEqual(response.status_code, 404)
+        self.assertFalse(Note.objects.filter(contact=self.hidden_contact).exists())
+        self.assertFalse(Note.objects.filter(organisation=self.hidden_org).exists())
+
+    def test_note_on_visible_contact_allowed(self):
         response = self.client.post(
-            reverse("crm:note_create"),
-            {"contact": self.theirs.customer.pk, "content": "hello"},
+            reverse("crm:note_create"), {"contact": self.own.customer.pk, "content": "hello"},
         )
-        self.assertRedirects(response, self.theirs.customer.get_absolute_url())
-        self.assertTrue(Note.objects.filter(contact=self.theirs.customer).exists())
+        self.assertRedirects(response, self.own.customer.get_absolute_url())
+        self.assertTrue(Note.objects.filter(contact=self.own.customer).exists())
 
 
 @override_settings(DOCUSEAL_URL="http://sign.test", DOCUSEAL_API_TOKEN="tok")
@@ -377,7 +395,9 @@ class OwnerFieldTests(ScopingTestCase):
         self.assertIn(deal, visible_deals(self.associate))
 
     def test_edit_cannot_reassign_owner(self):
-        contact = make_contact(owner=self.other)
+        # A contact the associate can see (it's on their deal) but doesn't own.
+        contact = self.own.customer
+        Contact.objects.filter(pk=contact.pk).update(owner=self.other)
         response = self.client.post(
             reverse("crm:contact_update", args=[contact.pk]),
             {"first_name": "Still", "last_name": "Theirs", "owner": self.associate.pk},
@@ -418,19 +438,132 @@ class OwnerFieldTests(ScopingTestCase):
         ])
 
 
-class AddressBookTests(ScopingTestCase):
-    def test_contact_and_org_lists_show_everyones_records(self):
-        response = self.client.get(reverse("crm:contact_list"))
-        self.assertIn(self.theirs.customer, response.context["object_list"])
-        self.assertFalse(response.context["owner_filter_locked"])
-        response = self.client.get(reverse("crm:organisation_list"))
-        self.assertIn(self.theirs.organisation, response.context["object_list"])
+class AddressBookScopingTests(ScopingTestCase):
+    """Contacts and organisations are hidden only when owned by staff outside
+    the associate's team. Unowned records are visible, and anything attached
+    to a visible deal is visible whoever owns it."""
 
-    def test_contact_and_org_pages_editable_but_related_deals_scoped(self):
-        # Put one of our deals and one of theirs on the same contact + org.
+    def test_helpers_unowned_or_team_or_reachable(self):
+        mine = make_contact(owner=self.associate, last_name="Mine")
+        loose = make_contact(last_name="Loose")  # unowned, on no deal
+        my_org = make_organisation(name="My Org", owner=self.associate)
+        loose_org = make_organisation(name="Loose Org")
+        # Owned by `other` but on our deal: reachability beats ownership.
+        their_supplier = make_organisation(name="Their supplier", owner=self.other)
+        make_participation(self.own, organisation=their_supplier)
+        their_lender = make_organisation(name="Their lender", owner=self.other)
+        make_proposal(self.own, lender=their_lender)
+        # Owned by `other` and only on their deal: hidden.
+        far_supplier = make_organisation(name="Far supplier", owner=self.other)
+        make_participation(self.theirs, organisation=far_supplier)
+
+        self.assertCountEqual(
+            visible_contacts(self.associate),
+            [mine, loose, self.own.customer, self.theirs.customer, self.unowned.customer],
+        )
+        self.assertCountEqual(
+            visible_organisations(self.associate),
+            [my_org, loose_org, self.own.organisation, self.theirs.organisation,
+             self.unowned.organisation, their_supplier, their_lender],
+        )
+        self.assertNotIn(self.hidden_contact, visible_contacts(self.associate))
+        self.assertNotIn(far_supplier, visible_organisations(self.associate))
+        self.assertCountEqual(visible_contacts(self.admin), Contact.objects.all())
+        self.assertCountEqual(visible_organisations(self.admin), Organisation.objects.all())
+        self.assertEqual(list(visible_contacts(self.customer)), [])
+        self.assertEqual(list(visible_organisations(self.customer)), [])
+        from django.contrib.auth.models import AnonymousUser
+        self.assertEqual(list(visible_contacts(AnonymousUser())), [])
+        self.assertEqual(list(visible_organisations(AnonymousUser())), [])
+
+    def test_every_deal_attachment_is_reachable(self):
+        # Everything here is owned by `other`, so only reachability through
+        # `own` can make it visible.
+        co = make_contact(owner=self.other, last_name="Co-applicant")
+        self.own.co_applicants.add(co)
+        proposal_contact = make_contact(owner=self.other, last_name="Lender contact")
+        lender = make_organisation(name="Lender", owner=self.other)
+        make_proposal(self.own, lender=lender, contact=proposal_contact)
+        supplier = make_organisation(name="Supplier", owner=self.other)
+        invoice_contact = make_contact(owner=self.other, last_name="Invoice contact")
+        participation = make_participation(self.own, organisation=supplier)
+        participation.invoice_contact = invoice_contact
+        participation.save(update_fields=["invoice_contact"])
+        signer = make_contact(owner=self.other, last_name="Signer")
+        make_signature_request(self.own, signer=signer)
+        introducer = make_organisation(name="Introducer", owner=self.other)
+        self.own.introducer = introducer
+        self.own.save(update_fields=["introducer"])
+        band_lender = make_quote(self.own).rate.organisation
+        Organisation.objects.filter(pk=band_lender.pk).update(owner=self.other)
+        direct_lender = make_organisation(name="Direct lender", owner=self.other)
+        make_commercial_quote(self.own, lender=direct_lender)
+        stage_org = make_organisation(name="Stage org", owner=self.other)
+        Stage.objects.create(deal=self.own, name=Stage.Name.LEGALS, organisation=stage_org)
+
+        unowned_contacts = [self.own.customer, self.theirs.customer, self.unowned.customer]
+        unowned_orgs = [self.own.organisation, self.theirs.organisation, self.unowned.organisation]
+        self.assertCountEqual(
+            visible_contacts(self.associate),
+            unowned_contacts + [co, proposal_contact, invoice_contact, signer],
+        )
+        self.assertCountEqual(
+            visible_organisations(self.associate),
+            unowned_orgs + [lender, supplier, introducer, band_lender, direct_lender, stage_org],
+        )
+        # One row each, even though several terms could match the same record.
+        self.assertEqual(visible_contacts(self.associate).count(), 7)
+        self.assertEqual(visible_organisations(self.associate).count(), 9)
+
+    def test_lists_show_only_visible_records_and_hide_owner_filter(self):
+        response = self.client.get(reverse("crm:contact_list"))
+        self.assertCountEqual(
+            response.context["object_list"],
+            [self.own.customer, self.theirs.customer, self.unowned.customer],
+        )
+        self.assertTrue(response.context["owner_filter_locked"])
+        self.assertNotContains(response, 'name="owner"')
+        self.assertNotContains(response, "Hidden")
+        response = self.client.get(reverse("crm:organisation_list"))
+        self.assertCountEqual(
+            response.context["object_list"],
+            [self.own.organisation, self.theirs.organisation, self.unowned.organisation],
+        )
+        self.assertTrue(response.context["owner_filter_locked"])
+        self.assertNotContains(response, 'name="owner"')
+        self.assertNotContains(response, "Hidden Org")
+
+    def test_other_contact_and_org_pages_404(self):
+        for name, obj in (
+            ("contact_detail", self.hidden_contact),
+            ("contact_update", self.hidden_contact),
+            ("contact_delete", self.hidden_contact),
+            ("organisation_detail", self.hidden_org),
+            ("organisation_update", self.hidden_org),
+            ("organisation_delete", self.hidden_org),
+        ):
+            with self.subTest(view=name):
+                self.assertEqual(self.client.get(reverse(f"crm:{name}", args=[obj.pk])).status_code, 404)
+        # ... and POSTs change nothing.
+        contact = self.hidden_contact
+        response = self.client.post(
+            reverse("crm:contact_update", args=[contact.pk]),
+            {"first_name": "Hacked", "last_name": contact.last_name},
+        )
+        self.assertEqual(response.status_code, 404)
+        contact.refresh_from_db()
+        self.assertNotEqual(contact.first_name, "Hacked")
+        self.assertEqual(
+            self.client.post(reverse("crm:contact_delete", args=[contact.pk])).status_code, 404,
+        )
+        self.assertTrue(Contact.objects.filter(pk=contact.pk).exists())
+
+    def test_unowned_pages_render_with_related_deals_scoped(self):
+        # `theirs.customer` is unowned, so it's visible — but the deals on
+        # its page are still only the ones we can see.
         contact = self.theirs.customer
         org = self.theirs.organisation
-        shared = make_deal(owner=self.associate, customer=contact, organisation=org, name="Shared")
+        make_deal(owner=self.associate, customer=contact, organisation=org, name="Shared")
 
         response = self.client.get(contact.get_absolute_url())
         self.assertEqual(response.status_code, 200)
@@ -440,19 +573,48 @@ class AddressBookTests(ScopingTestCase):
         response = self.client.get(org.get_absolute_url())
         self.assertEqual(response.status_code, 200)
         self.assertEqual([d.name for d in response.context["deals"]], ["Shared"])
+        self.assertEqual(list(response.context["contacts"]), [contact])
 
         self.client.force_login(self.admin)
         response = self.client.get(org.get_absolute_url())
         self.assertCountEqual([d.name for d in response.context["deals"]], ["Shared", "Their deal"])
-        self.assertIsNotNone(shared.pk)
 
-    def test_search_endpoints_unscoped(self):
-        response = self.client.get(reverse("crm:contact_search"), {"q": self.theirs.customer.last_name})
-        self.assertContains(response, self.theirs.customer.last_name)
-        response = self.client.get(reverse("crm:organisation_search"), {"q": self.theirs.organisation.name})
-        self.assertContains(response, self.theirs.organisation.name)
+    def test_hidden_records_become_reachable_through_own_deal(self):
+        contact = self.hidden_contact
+        org = self.hidden_org
+        contact.organisations.add(org)
+        make_deal(owner=self.associate, customer=contact, organisation=org, name="Shared")
+        make_deal(owner=self.other, customer=contact, organisation=org, name="Their other")
 
-    def test_contact_create_from_other_deal_ignores_the_deal(self):
+        response = self.client.get(contact.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([d.name for d in response.context["deals"]], ["Shared"])
+        response = self.client.get(org.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([d.name for d in response.context["deals"]], ["Shared"])
+        self.assertEqual(list(response.context["contacts"]), [contact])
+
+    def test_org_page_lists_only_visible_contacts(self):
+        org = self.own.organisation
+        hidden = make_contact(organisation=org, owner=self.other, last_name="Hidden too")
+        loose = make_contact(organisation=org, last_name="Loose")
+        mine = make_contact(organisation=org, owner=self.associate, last_name="Mine")
+        response = self.client.get(org.get_absolute_url())
+        self.assertCountEqual(response.context["contacts"], [self.own.customer, loose, mine])
+        self.assertNotIn(hidden, response.context["contacts"])
+
+    def test_contact_search_scoped_but_organisation_search_open(self):
+        response = self.client.get(reverse("crm:contact_search"), {"q": "Hidden"})
+        self.assertNotContains(response, "Hidden")
+        for contact in (self.own.customer, self.theirs.customer):
+            response = self.client.get(reverse("crm:contact_search"), {"q": contact.last_name})
+            self.assertContains(response, contact.last_name)
+        # Organisations are also lenders / suppliers / introducers, so the
+        # picker stays open even though the pages are scoped.
+        response = self.client.get(reverse("crm:organisation_search"), {"q": "Hidden Org"})
+        self.assertContains(response, "Hidden Org")
+
+    def test_contact_create_from_other_deal_or_hidden_org_ignores_the_parent(self):
         # `?deal=` on contact-create attaches a co-applicant; for a deal you
         # can't see it silently falls back to a plain contact form.
         response = self.client.get(reverse("crm:contact_create") + f"?deal={self.theirs.pk}")
@@ -460,6 +622,72 @@ class AddressBookTests(ScopingTestCase):
         self.assertIsNone(response.context["parent_deal"])
         response = self.client.get(reverse("crm:contact_create") + f"?deal={self.own.pk}")
         self.assertEqual(response.context["parent_deal"], self.own)
+        # Same for `?organisation=`: hidden org ignored, unowned org honoured.
+        response = self.client.get(
+            reverse("crm:contact_create") + f"?organisation={self.hidden_org.pk}"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["parent_organisation"])
+        response = self.client.get(
+            reverse("crm:contact_create") + f"?organisation={self.theirs.organisation.pk}"
+        )
+        self.assertEqual(response.context["parent_organisation"], self.theirs.organisation)
+
+    def test_deal_create_rejects_hidden_customer(self):
+        response = self.client.get(reverse("crm:deal_create") + f"?customer={self.hidden_contact.pk}")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["parent_contact"])
+        response = self.client.get(reverse("crm:deal_create") + f"?customer={self.theirs.customer.pk}")
+        self.assertEqual(response.context["parent_contact"], self.theirs.customer)
+
+        response = self.client.post(reverse("crm:deal_create"), {
+            "name": "Sneaky", "type": "", "source": "", "customer": self.hidden_contact.pk,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "customer", [
+            "Select a valid choice. That choice is not one of the available choices."
+        ])
+        self.assertFalse(Deal.objects.filter(name="Sneaky").exists())
+
+        response = self.client.post(reverse("crm:deal_create"), {
+            "name": "Legit", "type": "", "source": "", "customer": self.theirs.customer.pk,
+        })
+        deal = Deal.objects.get(name="Legit")
+        self.assertRedirects(response, deal.get_absolute_url())
+        self.assertEqual(deal.customer, self.theirs.customer)
+
+    def test_deal_update_keeps_existing_customer_valid(self):
+        # Re-submitting the current customer on an unrelated edit must not
+        # trip validation, even when a colleague owns that contact.
+        customer = self.own.customer
+        Contact.objects.filter(pk=customer.pk).update(owner=self.other)
+        response = self.client.post(
+            reverse("crm:deal_update", args=[self.own.pk]),
+            {"name": "Renamed", "type": "", "source": "", "customer": customer.pk},
+        )
+        self.assertRedirects(response, self.own.get_absolute_url())
+        self.own.refresh_from_db()
+        self.assertEqual(self.own.name, "Renamed")
+        self.assertEqual(self.own.customer, customer)
+
+    def test_applicant_add_requires_visible_contact(self):
+        org = self.own.organisation
+        hidden = make_contact(organisation=org, owner=self.other, last_name="Hidden too")
+        loose = make_contact(organisation=org, last_name="Loose")
+        mine = make_contact(organisation=org, owner=self.associate, last_name="Mine")
+        response = self.client.get(self.own.get_absolute_url())
+        self.assertCountEqual(response.context["available_applicants"], [loose, mine])
+
+        response = self.client.post(
+            reverse("crm:deal_applicant_add", args=[self.own.pk]), {"contact": hidden.pk},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn(hidden, self.own.co_applicants.all())
+        response = self.client.post(
+            reverse("crm:deal_applicant_add", args=[self.own.pk]), {"contact": loose.pk},
+        )
+        self.assertRedirects(response, self.own.get_absolute_url())
+        self.assertIn(loose, self.own.co_applicants.all())
 
 
 class ReportsAndDashboardTests(ScopingTestCase):
@@ -485,12 +713,17 @@ class ReportsAndDashboardTests(ScopingTestCase):
         self.assertTrue(response.context["owners"])
         self.assertEqual(response.context["headline"]["new_deals"]["value"], 3)
 
-    def test_dashboard_deal_count_is_own(self):
+    def test_dashboard_counts_are_scoped(self):
+        # 3 unowned deal customers / orgs are visible; the hidden pair isn't.
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.context["deals_count"], 1)
+        self.assertEqual(response.context["contacts_count"], 3)
+        self.assertEqual(response.context["organisations_count"], 3)
         self.client.force_login(self.admin)
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.context["deals_count"], 3)
+        self.assertEqual(response.context["contacts_count"], 4)
+        self.assertEqual(response.context["organisations_count"], 4)
 
 
 class StaffApiTests(ScopingTestCase):

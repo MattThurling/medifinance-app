@@ -5,6 +5,8 @@ from .base import ADDRESS_FIELDS_HOME, DaisyUIFormMixin, OwnerInitialFormMixin
 
 
 class ContactForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
+    # `organisations` is deliberately unscoped: the organisation picker is
+    # open to all staff (see OrganisationSearchView).
     class Meta:
         model = Contact
         fields = ["title", "first_name", "last_name", "email", "phone", "organisations", "owner"]

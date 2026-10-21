@@ -5,24 +5,27 @@ from django.views import View
 
 from accounts.permissions import StaffRequiredMixin
 
-from ..access import visible_deals
-from ..models import Contact, Deal, Note, Organisation
+from ..access import visible_contacts, visible_deals, visible_organisations
+from ..models import Note
 
 
 class NoteCreateView(StaffRequiredMixin, View):
     """Add a note from a contact / organisation / deal detail page. UI-added
     notes are always admin comments by the logged-in user, written now."""
 
-    parents = {"contact": Contact, "organisation": Organisation, "deal": Deal}
+    # Each parent resolves to the rows this user may see (crm.access).
+    parents = {
+        "contact": visible_contacts,
+        "organisation": visible_organisations,
+        "deal": visible_deals,
+    }
 
     def post(self, request):
         given = [f for f in self.parents if request.POST.get(f)]
         if len(given) != 1:
             raise Http404("Provide exactly one of contact, organisation or deal.")
         field = given[0]
-        # Contacts and orgs are a shared address book; deals are scoped.
-        qs = visible_deals(request.user) if field == "deal" else self.parents[field].objects.all()
-        parent = get_object_or_404(qs, pk=request.POST[field])
+        parent = get_object_or_404(self.parents[field](request.user), pk=request.POST[field])
 
         content = request.POST.get("content", "").strip()
         if content:

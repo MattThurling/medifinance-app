@@ -36,11 +36,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         # Inline import — see get().
         from crm import stats
-        from crm.access import visible_deals
-        from crm.models import Contact, Organisation
-        # Address book is shared; deals are scoped to what this user may see.
-        ctx["contacts_count"] = Contact.objects.count()
-        ctx["organisations_count"] = Organisation.objects.count()
+        from crm.access import visible_contacts, visible_deals, visible_organisations
+        # Every count is scoped to what this user may see.
+        ctx["contacts_count"] = visible_contacts(self.request.user).count()
+        ctx["organisations_count"] = visible_organisations(self.request.user).count()
         ctx["deals_count"] = visible_deals(self.request.user).count()
         ctx["api_enabled"] = SiteSettings.get().api_enabled
         # Headline deal stats at the default window; the Reports page has

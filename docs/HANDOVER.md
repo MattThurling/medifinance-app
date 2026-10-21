@@ -37,10 +37,10 @@ Dev logins (password `medifinance123`): `admin@…`, `associate@…`, `customer@
 
 | Model | Notes |
 |---|---|
-| **User** | email login (no username); `role` = admin / associate / customer; optional `organisation` (groups associates into a team that shares deals — see `crm/access.py`); `hubspot_id`. Imported & customer users have unusable passwords (use reset / magic link). |
+| **User** | email login (no username); `role` = admin / associate / customer; optional `organisation` (groups associates into a team that shares deals, contacts and organisations — see `crm/access.py`); `hubspot_id`. Imported & customer users have unusable passwords (use reset / magic link). |
 | **MagicLink** | single-use, 7-day login link for customers. `issue()` / `consume()`. Consumed at `/m/<token>/`. |
-| **Organisation** | `name`, structured UK address (`address_line1/2/city/county/postcode`), `hubspot_id`. |
-| **Contact** | name/email/phone, `date_of_birth`, structured `home_address_*`, **required** `organisation` FK (PROTECT), optional `user` (OneToOne), `hubspot_id`. |
+| **Organisation** | `name`, structured UK address (`address_line1/2/city/county/postcode`), optional `owner` (User; associates can't see records owned by staff outside their team — unowned ones are visible), `hubspot_id`. |
+| **Contact** | name/email/phone, `date_of_birth`, structured `home_address_*`, `organisations` M2M, optional `owner` (User; same visibility rule as Organisation), optional `user` (OneToOne), `hubspot_id`. |
 | **Deal** | `owner` (User, PROTECT), `customer` (Contact, PROTECT), optional `introducer` (Contact) + `equipment_supplier` (Organisation), financials (`funded_amount`, `earnings`, `flat_fee`, `commission`, `document_fee` — all nullable), `selected_quote`, `co_applicants` (M2M Contact), `hubspot_id`. Org is reached via `customer.organisation` (no direct FK — deliberate). |
 | **Quote** | belongs to a Deal; `apr`, `term`, `monthly_payment` (auto-calculated in `save()` from deal funded amount + apr + term). |
 | **Stage** | append-only event log per deal; `name` = application / info_received; latest = current (`deal.current_stage`). "Application" auto-created on deal creation. |

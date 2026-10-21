@@ -1,25 +1,49 @@
 """Row-level visibility rules.
 
-One place answers "which deals may this user see?" so every list, detail,
-child-object lookup and API endpoint agrees. Contacts and organisations are
-a shared address book (every staff member sees all of them); only deals, and
-the records that hang off a deal, are scoped.
+One place answers "which deals, contacts and organisations may this user
+see?" so every list, detail, child-object lookup and API endpoint agrees.
 
 Associates are scoped by organisation: a user linked to an Organisation
-(``User.organisation``) shares deals with every other user linked to the same
-one, as a single team. An associate with no organisation sees only their
-own deals.
+(``User.organisation``) shares records with every other user linked to the
+same one, as a single team. An associate with no organisation sees only
+their own records. Admins see everything, including unowned rows.
+
+Contacts and organisations are softer: an associate sees records owned by
+their team *or by nobody* (unowned rows are the shared pool), plus
+*reachability*: anything attached to a deal the user can see (its customer,
+co-applicants, organisation, introducer, suppliers, lenders, ...) is visible
+too, so links from a deal page never dead-end. Only records owned by staff
+outside the team are hidden.
 
 Kept out of ``crm.views`` so ``crm.api``, ``crm.stats``, ``crm.forms`` and
 ``accounts.views`` can import it without pulling in the whole views package.
 """
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 
 from accounts.models import Role
 
-from .models import Deal
+from .models import (
+    Contact,
+    Deal,
+    Organisation,
+    Participation,
+    Proposal,
+    Quote,
+    SignatureRequest,
+    Stage,
+)
+
+
+def _owned_by_team(user) -> Q:
+    """Owner rule for associates, shared by deals, contacts and organisations:
+    owned by anyone in the user's organisation, or by the user alone when they
+    have none. Unowned rows (owner NULL) never match."""
+    if user.organisation_id:
+        return Q(owner__organisation_id=user.organisation_id)
+    return Q(owner=user)
 
 
 def visible_deals(user):
@@ -36,16 +60,78 @@ def visible_deals(user):
     if user.is_admin:
         return Deal.objects.all()
     if user.is_associate:
-        if user.organisation_id:
-            return Deal.objects.filter(owner__organisation_id=user.organisation_id)
-        return Deal.objects.filter(owner=user)
+        return Deal.objects.filter(_owned_by_team(user))
     if user.is_customer:
         return Deal.objects.filter(customer__user=user)
     return Deal.objects.none()
 
 
+def visible_contacts(user):
+    """Contacts ``user`` may see and act on.
+
+    * admin      -> every contact
+    * associate  -> contacts owned by their team (see ``_owned_by_team``) or
+                    by nobody, plus any contact on a deal they can see: the
+                    customer, co-applicants, proposal contacts, supplier
+                    invoice contacts and signers. Contacts owned by staff
+                    outside the team are hidden.
+    * customer / anonymous -> none (the portal has its own lookups)
+    """
+    if not user.is_authenticated:
+        return Contact.objects.none()
+    if user.is_admin:
+        return Contact.objects.all()
+    if not user.is_associate:
+        return Contact.objects.none()
+    deals = visible_deals(user)
+    # Every reachability term is a ``pk__in`` subquery, so no join on the
+    # outer table and therefore no duplicate rows (no ``distinct()`` needed).
+    return Contact.objects.filter(
+        _owned_by_team(user)
+        | Q(owner__isnull=True)
+        | Q(pk__in=deals.values("customer_id"))
+        | Q(pk__in=Contact.objects.filter(co_applicant_deals__in=deals).values("pk"))
+        | Q(pk__in=Proposal.objects.filter(deal__in=deals).values("contact_id"))
+        | Q(pk__in=Participation.objects.filter(deal__in=deals).values("invoice_contact_id"))
+        | Q(pk__in=SignatureRequest.objects.filter(deal__in=deals).values("signer_id"))
+    )
+
+
+def visible_organisations(user):
+    """Organisations ``user`` may see and act on.
+
+    * admin      -> every organisation
+    * associate  -> organisations owned by their team or by nobody, plus any
+                    on a deal they can see: the customer's organisation,
+                    introducer, suppliers, lenders (proposals, quotes, rate
+                    bands) and stage organisations. Organisations owned by
+                    staff outside the team are hidden.
+    * customer / anonymous -> none
+    """
+    if not user.is_authenticated:
+        return Organisation.objects.none()
+    if user.is_admin:
+        return Organisation.objects.all()
+    if not user.is_associate:
+        return Organisation.objects.none()
+    deals = visible_deals(user)
+    quotes = Quote.objects.filter(deal__in=deals)
+    return Organisation.objects.filter(
+        _owned_by_team(user)
+        | Q(owner__isnull=True)
+        | Q(pk__in=deals.values("organisation_id"))
+        | Q(pk__in=deals.values("introducer_id"))
+        | Q(pk__in=Participation.objects.filter(deal__in=deals).values("organisation_id"))
+        | Q(pk__in=Proposal.objects.filter(deal__in=deals).values("lender_id"))
+        | Q(pk__in=quotes.values("lender_id"))
+        | Q(pk__in=quotes.values("rate__organisation_id"))
+        # Stage.organisation has related_name="+", so a subquery is the only route.
+        | Q(pk__in=Stage.objects.filter(deal__in=deals).values("organisation_id"))
+    )
+
+
 def owner_choices(user):
-    """Staff users ``user`` may filter deals by, or assign as a record's owner.
+    """Staff users ``user`` may filter records by, or assign as a record's owner.
 
     * admin                          -> every staff user
     * associate with an organisation -> staff in that organisation
