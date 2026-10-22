@@ -1,7 +1,7 @@
 {% extends "_app_layout.html" %}
 {% load humanize %}
 
-{% block title %}{% if object %}Edit quote{% else %}New quote{% endif %} · {{ parent_deal.name }}{% endblock %}
+{% block title %}{% if parent_deal.is_commercial_finance %}{% if object %}Edit terms{% else %}New terms{% endif %}{% else %}{% if object %}Edit quote{% else %}New quote{% endif %}{% endif %} · {{ parent_deal.name }}{% endblock %}
 
 {% block content %}
 <div>
@@ -10,7 +10,7 @@
     <a href="{{ parent_deal.get_absolute_url }}" class="link link-hover">{{ parent_deal.name }}</a>
   </p>
   <h1 class="text-2xl font-semibold mb-6">
-    {% if object %}Edit quote{% else %}New quote{% endif %}
+    {% if parent_deal.is_commercial_finance %}{% if object %}Edit terms{% else %}New terms{% endif %}{% else %}{% if object %}Edit quote{% else %}New quote{% endif %}{% endif %}
   </h1>
 
   <form method="post" class="card bg-base-100 shadow">
@@ -21,14 +21,33 @@
       {% endif %}
 
       {% if parent_deal.is_commercial_finance %}
-        {# Slim commercial quote: lender direct, no bands or pricing maths. #}
+        {# Terms: one lender's position on the deal and the terms they came back with. #}
+        {% if funded_amount_display %}
+          <p class="text-sm opacity-70 mb-4">
+            Loan amount: <strong>{{ funded_amount_display }}</strong> — the monthly payment
+            is calculated from this and the rate and term below.
+          </p>
+        {% else %}
+          <p class="text-sm text-warning mb-4">
+            No funded amount set yet — add one on the deal page to calculate a monthly
+            payment. You can still record these terms.
+          </p>
+        {% endif %}
+
+        <div class="divider text-xs opacity-60 mt-2 mb-2">Lender</div>
         {% url 'crm:organisation_search' as organisation_search_url %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-          {% include "crm/_combobox.html" with name="lender" label="Lender" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.lender.value selected_label=form.instance.lender errors=form.lender.errors %}
+          {% include "crm/_combobox.html" with name="lender" label="Lender" required=True search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.lender.value selected_label=form.instance.lender errors=form.lender.errors %}
+          {% include "_field.html" with field=form.status help_as_tooltip=True %}
+          {% include "_field.html" with field=form.lender_reference help_as_tooltip=True %}
+        </div>
+
+        <div class="divider text-xs opacity-60 mt-2 mb-2">Terms</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
           {% include "_field.html" with field=form.interest_rate_percent help_as_tooltip=True %}
-          {% include "_field.html" with field=form.commission_percent help_as_tooltip=True %}
           {% include "_field.html" with field=form.term %}
           {% include "_field.html" with field=form.commitment_months help_as_tooltip=True %}
+          {% include "_field.html" with field=form.commission_percent help_as_tooltip=True %}
         </div>
       {% else %}
         {% if parent_deal.funded_amount %}

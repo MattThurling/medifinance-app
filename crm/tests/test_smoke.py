@@ -98,6 +98,42 @@ class StaffPagesRenderTests(TestCase):
         self._assert_get_ok(reverse("crm:quote_delete", args=[self.quote.pk]))
         self._assert_get_ok(reverse("crm:proposal_create") + f"?deal={self.deal.pk}")
         self._assert_get_ok(reverse("crm:proposal_update", args=[self.proposal.pk]))
+
+    def test_asset_finance_deal_keeps_quotes_and_proposals_cards(self):
+        response = self.client.get(reverse("crm:deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, 'title="Add quote"')
+        self.assertContains(response, 'title="Add proposal"')
+        self.assertNotContains(response, 'title="Add terms"')
+
+    def test_commercial_deal_pages(self):
+        """Commercial deals show one Terms box in place of Quotes + Proposals,
+        and every Terms page renders — including a row with no terms yet."""
+        from crm.models import Deal
+        from .factories import make_commercial_quote
+
+        deal = make_deal(owner=self.staff)
+        Deal.objects.filter(pk=deal.pk).update(type=Deal.Type.BUSINESS_LOANS)
+        pending = make_commercial_quote(deal, term=None, status="submitted")
+        approved = make_commercial_quote(
+            deal, term=300, interest_rate="9.50", status="approved", lender_reference="BL-1",
+        )
+        deal.selected_quote = approved
+        deal.save(update_fields=["selected_quote"])
+
+        response = self.client.get(reverse("crm:deal_detail", args=[deal.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'title="Add terms"')
+        self.assertContains(response, "No terms yet.", count=0)
+        self.assertContains(response, "BL-1")
+        self.assertNotContains(response, 'title="Add quote"')
+        self.assertNotContains(response, 'title="Add proposal"')
+        self.assertContains(response, "Request Commission Invoice")
+
+        self._assert_get_ok(reverse("crm:deal_overview", args=[deal.pk]))
+        self._assert_get_ok(reverse("crm:quote_create") + f"?deal={deal.pk}")
+        self._assert_get_ok(reverse("crm:quote_update", args=[pending.pk]))
+        self._assert_get_ok(reverse("crm:quote_update", args=[approved.pk]))
+        self._assert_get_ok(reverse("crm:quote_delete", args=[pending.pk]))
         self._assert_get_ok(reverse("crm:participation_create") + f"?deal={self.deal.pk}")
         self._assert_get_ok(reverse("crm:participation_update", args=[self.participation.pk]))
 

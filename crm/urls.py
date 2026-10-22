@@ -45,6 +45,9 @@ urlpatterns = [
     path("quotes/<int:pk>/edit/", views.QuoteUpdateView.as_view(), name="quote_update"),
     path("quotes/<int:pk>/delete/", views.QuoteDeleteView.as_view(), name="quote_delete"),
     path("quotes/<int:pk>/select/", views.QuoteSelectView.as_view(), name="quote_select"),
+    # Commercial deals only: a quote is a Terms row; approved + selected ones
+    # can email the client the good news (twin of proposal_notify).
+    path("quotes/<int:pk>/notify/", views.QuoteNotifyClientView.as_view(), name="quote_notify"),
 
     # Stages — append-only event log per deal
     path("stages/new/", views.StageCreateView.as_view(), name="stage_create"),

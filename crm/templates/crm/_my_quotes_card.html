@@ -29,7 +29,7 @@ The deal page's Quotes card — also the HTMX response for quote selection
             {% if deal.is_commercial_finance %}
               <th>Lender</th>
               <th>Term</th>
-              <th>Committed for</th>
+              <th>Fixed for</th>
               <th>Monthly payment</th>
             {% else %}
               <th>Term</th>
@@ -47,7 +47,7 @@ The deal page's Quotes card — also the HTMX response for quote selection
             <tr>
               {% if deal.is_commercial_finance %}
                 <td class="font-medium">{% if q.lender_org %}{{ q.lender_org.name }}{% else %}—{% endif %}</td>
-                <td>{{ q.term }} months</td>
+                <td>{% if q.term %}{{ q.term }} months{% else %}—{% endif %}</td>
                 <td>{% if q.commitment_months %}{{ q.commitment_months }} months{% else %}—{% endif %}</td>
                 <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
               {% else %}

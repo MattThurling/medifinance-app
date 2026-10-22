@@ -13,6 +13,17 @@ def _hubspot_url(object_type: str, hubspot_id: str | None) -> str | None:
     return f"https://app.hubspot.com/contacts/{portal}/record/{object_type}/{hubspot_id}"
 
 
+class LenderStatus(models.TextChoices):
+    """Where a lender stands on a deal. Shared by Proposal (Asset Finance)
+    and the Terms rows on commercial deals (Quote.status), so both emit the
+    same stage events."""
+
+    SUBMITTED = "submitted", "Submitted"
+    APPROVED = "approved", "Approved"
+    DECLINED = "declined", "Declined"
+    WITHDRAWN = "withdrawn", "Withdrawn"
+
+
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

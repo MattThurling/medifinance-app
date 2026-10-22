@@ -7,6 +7,7 @@ Searchable FK field (HTMX). Params:
   selected_id    current pk (optional, for edit forms)
   selected_label current display text (optional, for edit forms)
   errors         bound field errors (optional)
+  required       True to mark the label with the red * (optional)
 
 The visible search box is name="q" (used only for the AJAX query; the form
 reads the hidden input). Typing clears the hidden value until a result is
@@ -14,7 +15,7 @@ clicked — see static/js/combobox.js.
 {% endcomment %}
 <div class="form-control mb-4 combobox relative">
   {% if label %}
-    <label class="label"><span class="label-text">{{ label }}</span></label>
+    <label class="label"><span class="label-text">{{ label }}{% if required %} <span class="text-error">*</span>{% endif %}</span></label>
   {% endif %}
 
   <input type="hidden" name="{{ name }}" value="{{ selected_id|default:'' }}" />

@@ -705,8 +705,8 @@ class CommittedQuoteCardTests(TestCase):
 
 
 class CommercialQuoteCardTests(TestCase):
-    """Commercial deals' portal quote card shows Lender/Term/Committed —
-    not the Asset Finance pricing columns."""
+    """Commercial deals' portal quote card shows Lender/Term/Fixed for —
+    not the Asset Finance pricing columns — and only Approved terms."""
 
     @classmethod
     def setUpTestData(cls):
@@ -720,16 +720,22 @@ class CommercialQuoteCardTests(TestCase):
         make_participation(cls.deal, amount=100_000)
         cls.quote = make_commercial_quote(
             cls.deal, lender=cls.lender, term=300, commitment_months=60,
-            interest_rate="9.50",
+            interest_rate="9.50", status="approved",
+        )
+        # Still being shopped — the customer never sees this one.
+        cls.pending = make_commercial_quote(
+            cls.deal, lender=make_organisation(name="Slow Bank plc"),
+            term=None, status="submitted",
         )
 
     def setUp(self):
         self.client.force_login(self.customer)
 
-    def test_card_shows_lender_term_committed_columns(self):
+    def test_card_shows_lender_term_fixed_columns(self):
         response = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
         self.assertContains(response, "Big Commercial Bank")
-        self.assertContains(response, "Committed for")
+        self.assertNotContains(response, "Slow Bank plc")
+        self.assertContains(response, "Fixed for")
         self.assertContains(response, "300 months")
         self.assertContains(response, "60 months")
         content = response.content.decode()
@@ -749,3 +755,14 @@ class CommercialQuoteCardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.deal.refresh_from_db()
         self.assertEqual(self.deal.selected_quote_id, self.quote.pk)
+
+    def test_unapproved_terms_not_selectable(self):
+        response = self.client.post(
+            reverse("crm:my_deal_quote_select", args=[self.deal.pk]),
+            {"quote": self.pending.pk},
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Please pick one of the quotes")
+        self.deal.refresh_from_db()
+        self.assertIsNone(self.deal.selected_quote_id)

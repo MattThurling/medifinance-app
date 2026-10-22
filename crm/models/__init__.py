@@ -3,7 +3,7 @@
 Import order follows the FK dependency graph (base -> organisation ->
 contact -> deal -> children) — do not alphabetize.
 """
-from .base import TimestampedModel, _hubspot_url
+from .base import LenderStatus, TimestampedModel, _hubspot_url
 from .organisation import Organisation
 from .contact import Contact
 from .deal import Deal
@@ -27,6 +27,7 @@ from .note import Note
 from .api_request import PartnerApiRequest
 
 __all__ = [
+    "LenderStatus",
     "TimestampedModel",
     "_hubspot_url",
     "Organisation",

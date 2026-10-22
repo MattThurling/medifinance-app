@@ -15,6 +15,7 @@ from crm.models import (
     Contact,
     Deal,
     Document,
+    LenderStatus,
     Organisation,
     Participation,
     Proposal,
@@ -118,16 +119,23 @@ def make_quote(deal: Deal, *, rate: RateBand | None = None,
 
 
 def make_commercial_quote(deal: Deal, *, lender: Organisation | None = None,
-                          term: int = 300,
+                          term: int | None = 300,
                           commitment_months: int | None = None,
-                          interest_rate: Decimal | str | None = None) -> Quote:
-    """A rate-band-less quote as the slim commercial form creates them."""
+                          interest_rate: Decimal | str | None = None,
+                          status: str = LenderStatus.SUBMITTED,
+                          lender_reference: str = "",
+                          **extra) -> Quote:
+    """A Terms row on a commercial deal, as the Terms form creates them: a
+    rate-band-less quote carrying the lender's status and reference."""
     return Quote.objects.create(
         deal=deal,
         lender=lender or make_organisation(name=f"Lender {_next()}"),
         term=term,
         commitment_months=commitment_months,
         interest_rate_percent=Decimal(interest_rate) if interest_rate is not None else None,
+        status=status,
+        lender_reference=lender_reference,
+        **extra,
     )
 
 

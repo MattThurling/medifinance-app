@@ -299,6 +299,13 @@ class CustomerCannotMutateStaffResourcesTests(TestCase):
         self.proposal.refresh_from_db()
         self.assertIsNone(self.proposal.notified_at)
 
+    def test_customer_cannot_notify_client_of_terms(self):
+        url = reverse("crm:quote_notify", args=[self.quote.pk])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 403)
+        self.quote.refresh_from_db()
+        self.assertIsNone(self.quote.notified_at)
+
     def test_customer_cannot_issue_portal_link_for_someone_elses_deal(self):
         url = reverse("crm:deal_issue_portal_link", args=[self.deal.pk])
         response = self.client.post(url)

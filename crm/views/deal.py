@@ -212,6 +212,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         ).prefetch_related(
             "customer__organisations",
             "quotes__rate__organisation",
+            "quotes__lender",
             "stage_events",
             "co_applicants",
             "documents",
@@ -342,18 +343,25 @@ class DealApplicantAddView(StaffRequiredMixin, View):
 
 class RequestDealCommissionInvoiceView(StaffRequiredMixin, View):
     """Staff: notify the ACCOUNTS_EMAILS list to raise a commission invoice for
-    this deal. Requires a selected Proposal so the email names the lender."""
+    this deal. Requires an accepted lender (the selected Terms row on a
+    commercial deal, the selected Proposal otherwise) so the email names
+    the lender."""
 
     def post(self, request, pk):
         deal = get_visible_deal_or_404(
             request.user, pk,
-            "organisation", "customer", "selected_proposal", "selected_proposal__lender",
+            "organisation", "customer",
+            "selected_proposal", "selected_proposal__lender",
+            "selected_quote", "selected_quote__lender",
         )
 
-        selected = deal.selected_proposal
-        if selected is None:
+        terms = deal.accepted_lender_terms
+        if terms is None:
             messages.error(
                 request,
+                "Select the terms you're proceeding with on this deal before requesting "
+                "a commission invoice."
+                if deal.is_commercial_finance else
                 "Select a Proposal on this deal before requesting a commission invoice.",
             )
             return redirect(deal.get_absolute_url())
@@ -370,8 +378,8 @@ class RequestDealCommissionInvoiceView(StaffRequiredMixin, View):
             deal_url=request.build_absolute_uri(deal.get_absolute_url()),
             customer_name=str(deal.customer),
             client_org_name=deal.organisation.name if deal.organisation else "—",
-            lender_org_name=selected.lender.name,
-            proposal_number=selected.proposal_number or "—",
+            lender_org_name=terms.lender.name,
+            proposal_number=terms.reference or "—",
             finance_amount_display=finance_display,
             commission_display=commission_display,
             requested_by=request.user.full_name,
@@ -388,16 +396,16 @@ class DealRaiseInvoiceView(FinanceRequiredMixin, View):
     template_name = "crm/deal_raise_invoice.html"
 
     def _initial_for(self, deal):
-        # The commission invoice goes to the funder — the selected proposal's
-        # lender — not to the client (same rule as the accounts email flow in
-        # RequestDealCommissionInvoiceView).
-        selected = deal.selected_proposal
+        # The commission invoice goes to the funder — the accepted lender
+        # (selected Terms row / selected proposal) — not to the client (same
+        # rule as the accounts email flow in RequestDealCommissionInvoiceView).
+        terms = deal.accepted_lender_terms
         reference = deal.name
-        if selected.proposal_number:
+        if terms.reference:
             # The lender's own reference for the deal — helps them reconcile.
-            reference = f"{deal.name} · {selected.proposal_number}"
+            reference = f"{deal.name} · {terms.reference}"
         return {
-            "contact_name": selected.lender.name,
+            "contact_name": terms.lender.name,
             "reference": reference,
             "description": f"Commission for {deal.name}",
             "amount": deal.commission or 0,
@@ -409,15 +417,20 @@ class DealRaiseInvoiceView(FinanceRequiredMixin, View):
 
     def get(self, request, pk):
         deal = get_visible_deal_or_404(
-            request.user, pk, "organisation", "selected_proposal", "selected_proposal__lender",
+            request.user, pk, "organisation",
+            "selected_proposal", "selected_proposal__lender",
+            "selected_quote", "selected_quote__lender",
         )
         from .. import xero as xero_helpers
         if xero_helpers.get_active_connection() is None:
             messages.error(request, "Connect to Xero first.")
             return redirect("crm:xero_status")
-        if deal.selected_proposal is None:
+        if deal.accepted_lender_terms is None:
             messages.error(
                 request,
+                "Select the terms you're proceeding with on this deal first — the "
+                "commission invoice is addressed to the lender."
+                if deal.is_commercial_finance else
                 "Select a Proposal on this deal first — the commission invoice "
                 "is addressed to the lender.",
             )

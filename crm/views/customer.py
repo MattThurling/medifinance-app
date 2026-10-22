@@ -242,7 +242,7 @@ class MyDealDetailView(CustomerRequiredMixin, View):
                 "org": deal.organisation,
                 "amount_display": f"£{amount:,.2f}" if amount is not None else None,
                 "documents": deal.documents.all(),
-                "quotes": deal.quotes.all(),
+                "quotes": deal.customer_quotes,
                 "signature_requests": deal.signature_requests.all(),
                 "docuseal_ready": docuseal.is_configured(),
                 "repayment_schedule": deal.repayment_schedule if deal.first_payment_date else None,
@@ -268,7 +268,7 @@ class MyDealQuoteSelectView(CustomerRequiredMixin, View):
             saved = True
             if changed:
                 monthly = quote.monthly_payment
-                detail = f"{quote.term} months"
+                detail = f"{quote.term} months" if quote.term else "terms"
                 if monthly is not None:
                     detail += f" — £{monthly:,.2f}/mo"
                 Note.objects.create(
@@ -282,7 +282,7 @@ class MyDealQuoteSelectView(CustomerRequiredMixin, View):
             return render(
                 request,
                 "crm/_my_quotes_card.html",
-                {"deal": deal, "quotes": deal.quotes.all(), "quote_saved": saved,
+                {"deal": deal, "quotes": deal.customer_quotes, "quote_saved": saved,
                  "quote_error": None if saved else "Please pick one of the quotes."},
             )
         if saved:

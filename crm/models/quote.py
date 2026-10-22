@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.db import models
 
-from .base import TimestampedModel
+from .base import LenderStatus, TimestampedModel
 from .deal import Deal
 from .organisation import Organisation
 
@@ -23,6 +23,13 @@ class Quote(TimestampedModel):
     `finance_amount`, the chosen rate band's yield, and the term — never stored,
     so it always reflects the deal's current participations and this quote's
     deposit/balloon.
+
+    On commercial deals (every type except Asset Finance) a quote is one
+    lender's **Terms** row: it also carries the lender's `status`,
+    `lender_reference` and `notified_at` (the proposal-style fields), and
+    `term` / `interest_rate_percent` stay blank until the lender comes back
+    with terms. The monthly payment is then mortgage-style amortisation at
+    the entered rate.
     """
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="quotes")
@@ -53,7 +60,31 @@ class Quote(TimestampedModel):
                   "band, e.g. 9.50 for 9.5% p.a. Drives a mortgage-style "
                   "repayment over the full term.",
     )
-    term = models.PositiveSmallIntegerField(help_text="Term in months.")
+    status = models.CharField(
+        max_length=16,
+        choices=LenderStatus.choices,
+        blank=True,
+        default="",
+        help_text="Where this lender stands on a commercial deal (a Terms "
+                  "row). Blank on Asset Finance quotes.",
+    )
+    lender_reference = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="The lender's own reference for this application.",
+    )
+    notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the client was emailed the approval news for these terms.",
+    )
+    term = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Term in months. Blank on a commercial Terms row until the "
+                  "lender comes back with terms.",
+    )
     commitment_months = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
@@ -82,7 +113,7 @@ class Quote(TimestampedModel):
     )
 
     class Meta:
-        ordering = ["deal", "term"]
+        ordering = ["deal", "term", "pk"]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(commitment_months__isnull=True)
@@ -100,9 +131,15 @@ class Quote(TimestampedModel):
         return self.lender
 
     @property
-    def priced_term(self) -> int:
+    def is_approved(self) -> bool:
+        """Commercial Terms rows only: the lender has approved these terms."""
+        return self.status == LenderStatus.APPROVED
+
+    @property
+    def priced_term(self) -> "int | None":
         """The term the rate applies to — the committed window when set,
-        else the full term. Rate-band matching and maturity read this."""
+        else the full term. Rate-band matching and maturity read this. None
+        on a Terms row that has no term yet."""
         return self.commitment_months or self.term
 
     @property
@@ -122,10 +159,16 @@ class Quote(TimestampedModel):
         return funded - (self.deposit or Decimal("0")) - (self.balloon or Decimal("0"))
 
     def __str__(self) -> str:
-        rate = f"{self.rate.yield_percent}%" if self.rate_id else "no rate"
+        if self.rate_id:
+            rate = f"{self.rate.yield_percent}%"
+        elif self.interest_rate_percent is not None:
+            rate = f"{self.interest_rate_percent}%"
+        else:
+            rate = "no rate"
+        term = f"{self.term}m" if self.term else "term TBC"
         if self.monthly_payment is None:
-            return f"{self.term}m @ {rate} — payment TBC"
-        return f"{self.term}m @ {rate} — £{self.monthly_payment}/mo"
+            return f"{term} @ {rate} — payment TBC"
+        return f"{term} @ {rate} — £{self.monthly_payment}/mo"
 
     def calculate_monthly_payment(self) -> Decimal | None:
         """Monthly payment for this quote. Returns None if any input is

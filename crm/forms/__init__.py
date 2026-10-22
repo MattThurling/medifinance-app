@@ -9,7 +9,7 @@ from .organisation import CustomerCompanyForm, OrganisationForm
 from .contact import CoApplicantForm, ContactForm, CustomerInfoForm
 from .deal import DealForm
 from .participation import ParticipationForm, SupplierInvoiceForm
-from .quote import CommercialQuoteForm, QuoteForm, QuoteSelectionForm
+from .quote import QuoteForm, QuoteSelectionForm, TermsForm
 from .stage import StageForm
 from .proposal import ProposalForm
 from .document import DocumentRequestForm, DocumentUploadForm
@@ -30,9 +30,9 @@ __all__ = [
     "DealForm",
     "ParticipationForm",
     "SupplierInvoiceForm",
-    "CommercialQuoteForm",
     "QuoteForm",
     "QuoteSelectionForm",
+    "TermsForm",
     "StageForm",
     "ProposalForm",
     "DocumentRequestForm",

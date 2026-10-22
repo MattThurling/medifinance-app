@@ -43,6 +43,7 @@ from .note import NoteCreateView
 from .quote import (
     QuoteCreateView,
     QuoteDeleteView,
+    QuoteNotifyClientView,
     QuoteRateOptionsView,
     QuoteSelectView,
     QuoteUpdateView,
@@ -132,6 +133,7 @@ __all__ = [
     "NoteCreateView",
     "QuoteCreateView",
     "QuoteDeleteView",
+    "QuoteNotifyClientView",
     "QuoteRateOptionsView",
     "QuoteSelectView",
     "QuoteUpdateView",

@@ -54,7 +54,7 @@ layout (main content left, amount + timeline right).
       {% if deal.maturity_date %}
         <p>
           Term ends: {{ deal.maturity_date|date:"j M Y" }}{% if deal.selected_quote.commitment_months %}
-          <span class="opacity-60">(rate committed for {{ deal.selected_quote.commitment_months }} months)</span>{% endif %}
+          <span class="opacity-60">(rate {% if deal.is_commercial_finance %}fixed{% else %}committed{% endif %} for {{ deal.selected_quote.commitment_months }} months)</span>{% endif %}
         </p>
       {% endif %}
       {% if deal.selected_quote.repayment_profile %}
@@ -97,7 +97,7 @@ layout (main content left, amount + timeline right).
         {% if commission_display %}<p class="text-sm opacity-70">{{ commission_display }} commission</p>{% endif %}
       </div>
     </div>
-    {% if deal.selected_proposal_id %}
+    {% if deal.accepted_lender_terms %}
       <form method="post" action="{% url 'crm:deal_request_commission_invoice' deal.pk %}" class="mt-3">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary btn-block">Request Commission Invoice</button>
@@ -105,7 +105,7 @@ layout (main content left, amount + timeline right).
     {% endif %}
   </div>
 
-  {# ---- Quotes / Documents / Applicants / Suppliers / Proposals ---- #}
+  {# ---- Quotes or Terms / Documents / Applicants / Suppliers / Proposals ---- #}
   <div class="lg:col-start-1 lg:col-span-2 lg:row-start-2 space-y-4">
     {# Suppliers / Funded amounts — Participation rows; sum of `amount` is the deal's funded amount. #}
     {# Commercial Finance deals have no supplier or invoice — just amounts. #}
@@ -197,6 +197,84 @@ layout (main content left, amount + timeline right).
     </div>
     {% endif %}
 
+    {% if deal.is_commercial_finance %}
+    {# Terms — one lender's status and the terms they came back with (commercial deals) #}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "landmark" class="h-5 w-5 opacity-70" %} Terms
+        </h2>
+        <table class="table table-xs w-full">
+          <thead>
+            <tr>
+              <th>Lender</th>
+              <th>Status</th>
+              <th class="hidden md:table-cell">Rate</th>
+              <th>Term</th>
+              <th class="hidden md:table-cell">Fixed for</th>
+              <th class="hidden md:table-cell">Comm</th>
+              <th>Monthly</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for q in deal.quotes.all %}
+              <tr {% if deal.selected_quote_id == q.pk %}class="bg-primary/10"{% endif %}>
+                <td>
+                  {% if q.lender %}<a href="{{ q.lender.get_absolute_url }}" class="link link-hover">{{ q.lender.name }}</a>{% else %}—{% endif %}{% if q.lender_reference %} <span class="opacity-60 whitespace-nowrap">· {{ q.lender_reference }}</span>{% endif %}
+                </td>
+                <td>
+                  {% if q.status %}<span class="badge badge-xs whitespace-nowrap {% if q.status == 'approved' %}badge-success{% elif q.status == 'declined' %}badge-error{% else %}badge-ghost{% endif %}">{{ q.get_status_display }}</span>{% else %}—{% endif %}
+                </td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.interest_rate_percent is not None %}{{ q.interest_rate_percent }}%{% else %}—{% endif %}</td>
+                <td>{% if q.term %}{{ q.term }} m{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.commitment_months %}{{ q.commitment_months }} m{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
+                <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="text-right whitespace-nowrap">
+                  <form method="post" action="{% url 'crm:quote_select' q.pk %}" class="inline align-middle">
+                    {% csrf_token %}
+                    <input type="radio" name="selected_quote" class="radio radio-xs radio-primary align-middle"
+                           {% if deal.selected_quote_id == q.pk %}checked{% endif %}
+                           onchange="this.form.submit()"
+                           title="Mark as selected terms" aria-label="Mark as selected terms" />
+                  </form>
+                  {% if deal.selected_quote_id == q.pk and q.status == "approved" %}
+                    {% if q.notified_at %}
+                      <span class="badge badge-ghost badge-xs align-middle" title="Client notified">
+                        {% icon "mail-check" class="h-3 w-3" %} {{ q.notified_at|date:"j M Y" }}
+                      </span>
+                    {% else %}
+                      <form method="post" action="{% url 'crm:quote_notify' q.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-xs btn-outline" title="Email the client the approval news">
+                          {% icon "mail" class="h-3.5 w-3.5" %} Notify
+                        </button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
+                  <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit terms">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+                  <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove terms">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="8" class="opacity-60">No terms yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <a href="{% url 'crm:quote_create' %}?deal={{ deal.pk }}"
+           class="btn btn-circle btn-xs btn-outline mt-3" title="Add terms" aria-label="Add terms">
+          {% icon "plus" class="h-3.5 w-3.5" %}
+        </a>
+        {% if not deal.funded_amount %}
+          <p class="text-xs opacity-50 mt-2">Set a funded amount above to calculate monthly payments.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
     {# Quotes #}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">
@@ -258,13 +336,18 @@ layout (main content left, amount + timeline right).
         {% endif %}
       </div>
     </div>
+    {% endif %}
 
     {# Repayments — amortised schedule; shows once a first payment date is set #}
     {% if deal.first_payment_date %}
       {% if repayment_schedule %}
         {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule %}
       {% else %}
-        {% include "crm/_repayment_schedule.html" with schedule=None empty_message="Select a priced quote to build the schedule." %}
+        {% if deal.is_commercial_finance %}
+          {% include "crm/_repayment_schedule.html" with schedule=None empty_message="Select approved terms with a rate and term to build the schedule." %}
+        {% else %}
+          {% include "crm/_repayment_schedule.html" with schedule=None empty_message="Select a priced quote to build the schedule." %}
+        {% endif %}
       {% endif %}
     {% endif %}
 
@@ -414,6 +497,7 @@ layout (main content left, amount + timeline right).
       </div>
     </div>
 
+    {% if not deal.is_commercial_finance %}
     {# Proposals — lender-side shopping (a deal can be proposed to many lenders) #}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">
@@ -469,6 +553,7 @@ layout (main content left, amount + timeline right).
         </a>
       </div>
     </div>
+    {% endif %}
   </div>
 
   {# ---- Timeline (stage history) ---- #}

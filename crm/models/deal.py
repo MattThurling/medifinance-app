@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import NamedTuple
 
 from django.conf import settings
 from django.db import models
@@ -7,6 +8,14 @@ from django.urls import reverse
 from .base import TimestampedModel, _hubspot_url
 from .contact import Contact
 from .organisation import Organisation
+
+
+class AcceptedLenderTerms(NamedTuple):
+    """The lender a deal is proceeding with and their reference — see
+    `Deal.accepted_lender_terms`."""
+
+    lender: Organisation
+    reference: str
 
 
 class Deal(TimestampedModel):
@@ -263,7 +272,7 @@ class Deal(TimestampedModel):
         if self.term_end_date:
             return self.term_end_date
         quote = self.selected_quote
-        if self.first_payment_date is None or quote is None:
+        if self.first_payment_date is None or quote is None or quote.priced_term is None:
             return None
         from .. import pricing  # avoid circular import; pricing imports RateBand
 
@@ -277,7 +286,7 @@ class Deal(TimestampedModel):
         from .. import pricing  # avoid circular import; pricing imports RateBand
 
         quote = self.selected_quote
-        if self.first_payment_date is None or quote is None:
+        if self.first_payment_date is None or quote is None or quote.term is None:
             return None
         rows = pricing.repayment_schedule(
             principal=quote.finance_amount,
@@ -292,6 +301,33 @@ class Deal(TimestampedModel):
             for row in rows[quote.commitment_months:]:
                 row["indicative"] = True
         return rows
+
+    @property
+    def accepted_lender_terms(self) -> "AcceptedLenderTerms | None":
+        """The lender this deal is proceeding with and their reference: the
+        selected Terms row on commercial deals, the selected Proposal on
+        Asset Finance ones. None until one is selected. Drives the commission
+        invoice flows (accounts email, Xero prefill). Not gated on status —
+        the proposal path never was."""
+        if self.is_commercial_finance:
+            quote = self.selected_quote
+            if quote is None or quote.lender_id is None:
+                return None
+            return AcceptedLenderTerms(quote.lender, quote.lender_reference)
+        proposal = self.selected_proposal
+        if proposal is None:
+            return None
+        return AcceptedLenderTerms(proposal.lender, proposal.proposal_number)
+
+    @property
+    def customer_quotes(self) -> "list[Quote]":
+        """Quotes the customer may see and pick in the portal: every quote on
+        an Asset Finance deal; only Approved Terms rows on a commercial one.
+        Iterates `quotes.all()` so a prefetch stays cheap."""
+        quotes = list(self.quotes.all())
+        if self.is_commercial_finance:
+            return [q for q in quotes if q.is_approved]
+        return quotes
 
     @property
     def has_committed_quote(self) -> bool:

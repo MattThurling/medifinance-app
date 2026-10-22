@@ -79,7 +79,9 @@ def outstanding_items(deal: Deal, *, user=None) -> list[Item]:
         if missing:
             items.append(Item(f"Company details: {', '.join(missing)}", "company"))
 
-    if deal.selected_quote_id is None and deal.quotes.all():  # .all() honours prefetch
+    # customer_quotes honours a prefetch; on commercial deals it is only the
+    # approved Terms rows — the customer never chooses between unapproved ones.
+    if deal.selected_quote_id is None and deal.customer_quotes:
         items.append(Item("Choose your quote", "quotes"))
 
     for doc in deal.documents.all():

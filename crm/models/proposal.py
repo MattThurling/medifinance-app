@@ -1,6 +1,6 @@
 from django.db import models
 
-from .base import TimestampedModel
+from .base import LenderStatus, TimestampedModel
 from .contact import Contact
 from .deal import Deal
 from .organisation import Organisation
@@ -11,11 +11,8 @@ class Proposal(TimestampedModel):
     deal to multiple lenders simultaneously, so each Deal can have many
     Proposals."""
 
-    class Status(models.TextChoices):
-        SUBMITTED = "submitted", "Submitted"
-        APPROVED = "approved", "Approved"
-        DECLINED = "declined", "Declined"
-        WITHDRAWN = "withdrawn", "Withdrawn"
+    # Same choices as the Terms rows on commercial deals (Quote.status).
+    Status = LenderStatus
 
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="proposals")
     lender = models.ForeignKey(

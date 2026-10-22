@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django import forms
 from django.urls import reverse_lazy
 
-from ..models import Quote, RateBand
+from ..models import LenderStatus, Quote, RateBand
 from .base import DaisyUIFormMixin
 
 
@@ -98,44 +98,82 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
         return funded - value("deposit") - value("balloon")
 
 
-class CommercialQuoteForm(DaisyUIFormMixin, forms.ModelForm):
-    """The slim quote form for every deal type except Asset Finance: choose
-    the lender directly (searchable combobox, as proposals do) and enter the
-    term, the optional rate commitment, and commission. No rate bands, no
-    deposit/balloon, no pricing maths — `monthly_payment` stays None and the
-    quote reads "payment TBC"."""
+class TermsForm(DaisyUIFormMixin, forms.ModelForm):
+    """The Terms form for every deal type except Asset Finance: one lender's
+    position on the deal (lender, status, their reference) plus the terms
+    they come back with (rate, term, fixed period, commission).
 
-    term = forms.IntegerField(min_value=1, label="Term (months)")
+    A row can be saved as soon as the lender is approached — rate and term
+    are only required once the status is Approved. No rate bands, no
+    deposit/balloon. The monthly payment is mortgage-style amortisation of
+    the deal's funded amount at the entered rate (see
+    `Quote.calculate_monthly_payment`)."""
+
+    status = forms.ChoiceField(
+        choices=LenderStatus.choices,
+        initial=LenderStatus.SUBMITTED,
+        label="Status",
+        help_text="Submitted as soon as you approach the lender; Approved "
+                  "once they come back with terms.",
+    )
+    term = forms.IntegerField(min_value=1, required=False, label="Term (months)")
     commitment_months = forms.IntegerField(
         min_value=1,
         required=False,
-        label="Rate committed for (months)",
-        help_text="Optional — for long loans with a rate review, the shorter "
-                  "window the rate is committed for. Blank = full term.",
+        label="Rate fixed for (months)",
+        help_text="Optional — when the rate is only fixed for part of the term "
+                  "(e.g. 5 years of a 25-year loan). Blank = fixed for the full term.",
     )
 
     class Meta:
         model = Quote
-        fields = ["lender", "interest_rate_percent", "term", "commitment_months", "commission_percent"]
-        labels = {"interest_rate_percent": "Interest rate (% p.a.)"}
+        fields = [
+            "lender", "status", "lender_reference",
+            "interest_rate_percent", "term", "commitment_months", "commission_percent",
+        ]
+        labels = {
+            "interest_rate_percent": "Interest rate (% p.a.)",
+            "lender_reference": "Lender reference",
+            "commission_percent": "Commission %",
+        }
+        help_texts = {
+            "interest_rate_percent": "e.g. 9.50 for 9.5% p.a. Drives the monthly payment.",
+            "lender_reference": "The lender's own reference for this application, "
+                                "if they've given one.",
+            # The model's help text describes Asset Finance pricing (commission
+            # grossed onto the payment); on commercial terms it is a record only.
+            "commission_percent": "Medifinance's commission from the lender, as a % of "
+                                  "the loan. Recorded for invoicing — not added to the "
+                                  "customer's payment.",
+        }
 
     def __init__(self, *args, deal=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.deal = deal or (self.instance.deal if self.instance and self.instance.pk else None)
         self.fields["lender"].required = True
-        # Nullable on the model (Asset Finance quotes don't use it) but every
-        # commercial quote carries its rate — it drives the payment maths.
-        self.fields["interest_rate_percent"].required = True
+        self.fields["interest_rate_percent"].required = False
 
     def clean(self):
         cleaned = super().clean()
+        status = cleaned.get("status")
         term = cleaned.get("term")
         commitment = cleaned.get("commitment_months")
-        if term and commitment and commitment >= term:
+
+        if status == LenderStatus.APPROVED:
+            for name in ("interest_rate_percent", "term"):
+                if cleaned.get(name) is None and name not in self.errors:
+                    self.add_error(
+                        name,
+                        "Required once the lender has approved — enter the terms "
+                        "they came back with.",
+                    )
+        if commitment and not term:
+            self.add_error("commitment_months", "Enter the term first.")
+        elif term and commitment and commitment >= term:
             self.add_error(
                 "commitment_months",
                 "Must be shorter than the term — leave blank if the rate is "
-                "committed for the full term.",
+                "fixed for the full term.",
             )
         return cleaned
 
@@ -156,4 +194,11 @@ class QuoteSelectionForm(forms.Form):
 
     def __init__(self, *args, deal=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["quote"].queryset = deal.quotes.all() if deal else Quote.objects.none()
+        if deal is None:
+            qs = Quote.objects.none()
+        elif deal.is_commercial_finance:
+            # Customers only ever pick between terms the lender has approved.
+            qs = deal.quotes.filter(status=LenderStatus.APPROVED)
+        else:
+            qs = deal.quotes.all()
+        self.fields["quote"].queryset = qs

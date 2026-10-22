@@ -63,7 +63,9 @@
           <div><dt class="opacity-60 inline">Amount financed&nbsp;</dt><dd class="inline font-medium">{{ amount_display }}</dd></div>
         {% endif %}
         {% if deal.selected_quote %}
-          <div><dt class="opacity-60 inline">Term&nbsp;</dt><dd class="inline">{{ deal.selected_quote.term }} months</dd></div>
+          {% if deal.selected_quote.term %}
+            <div><dt class="opacity-60 inline">Term&nbsp;</dt><dd class="inline">{{ deal.selected_quote.term }} months</dd></div>
+          {% endif %}
           {% if deal.selected_quote.monthly_payment is not None %}
             <div><dt class="opacity-60 inline">Monthly payment&nbsp;</dt><dd class="inline">£{{ deal.selected_quote.monthly_payment|floatformat:2|intcomma }}</dd></div>
           {% endif %}

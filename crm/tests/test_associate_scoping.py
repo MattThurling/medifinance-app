@@ -276,6 +276,7 @@ class ChildObjectTests(ScopingTestCase):
         cases = [
             ("quote_select", self.their_quote),
             ("quote_delete", self.their_quote),
+            ("quote_notify", self.their_quote),
             ("proposal_select", self.their_proposal),
             ("proposal_notify", self.their_proposal),
             ("participation_delete", self.their_participation),
