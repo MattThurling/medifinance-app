@@ -105,8 +105,47 @@ layout (main content left, amount + timeline right).
     {% endif %}
   </div>
 
-  {# ---- Quotes or Terms / Documents / Applicants / Suppliers / Proposals ---- #}
+  {# ---- Applicants / Suppliers or Funded amounts / Quotes / Documents / Signatures / Proposals or Terms ---- #}
   <div class="lg:col-start-1 lg:col-span-2 lg:row-start-2 space-y-4">
+    {# Applicants #}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "users" class="h-5 w-5 opacity-70" %} Applicants
+        </h2>
+        <table class="table table-xs w-full">
+          <thead>
+            <tr><th>Name</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for a in applicants %}
+              <tr>
+                <td><a href="{{ a.get_absolute_url }}" class="link link-hover">{{ a }}</a></td>
+                <td class="text-right whitespace-nowrap">
+                  <a href="{% url 'crm:contact_update' a.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit contact">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="flex flex-wrap items-center gap-2 mt-3">
+          {% if available_applicants %}
+            <form method="post" action="{% url 'crm:deal_applicant_add' deal.pk %}" class="flex items-center gap-2">
+              {% csrf_token %}
+              <select name="contact" required class="select select-bordered select-xs max-w-xs">
+                <option value="" selected disabled>Add existing contact…</option>
+                {% for c in available_applicants %}
+                  <option value="{{ c.pk }}">{{ c }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-xs btn-outline">Add</button>
+            </form>
+          {% endif %}
+          <a href="{% url 'crm:contact_create' %}?deal={{ deal.pk }}" class="btn btn-xs btn-outline">+ New contact</a>
+        </div>
+      </div>
+    </div>
+
     {# Suppliers / Funded amounts — Participation rows; sum of `amount` is the deal's funded amount. #}
     {# Commercial Finance deals have no supplier or invoice — just amounts. #}
     {% if deal.is_commercial_finance %}
@@ -197,6 +236,182 @@ layout (main content left, amount + timeline right).
     </div>
     {% endif %}
 
+    {% if not deal.is_commercial_finance %}
+    {# Quotes #}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "percent" class="h-5 w-5 opacity-70" %} Quotes
+        </h2>
+        <table class="table table-xs w-full">
+          <thead>
+            <tr>
+              <th>Term</th>
+              <th class="hidden md:table-cell">Rate</th>
+              <th class="hidden md:table-cell">Deposit</th>
+              <th class="hidden md:table-cell">Balloon</th>
+              <th class="hidden md:table-cell">Comm</th>
+              <th class="hidden md:table-cell">APR</th>
+              <th class="hidden md:table-cell">Flat</th>
+              <th>Monthly</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for q in deal.quotes.all %}
+              <tr {% if deal.selected_quote_id == q.pk %}class="bg-primary/10"{% endif %}>
+                <td>{{ q.term }} m{% if q.commitment_months %} <span class="opacity-60 whitespace-nowrap">· {{ q.commitment_months }}m committed</span>{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% elif q.lender %}{{ q.lender.name }}{% if q.interest_rate_percent %} · {{ q.interest_rate_percent }}%{% endif %}{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.deposit %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.balloon %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="opacity-70 hidden md:table-cell">{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                <td class="text-right whitespace-nowrap">
+                  <form method="post" action="{% url 'crm:quote_select' q.pk %}" class="inline align-middle">
+                    {% csrf_token %}
+                    <input type="radio" name="selected_quote" class="radio radio-xs radio-primary align-middle"
+                           {% if deal.selected_quote_id == q.pk %}checked{% endif %}
+                           onchange="this.form.submit()"
+                           title="Mark as selected quote" aria-label="Mark as selected quote" />
+                  </form>
+                  <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
+                  <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove quote">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="9" class="opacity-60">No quotes yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if deal.funded_amount %}
+          <a href="{% url 'crm:quote_create' %}?deal={{ deal.pk }}"
+             class="btn btn-circle btn-xs btn-outline mt-3" title="Add quote" aria-label="Add quote">
+            {% icon "plus" class="h-3.5 w-3.5" %}
+          </a>
+        {% else %}
+          <p class="text-xs opacity-50 mt-2">Set a funded amount (Edit) to add quotes.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Repayments — amortised schedule; shows once a first payment date is set #}
+    {% if deal.first_payment_date %}
+      {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule empty_message="Select a priced quote to build the schedule." %}
+    {% endif %}
+    {% endif %}
+
+    {# Documents #}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "file-text" class="h-5 w-5 opacity-70" %} Documents
+        </h2>
+        <table class="table table-xs w-full">
+          <thead>
+            <tr><th>Document</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for d in deal.documents.all %}
+              <tr>
+                <td>{{ d.name }}</td>
+                <td class="text-right whitespace-nowrap">
+                  {% if d.is_provided %}
+                    <a href="{% url 'crm:document_download' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="View document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
+                  {% else %}
+                    <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
+                    <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
+                      {% csrf_token %}
+                      <input id="upload-{{ d.pk }}" type="file" name="file" multiple onchange="this.form.submit()" />
+                    </form>
+                  {% endif %}
+                  <form method="post" action="{% url 'crm:document_delete' d.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove document">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="2" class="opacity-60">No documents requested yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <a href="{% url 'crm:document_create' %}?deal={{ deal.pk }}"
+           class="btn btn-circle btn-xs btn-outline mt-3" title="Request a document" aria-label="Request a document">
+          {% icon "plus" class="h-3.5 w-3.5" %}
+        </a>
+      </div>
+    </div>
+
+    {# Signatures #}
+    <div class="card bg-base-100 shadow w-full">
+      <div class="card-body">
+        <h2 class="card-title text-base">
+          {% icon "signature" class="h-5 w-5 opacity-70" %} Signatures
+        </h2>
+        <table class="table table-xs w-full">
+          <thead>
+            <tr><th>Signer</th><th>Template</th><th>Status</th><th>Sent</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for sr in deal.signature_requests.all %}
+              <tr>
+                <td>{{ sr.signer_name|default:sr.signer_email }}</td>
+                <td>{{ sr.template_name }}</td>
+                <td>
+                  {% if sr.status == "pending" %}<span class="badge badge-ghost badge-xs" title="In the customer's portal — not yet emailed to {{ sr.signer_email }}">Pending</span>
+                  {% elif sr.status == "sent" %}<span class="badge badge-info badge-xs" title="Sent to {{ sr.signer_email }}">Sent</span>
+                  {% elif sr.status == "opened" %}<span class="badge badge-warning badge-xs" title="Opened by {{ sr.signer_email }}">Opened</span>
+                  {% elif sr.status == "completed" %}<span class="badge badge-success badge-xs" title="Signed by {{ sr.signer_email }}">Signed</span>
+                  {% elif sr.status == "declined" %}<span class="badge badge-error badge-xs" title="{{ sr.decline_reason|default:'Declined' }}">Declined</span>
+                  {% elif sr.status == "voided" %}<span class="badge badge-ghost badge-xs">Voided</span>
+                  {% endif %}
+                </td>
+                <td>{% if sr.sent_at %}{{ sr.sent_at|date:"j M Y" }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
+                <td class="text-right whitespace-nowrap">
+                  {% if sr.is_pending %}
+                    <form method="post" action="{% url 'crm:signature_send' sr.pk %}" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Send to {{ sr.signer_email }} for signature">{% icon "send" class="h-3.5 w-3.5" %}</button>
+                    </form>
+                  {% elif sr.is_active or sr.status == "declined" %}
+                    <form method="post" action="{% url 'crm:signature_resend' sr.pk %}" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Re-send for signature">{% icon "rotate-cw" class="h-3.5 w-3.5" %}</button>
+                    </form>
+                  {% endif %}
+                  {% if sr.is_active %}
+                    <form method="post" action="{% url 'crm:signature_void' sr.pk %}" class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Void signature request">{% icon "ban" class="h-3.5 w-3.5" %}</button>
+                    </form>
+                  {% endif %}
+                  {% if sr.signed_file %}
+                    <a href="{% url 'crm:signature_signed_download' sr.pk %}" class="btn btn-ghost btn-xs btn-square" title="View signed document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
+                  {% endif %}
+                  {% if sr.audit_log_file %}
+                    <a href="{% url 'crm:signature_audit_download' sr.pk %}" class="btn btn-ghost btn-xs btn-square" title="Signature audit log">{% icon "shield-check" class="h-3.5 w-3.5" %}</a>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="opacity-60">No signature requests yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if docuseal_configured %}
+          <a href="{% url 'crm:deal_sign' deal.pk %}"
+             class="btn btn-circle btn-xs btn-outline mt-3" title="New signature request" aria-label="New signature request">
+            {% icon "plus" class="h-3.5 w-3.5" %}
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
     {% if deal.is_commercial_finance %}
     {# Terms — one lender's status and the terms they came back with (commercial deals) #}
     <div class="card bg-base-100 shadow w-full">
@@ -274,230 +489,12 @@ layout (main content left, amount + timeline right).
         {% endif %}
       </div>
     </div>
-    {% else %}
-    {# Quotes #}
-    <div class="card bg-base-100 shadow w-full">
-      <div class="card-body">
-        <h2 class="card-title text-base">
-          {% icon "percent" class="h-5 w-5 opacity-70" %} Quotes
-        </h2>
-        <table class="table table-xs w-full">
-          <thead>
-            <tr>
-              <th>Term</th>
-              <th class="hidden md:table-cell">Rate</th>
-              <th class="hidden md:table-cell">Deposit</th>
-              <th class="hidden md:table-cell">Balloon</th>
-              <th class="hidden md:table-cell">Comm</th>
-              <th class="hidden md:table-cell">APR</th>
-              <th class="hidden md:table-cell">Flat</th>
-              <th>Monthly</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for q in deal.quotes.all %}
-              <tr {% if deal.selected_quote_id == q.pk %}class="bg-primary/10"{% endif %}>
-                <td>{{ q.term }} m{% if q.commitment_months %} <span class="opacity-60 whitespace-nowrap">· {{ q.commitment_months }}m committed</span>{% endif %}</td>
-                <td class="opacity-70 hidden md:table-cell">{% if q.rate %}{{ q.rate.organisation.name }} · {{ q.rate.yield_percent }}%{% elif q.lender %}{{ q.lender.name }}{% if q.interest_rate_percent %} · {{ q.interest_rate_percent }}%{% endif %}{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden md:table-cell">{% if q.deposit %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden md:table-cell">{% if q.balloon %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden md:table-cell">{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden md:table-cell">{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</td>
-                <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td class="text-right whitespace-nowrap">
-                  <form method="post" action="{% url 'crm:quote_select' q.pk %}" class="inline align-middle">
-                    {% csrf_token %}
-                    <input type="radio" name="selected_quote" class="radio radio-xs radio-primary align-middle"
-                           {% if deal.selected_quote_id == q.pk %}checked{% endif %}
-                           onchange="this.form.submit()"
-                           title="Mark as selected quote" aria-label="Mark as selected quote" />
-                  </form>
-                  <a href="{% url 'crm:quote_update' q.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit quote">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
-                  <form method="post" action="{% url 'crm:quote_delete' q.pk %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove quote">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
-                  </form>
-                </td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="9" class="opacity-60">No quotes yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% if deal.funded_amount %}
-          <a href="{% url 'crm:quote_create' %}?deal={{ deal.pk }}"
-             class="btn btn-circle btn-xs btn-outline mt-3" title="Add quote" aria-label="Add quote">
-            {% icon "plus" class="h-3.5 w-3.5" %}
-          </a>
-        {% else %}
-          <p class="text-xs opacity-50 mt-2">Set a funded amount (Edit) to add quotes.</p>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
 
     {# Repayments — amortised schedule; shows once a first payment date is set #}
     {% if deal.first_payment_date %}
-      {% if repayment_schedule %}
-        {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule %}
-      {% else %}
-        {% if deal.is_commercial_finance %}
-          {% include "crm/_repayment_schedule.html" with schedule=None empty_message="Select approved terms with a rate and term to build the schedule." %}
-        {% else %}
-          {% include "crm/_repayment_schedule.html" with schedule=None empty_message="Select a priced quote to build the schedule." %}
-        {% endif %}
-      {% endif %}
+      {% include "crm/_repayment_schedule.html" with schedule=repayment_schedule empty_message="Select approved terms with a rate and term to build the schedule." %}
     {% endif %}
-
-    {# Documents #}
-    <div class="card bg-base-100 shadow w-full">
-      <div class="card-body">
-        <h2 class="card-title text-base">
-          {% icon "file-text" class="h-5 w-5 opacity-70" %} Documents
-        </h2>
-        <table class="table table-xs w-full">
-          <thead>
-            <tr><th>Document</th><th></th></tr>
-          </thead>
-          <tbody>
-            {% for d in deal.documents.all %}
-              <tr>
-                <td>{{ d.name }}</td>
-                <td class="text-right whitespace-nowrap">
-                  {% if d.is_provided %}
-                    <a href="{% url 'crm:document_download' d.pk %}" class="btn btn-ghost btn-xs btn-square" title="View document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
-                  {% else %}
-                    <label for="upload-{{ d.pk }}" class="btn btn-ghost btn-xs btn-square cursor-pointer" title="Upload document">{% icon "upload" class="h-3.5 w-3.5" %}</label>
-                    <form method="post" action="{% url 'crm:document_upload' d.pk %}" enctype="multipart/form-data" class="hidden">
-                      {% csrf_token %}
-                      <input id="upload-{{ d.pk }}" type="file" name="file" multiple onchange="this.form.submit()" />
-                    </form>
-                  {% endif %}
-                  <form method="post" action="{% url 'crm:document_delete' d.pk %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove document">{% icon "circle-x" class="h-3.5 w-3.5" %}</button>
-                  </form>
-                </td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="2" class="opacity-60">No documents requested yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <a href="{% url 'crm:document_create' %}?deal={{ deal.pk }}"
-           class="btn btn-circle btn-xs btn-outline mt-3" title="Request a document" aria-label="Request a document">
-          {% icon "plus" class="h-3.5 w-3.5" %}
-        </a>
-      </div>
-    </div>
-
-    {# Applicants #}
-    <div class="card bg-base-100 shadow w-full">
-      <div class="card-body">
-        <h2 class="card-title text-base">
-          {% icon "users" class="h-5 w-5 opacity-70" %} Applicants
-        </h2>
-        <table class="table table-xs w-full">
-          <thead>
-            <tr><th>Name</th><th></th></tr>
-          </thead>
-          <tbody>
-            {% for a in applicants %}
-              <tr>
-                <td><a href="{{ a.get_absolute_url }}" class="link link-hover">{{ a }}</a></td>
-                <td class="text-right whitespace-nowrap">
-                  <a href="{% url 'crm:contact_update' a.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit contact">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <div class="flex flex-wrap items-center gap-2 mt-3">
-          {% if available_applicants %}
-            <form method="post" action="{% url 'crm:deal_applicant_add' deal.pk %}" class="flex items-center gap-2">
-              {% csrf_token %}
-              <select name="contact" required class="select select-bordered select-xs max-w-xs">
-                <option value="" selected disabled>Add existing contact…</option>
-                {% for c in available_applicants %}
-                  <option value="{{ c.pk }}">{{ c }}</option>
-                {% endfor %}
-              </select>
-              <button type="submit" class="btn btn-xs btn-outline">Add</button>
-            </form>
-          {% endif %}
-          <a href="{% url 'crm:contact_create' %}?deal={{ deal.pk }}" class="btn btn-xs btn-outline">+ New contact</a>
-        </div>
-      </div>
-    </div>
-
-    {# Signatures #}
-    <div class="card bg-base-100 shadow w-full">
-      <div class="card-body">
-        <h2 class="card-title text-base">
-          {% icon "signature" class="h-5 w-5 opacity-70" %} Signatures
-        </h2>
-        <table class="table table-xs w-full">
-          <thead>
-            <tr><th>Signer</th><th>Template</th><th>Status</th><th>Sent</th><th></th></tr>
-          </thead>
-          <tbody>
-            {% for sr in deal.signature_requests.all %}
-              <tr>
-                <td>{{ sr.signer_name|default:sr.signer_email }}</td>
-                <td>{{ sr.template_name }}</td>
-                <td>
-                  {% if sr.status == "pending" %}<span class="badge badge-ghost badge-xs" title="In the customer's portal — not yet emailed to {{ sr.signer_email }}">Pending</span>
-                  {% elif sr.status == "sent" %}<span class="badge badge-info badge-xs" title="Sent to {{ sr.signer_email }}">Sent</span>
-                  {% elif sr.status == "opened" %}<span class="badge badge-warning badge-xs" title="Opened by {{ sr.signer_email }}">Opened</span>
-                  {% elif sr.status == "completed" %}<span class="badge badge-success badge-xs" title="Signed by {{ sr.signer_email }}">Signed</span>
-                  {% elif sr.status == "declined" %}<span class="badge badge-error badge-xs" title="{{ sr.decline_reason|default:'Declined' }}">Declined</span>
-                  {% elif sr.status == "voided" %}<span class="badge badge-ghost badge-xs">Voided</span>
-                  {% endif %}
-                </td>
-                <td>{% if sr.sent_at %}{{ sr.sent_at|date:"j M Y" }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
-                <td class="text-right whitespace-nowrap">
-                  {% if sr.is_pending %}
-                    <form method="post" action="{% url 'crm:signature_send' sr.pk %}" class="inline">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Send to {{ sr.signer_email }} for signature">{% icon "send" class="h-3.5 w-3.5" %}</button>
-                    </form>
-                  {% elif sr.is_active or sr.status == "declined" %}
-                    <form method="post" action="{% url 'crm:signature_resend' sr.pk %}" class="inline">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Re-send for signature">{% icon "rotate-cw" class="h-3.5 w-3.5" %}</button>
-                    </form>
-                  {% endif %}
-                  {% if sr.is_active %}
-                    <form method="post" action="{% url 'crm:signature_void' sr.pk %}" class="inline">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Void signature request">{% icon "ban" class="h-3.5 w-3.5" %}</button>
-                    </form>
-                  {% endif %}
-                  {% if sr.signed_file %}
-                    <a href="{% url 'crm:signature_signed_download' sr.pk %}" class="btn btn-ghost btn-xs btn-square" title="View signed document">{% icon "eye" class="h-3.5 w-3.5" %}</a>
-                  {% endif %}
-                  {% if sr.audit_log_file %}
-                    <a href="{% url 'crm:signature_audit_download' sr.pk %}" class="btn btn-ghost btn-xs btn-square" title="Signature audit log">{% icon "shield-check" class="h-3.5 w-3.5" %}</a>
-                  {% endif %}
-                </td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="5" class="opacity-60">No signature requests yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% if docuseal_configured %}
-          <a href="{% url 'crm:deal_sign' deal.pk %}"
-             class="btn btn-circle btn-xs btn-outline mt-3" title="New signature request" aria-label="New signature request">
-            {% icon "plus" class="h-3.5 w-3.5" %}
-          </a>
-        {% endif %}
-      </div>
-    </div>
-
-    {% if not deal.is_commercial_finance %}
+    {% else %}
     {# Proposals — lender-side shopping (a deal can be proposed to many lenders) #}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">
