@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import nh3
 from django import template
@@ -67,6 +67,33 @@ def money(value, places: int = 2) -> str:
     except (InvalidOperation, ValueError, TypeError):
         return str(value)
     return f"£{amount:,.{int(places)}f}"
+
+
+@register.filter(name="money_compact")
+def money_compact(value) -> str:
+    """Headline-tile money: ``£30.1M``, ``£450K``, ``£1.2K``, ``£999``.
+
+    One decimal below 100 of a unit (``£1.2M``), none above (``£105M``), and
+    a trailing ``.0`` is dropped (``£2M``). Tables and detail pages keep the
+    exact ``money`` format; this is for stat cards where ``£30,147,691``
+    overflows. ``None``/empty renders as an em-dash, like ``money``."""
+    if value is None or value == "":
+        return "—"
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return str(value)
+    sign = "-" if amount < 0 else ""
+    amount = abs(amount)
+    for unit, divisor in (("B", Decimal(10**9)), ("M", Decimal(10**6)), ("K", Decimal(10**3))):
+        if amount >= divisor:
+            scaled = amount / divisor
+            places = Decimal("1") if scaled >= 100 else Decimal("0.1")
+            text = str(scaled.quantize(places, rounding=ROUND_HALF_UP)).removesuffix(".0")
+            if text == "1000":  # e.g. 999,500,000 rounds up to the next unit
+                return money_compact(sign + str(divisor * 1000))
+            return f"{sign}£{text}{unit}"
+    return f"{sign}£{amount:,.0f}"
 
 
 @register.filter(name="missing_fields")

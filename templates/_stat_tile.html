@@ -10,7 +10,7 @@
   <div class="card-body py-4 px-5 gap-1">
     <div class="text-xs uppercase tracking-wide opacity-60">{{ label }}</div>
     <div class="text-3xl font-semibold tabular-nums">
-      {% if value is None %}—{% elif kind == "money" %}{{ value|money:0 }}{% elif kind == "percent" %}{{ value|floatformat:1 }}%{% else %}{{ value|intcomma }}{% endif %}
+      {% if value is None %}—{% elif kind == "money" %}<span title="{{ value|money:0 }}">{{ value|money_compact }}</span>{% elif kind == "percent" %}{{ value|floatformat:1 }}%{% else %}{{ value|intcomma }}{% endif %}
     </div>
     {% if delta_pct is not None %}
       <div class="text-xs flex items-center gap-1 {% if delta_abs > 0 %}text-success{% elif delta_abs < 0 %}text-error{% else %}opacity-60{% endif %}">
