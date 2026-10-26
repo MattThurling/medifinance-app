@@ -143,15 +143,19 @@ def download_file(url: str) -> bytes:
     return r.content
 
 
-def build_prefill_values(deal) -> dict:
+def build_prefill_values(deal, signer=None) -> dict:
     """Field values every template can draw on. The convention: DocuSeal
     template fields must be named exactly like these keys ("Client Name",
     "Amount", "Initial Fee", "Final Fee", "Commission", "Non-completion Fee",
     "Client Company", …) to get prefilled; fields a template doesn't have are
     ignored. Money and company keys are omitted when the deal has no value,
     so the signer gets an empty field rather than "None".
+
+    "Client Name", "Client Address" and "Customer Email" describe ``signer``
+    when given (a co-applicant signing their own copy), else the deal's
+    customer.
     """
-    customer = deal.customer
+    customer = signer or deal.customer
     values = {
         "Deal Name": deal.name,
         "Client Name": customer.full_name if customer else "",

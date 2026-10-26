@@ -87,7 +87,7 @@ docker run -d --name docuseal -p 3000:3000 -v ~/.docuseal:/data docuseal/docusea
 |-----------|-----------------------------------------------------------|
 | Admin     | Full Django admin, all CRM data                           |
 | Associate | Internal CRM UI; own deals (plus colleagues' when linked to the same Organisation). Contacts and organisations: everything except records owned by staff outside their team — unowned ones are visible, as is anything attached to a deal they can see |
-| Customer  | Login only (portal UI is intentionally not built in v1)   |
+| Customer  | The `/my/` portal for deals they are on: the primary applicant edits people and company, picks the quote and adds co-applicants; a co-applicant edits only themselves, uploads and signs their own requests |
 
 Use the helpers in `accounts/permissions.py`:
 
@@ -100,7 +100,7 @@ def some_internal_view(request): ...
 class SomeAdminView(AdminRequiredMixin, TemplateView): ...
 ```
 
-Row visibility is decided in one place, `crm/access.py` (`visible_deals`, `visible_contacts`, `visible_organisations`): admins see everything; associates see deals owned by anyone in their `organisation` (or only their own when they have none); customers see deals they are the contact on. Contacts and organisations are softer for associates: they see records owned by their team or by nobody, plus anything attached to a visible deal (customer, co-applicants, organisation, introducer, suppliers, lenders); only records owned by staff outside their team are hidden. The organisation combobox search stays open to all staff so any lender/supplier/introducer can be picked. django-guardian row perms are also assigned on `Deal` save (see `crm/signals.py`) but nothing reads them yet.
+Row visibility is decided in one place, `crm/access.py` (`visible_deals`, `visible_contacts`, `visible_organisations`): admins see everything; associates see deals owned by anyone in their `organisation` (or only their own when they have none); customers see deals they are on, as the primary applicant (`Deal.customer`) or as a co-applicant with a portal login (`portal_deals`; `deal_role` and `may_sign` decide what each may do in the portal). Contacts and organisations are softer for associates: they see records owned by their team or by nobody, plus anything attached to a visible deal (customer, co-applicants, organisation, introducer, suppliers, lenders); only records owned by staff outside their team are hidden. The organisation combobox search stays open to all staff so any lender/supplier/introducer can be picked. django-guardian row perms are also assigned on `Deal` save (see `crm/signals.py`) but nothing reads them yet.
 
 ## Partner API
 

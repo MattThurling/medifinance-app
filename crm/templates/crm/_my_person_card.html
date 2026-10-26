@@ -1,5 +1,10 @@
 {% load icons crm_extras %}
-{% comment %}Display state of one person card. `id` is the deal page anchor — kept on the form twin too so it survives the HTMX swap.{% endcomment %}
+{% comment %}
+Display state of one person card. `id` is the deal page anchor — kept on the
+form twin too so it survives the HTMX swap. `person.can_edit` is set by the
+view: the primary applicant edits everyone, a co-applicant only themselves;
+other people's cards show the name only (no personal data, no Edit).
+{% endcomment %}
 {% with missing=person|missing_fields %}
 <div class="card bg-base-100 shadow w-full" id="person-{{ person.pk }}">
   <div class="card-body">
@@ -9,36 +14,43 @@
           {% icon "contact" class="h-5 w-5 opacity-70" %}
           {{ person.full_name|default:person.email }}
           {% if person.user_id == request.user.pk %}<span class="badge badge-ghost badge-sm">you</span>{% endif %}
+          {% if person.customer_added and is_primary %}<span class="badge badge-ghost badge-sm" title="Added from the portal — your Medifinance representative will confirm their details">added by you</span>{% endif %}
         </h2>
-        {% if person.email %}<p class="text-xs opacity-60 mt-1">{{ person.email }}</p>{% endif %}
+        {% if person.can_edit and person.email %}<p class="text-xs opacity-60 mt-1">{{ person.email }}</p>{% endif %}
       </div>
-      <button class="btn btn-sm {% if missing %}btn-primary{% else %}btn-ghost{% endif %}"
-              hx-get="{% url 'crm:my_person_edit' person.pk %}"
-              hx-target="closest .card" hx-swap="outerHTML">
-        {% icon "pencil" class="h-4 w-4" %} {% if missing %}Fill in{% else %}Edit{% endif %}
-      </button>
+      {% if person.can_edit %}
+        <button class="btn btn-sm {% if missing %}btn-primary{% else %}btn-ghost{% endif %}"
+                hx-get="{% url 'crm:my_person_edit' person.pk %}"
+                hx-target="closest .card" hx-swap="outerHTML">
+          {% icon "pencil" class="h-4 w-4" %} {% if missing %}Fill in{% else %}Edit{% endif %}
+        </button>
+      {% endif %}
     </div>
 
-    {% if missing %}
-      <p class="text-sm mt-1 flex items-center gap-2">
-        <span class="badge badge-warning badge-sm">Missing</span>
-        <span>{{ missing|join:", " }}</span>
-      </p>
-    {% endif %}
+    {% if person.can_edit %}
+      {% if missing %}
+        <p class="text-sm mt-1 flex items-center gap-2">
+          <span class="badge badge-warning badge-sm">Missing</span>
+          <span>{{ missing|join:", " }}</span>
+        </p>
+      {% endif %}
 
-    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-3 text-sm">
-      <div class="space-y-2">
-        <div><dt class="opacity-60 inline">Phone&nbsp;</dt><dd class="inline">{{ person.phone|default:"—" }}</dd></div>
-        <div><dt class="opacity-60 inline">Date of birth&nbsp;</dt><dd class="inline">{% if person.date_of_birth %}{{ person.date_of_birth|date:"j M Y" }}{% else %}—{% endif %}</dd></div>
-      </div>
-      <div>
-        <dt class="opacity-60">Home address</dt>
-        <dd>{{ person.one_line_address|default:"—" }}</dd>
-      </div>
-    </dl>
-    <p class="text-xs opacity-50 mt-3">
-      To change an email address or add someone applying with you, contact your Medifinance representative.
-    </p>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-3 text-sm">
+        <div class="space-y-2">
+          <div><dt class="opacity-60 inline">Phone&nbsp;</dt><dd class="inline">{{ person.phone|default:"—" }}</dd></div>
+          <div><dt class="opacity-60 inline">Date of birth&nbsp;</dt><dd class="inline">{% if person.date_of_birth %}{{ person.date_of_birth|date:"j M Y" }}{% else %}—{% endif %}</dd></div>
+        </div>
+        <div>
+          <dt class="opacity-60">Home address</dt>
+          <dd>{{ person.one_line_address|default:"—" }}</dd>
+        </div>
+      </dl>
+      <p class="text-xs opacity-50 mt-3">
+        To change an email address, contact your Medifinance representative.
+      </p>
+    {% else %}
+      <p class="text-xs opacity-50 mt-1">Also applying. They manage their own details.</p>
+    {% endif %}
   </div>
 </div>
 {% endwith %}

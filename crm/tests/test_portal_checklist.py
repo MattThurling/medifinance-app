@@ -10,6 +10,7 @@ from crm.portal_checklist import (
 )
 
 from .factories import (
+    make_co_applicant,
     make_contact,
     make_customer_with_deal,
     make_document,
@@ -91,3 +92,38 @@ class OutstandingItemsTests(TestCase):
             "Choose your quote", "Upload: Bank statements",
             "Sign: Guarantee", "Sign: HP agreement",  # newest request first
         ])
+
+    def test_co_applicant_sees_only_their_own_items(self):
+        me = self.deal.customer
+        me.phone = ""
+        me.save()
+        co = make_co_applicant(self.deal, with_user=True, first_name="Jane", last_name="Co")
+        org = self.deal.organisation
+        org.phone = ""
+        org.save()
+        make_quote(self.deal)
+        make_document(self.deal, name="ID")
+        make_signature_request(self.deal, signer=me, template_name="HP agreement")
+        make_signature_request(self.deal, signer=co, template_name="Guarantee")
+
+        self.assertEqual(self.labels(), [
+            "Your details: phone",
+            "Jane Co: date of birth, phone, home address",
+            "Company details: phone",
+            "Choose your quote",
+            "Upload: ID",
+            "Sign: HP agreement",  # not the co-applicant's Guarantee
+        ])
+        self.assertEqual([i.label for i in outstanding_items(self.deal, user=co.user)], [
+            "Your details: date of birth, phone, home address",
+            "Upload: ID",
+            "Sign: Guarantee",
+        ])
+
+    def test_signer_less_requests_stay_with_the_primary(self):
+        co = make_co_applicant(self.deal, with_user=True)
+        make_signature_request(self.deal, template_name="Legacy")
+        self.assertIn("Sign: Legacy", self.labels())
+        self.assertNotIn("Sign: Legacy", [i.label for i in outstanding_items(self.deal, user=co.user)])
+        # No user at all (staff-side callers): everything is listed.
+        self.assertIn("Sign: Legacy", [i.label for i in outstanding_items(self.deal)])

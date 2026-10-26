@@ -1,26 +1,42 @@
 from django.contrib import messages
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views import View
 
 from accounts.permissions import StaffRequiredMixin
 
-from ..access import get_visible_deal_or_404
+from ..access import get_visible_deal_or_404, visible_contacts
 
 
 class _PortalLinkMixin(StaffRequiredMixin):
-    """Shared logic for minting a customer magic link from a Deal.
+    """Shared logic for minting a portal magic link from a Deal.
 
-    Auto-creates (or reuses) the customer's User account, then issues a
+    The link is for the deal's customer unless the POST names a ``contact``
+    (one of the deal's co-applicants — each applicant gets their own login).
+    Auto-creates (or reuses) that person's User account, then issues a
     single-use MagicLink. Adds error/warning flash messages as needed.
-    Returns (link, full_url) on success, or (None, None) on failure.
+    Returns ``(link, full_url)`` on success, or ``(None, None)`` on failure.
     """
 
-    def issue_link(self, request, deal):
-        from ..portal_links import issue_portal_link_for_deal, NoCustomerEmailError
+    def resolve_contact(self, request, deal):
+        """The contact the link is for: the POSTed ``contact`` pk (404 if the
+        staff user can't see that contact) or the deal's customer."""
+        pk = request.POST.get("contact")
+        if not pk:
+            return deal.customer
+        return get_object_or_404(visible_contacts(request.user), pk=pk)
+
+    def issue_link(self, request, deal, contact):
+        from ..portal_links import (
+            ContactNotOnDealError,
+            NoCustomerEmailError,
+            issue_portal_link_for_deal,
+        )
         try:
-            link, dup_warning = issue_portal_link_for_deal(deal, created_by=request.user)
-        except NoCustomerEmailError as exc:
+            link, dup_warning = issue_portal_link_for_deal(
+                deal, contact=contact, created_by=request.user,
+            )
+        except (NoCustomerEmailError, ContactNotOnDealError) as exc:
             messages.error(request, str(exc))
             return None, None
         if dup_warning:
@@ -34,23 +50,25 @@ class IssuePortalLinkView(_PortalLinkMixin, View):
 
     def post(self, request, pk):
         deal = get_visible_deal_or_404(request.user, pk, "customer")
-        link, full_url = self.issue_link(request, deal)
+        contact = self.resolve_contact(request, deal)
+        link, full_url = self.issue_link(request, deal, contact)
         if link is None:
             return redirect(deal.get_absolute_url())
         messages.success(
             request,
-            f"Portal link generated for {deal.customer.email}. "
+            f"Portal link generated for {link.user.email}. "
             f"Expires {link.expires_at:%d %b %Y, %H:%M}. URL: {full_url}",
         )
         return redirect(deal.get_absolute_url())
 
 
 class EmailPortalLinkView(_PortalLinkMixin, View):
-    """Generate a portal link and email it to the customer via the configured backend."""
+    """Generate a portal link and email it to the applicant via the configured backend."""
 
     def post(self, request, pk):
         deal = get_visible_deal_or_404(request.user, pk, "customer", "owner")
-        link, full_url = self.issue_link(request, deal)
+        contact = self.resolve_contact(request, deal)
+        link, full_url = self.issue_link(request, deal, contact)
         if link is None:
             return redirect(deal.get_absolute_url())
 

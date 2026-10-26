@@ -1,5 +1,5 @@
 {% load icons crm_extras %}
-{% comment %}Display state of one company card. Edit swaps in the form partial in place. `id` is the deal page anchor.{% endcomment %}
+{% comment %}Display state of one company card. Edit swaps in the form partial in place. `id` is the deal page anchor. `can_edit_company` is true for the primary applicant only.{% endcomment %}
 {% with missing=org|missing_fields %}
 <div class="card bg-base-100 shadow w-full" id="company">
   <div class="card-body">
@@ -10,11 +10,13 @@
           <p class="text-xs opacity-60 mt-1">Companies House {{ org.companies_house_number }}</p>
         {% endif %}
       </div>
-      <button class="btn btn-sm {% if missing %}btn-primary{% else %}btn-ghost{% endif %}"
-              hx-get="{% url 'crm:my_company_edit' org.pk %}"
-              hx-target="closest .card" hx-swap="outerHTML">
-        {% icon "pencil" class="h-4 w-4" %} {% if missing %}Fill in{% else %}Edit{% endif %}
-      </button>
+      {% if can_edit_company %}
+        <button class="btn btn-sm {% if missing %}btn-primary{% else %}btn-ghost{% endif %}"
+                hx-get="{% url 'crm:my_company_edit' org.pk %}"
+                hx-target="closest .card" hx-swap="outerHTML">
+          {% icon "pencil" class="h-4 w-4" %} {% if missing %}Fill in{% else %}Edit{% endif %}
+        </button>
+      {% endif %}
     </div>
 
     {% if missing %}
@@ -36,7 +38,7 @@
       </div>
     </dl>
     <p class="text-xs opacity-50 mt-3">
-      To change the company name or Companies House number, contact your Medifinance representative.
+      {% if can_edit_company %}To change the company name or Companies House number, contact your Medifinance representative.{% else %}The lead applicant manages the company details.{% endif %}
     </p>
   </div>
 </div>

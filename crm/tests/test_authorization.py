@@ -14,12 +14,15 @@ Convention used here:
 from django.test import TestCase
 from django.urls import reverse
 
+from crm.access import CO_APPLICANT, PRIMARY, deal_role, may_sign, portal_deals, visible_deals
 from crm.models import Deal, Document, Organisation, Participation, Proposal, Quote
 
 from .factories import (
     make_admin,
     make_associate,
+    make_co_applicant,
     make_customer,
+    make_customer_with_deal,
     make_deal,
     make_document,
     make_participation,
@@ -320,6 +323,62 @@ class CustomerCannotMutateStaffResourcesTests(TestCase):
         url = reverse("crm:rate_upload")
         response = self.client.post(url, {})
         self.assertEqual(response.status_code, 403)
+
+    def test_customer_cannot_remove_an_applicant_via_the_staff_url(self):
+        co = make_co_applicant(self.deal)
+        url = reverse("crm:deal_applicant_remove", args=[self.deal.pk, co.pk])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertIn(co, self.deal.co_applicants.all())
+
+
+class PortalDealsTests(TestCase):
+    """`crm.access.portal_deals` is the customer side of `visible_deals`: a
+    deal is theirs when they are its customer contact or a co-applicant with
+    a login. `deal_role` and `may_sign` tell the portal what they may do."""
+
+    def test_primary_and_co_applicants_with_logins_see_the_deal(self):
+        customer, deal = make_customer_with_deal()
+        co = make_co_applicant(deal, with_user=True)
+        make_co_applicant(deal)  # no login — nothing to scope
+        self.assertEqual(list(portal_deals(customer)), [deal])
+        self.assertEqual(list(portal_deals(co.user)), [deal])
+        self.assertEqual(list(visible_deals(co.user)), [deal])
+        self.assertEqual(list(portal_deals(make_customer())), [])
+        self.assertEqual(list(portal_deals(make_associate())), [])
+        from django.contrib.auth.models import AnonymousUser
+        self.assertEqual(list(portal_deals(AnonymousUser())), [])
+
+    def test_one_row_even_when_primary_is_also_listed_as_co_applicant(self):
+        customer, deal = make_customer_with_deal()
+        deal.co_applicants.add(deal.customer)
+        self.assertEqual(portal_deals(customer).count(), 1)
+        self.assertEqual(list(portal_deals(customer).values_list("pk", flat=True)[:2]), [deal.pk])
+
+    def test_deal_role(self):
+        customer, deal = make_customer_with_deal()
+        co = make_co_applicant(deal, with_user=True)
+        self.assertEqual(deal_role(deal, customer), PRIMARY)
+        self.assertEqual(deal_role(deal, co.user), CO_APPLICANT)
+        self.assertIsNone(deal_role(deal, make_customer()))
+        self.assertIsNone(deal_role(deal, deal.owner))
+        other_customer, other_deal = make_customer_with_deal()
+        self.assertIsNone(deal_role(other_deal, customer))
+
+    def test_may_sign(self):
+        from .factories import make_signature_request
+        customer, deal = make_customer_with_deal()
+        co = make_co_applicant(deal, with_user=True)
+        addressed_to_co = make_signature_request(deal, signer=co)
+        addressed_to_primary = make_signature_request(deal, signer=deal.customer)
+        legacy = make_signature_request(deal)  # signer unknown
+
+        self.assertTrue(may_sign(addressed_to_co, co.user, CO_APPLICANT))
+        self.assertFalse(may_sign(addressed_to_co, customer, PRIMARY))
+        self.assertTrue(may_sign(addressed_to_primary, customer, PRIMARY))
+        self.assertFalse(may_sign(addressed_to_primary, co.user, CO_APPLICANT))
+        self.assertTrue(may_sign(legacy, customer, PRIMARY))
+        self.assertFalse(may_sign(legacy, co.user, CO_APPLICANT))
 
 
 class StaffApiAccessTests(TestCase):

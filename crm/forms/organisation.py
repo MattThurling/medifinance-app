@@ -1,7 +1,12 @@
 from django import forms
 
 from ..models import Organisation
-from .base import ADDRESS_FIELDS_ORG, DaisyUIFormMixin, OwnerInitialFormMixin
+from .base import (
+    ADDRESS_FIELDS_ORG,
+    DaisyUIFormMixin,
+    OptimisticLockFormMixin,
+    OwnerInitialFormMixin,
+)
 
 
 class OrganisationForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
@@ -30,7 +35,7 @@ class OrganisationForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm)
         return self.cleaned_data.get("sector") or None
 
 
-class CustomerCompanyForm(DaisyUIFormMixin, forms.ModelForm):
+class CustomerCompanyForm(OptimisticLockFormMixin, DaisyUIFormMixin, forms.ModelForm):
     """Customer portal: the organisation fields a customer may edit inline.
 
     Name and Companies House number are deliberately absent — locked for

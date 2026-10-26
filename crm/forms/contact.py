@@ -1,7 +1,12 @@
 from django import forms
 
 from ..models import Contact, Organisation
-from .base import ADDRESS_FIELDS_HOME, DaisyUIFormMixin, OwnerInitialFormMixin
+from .base import (
+    ADDRESS_FIELDS_HOME,
+    DaisyUIFormMixin,
+    OptimisticLockFormMixin,
+    OwnerInitialFormMixin,
+)
 
 
 class ContactForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
@@ -31,7 +36,10 @@ class ContactForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
         return []
 
 
-class CustomerInfoForm(DaisyUIFormMixin, forms.ModelForm):
+class CustomerInfoForm(OptimisticLockFormMixin, DaisyUIFormMixin, forms.ModelForm):
+    """Customer portal: the personal details an applicant may edit inline.
+    Email is deliberately absent — it is the portal login identity."""
+
     class Meta:
         model = Contact
         fields = ["first_name", "last_name", "date_of_birth", "phone"] + ADDRESS_FIELDS_HOME
@@ -40,13 +48,30 @@ class CustomerInfoForm(DaisyUIFormMixin, forms.ModelForm):
         }
 
 
-class CoApplicantForm(DaisyUIFormMixin, forms.ModelForm):
-    """One form per co-applicant in the formset. `organisation` is set by the
-    view from the deal's customer's org — not in the form."""
+class CustomerApplicantForm(DaisyUIFormMixin, forms.ModelForm):
+    """Customer portal: the primary applicant adds someone from their company
+    to the application. Always creates a new Contact (see
+    ``crm.applicants.add_applicant``); the organisation comes from the deal.
+    Rejects an email already used by someone on this deal, so the new person
+    can be issued their own portal login."""
 
     class Meta:
         model = Contact
-        fields = ["first_name", "last_name", "email", "phone", "date_of_birth"] + ADDRESS_FIELDS_HOME
-        widgets = {
-            "date_of_birth": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-        }
+        fields = ["first_name", "last_name", "email", "phone"]
+
+    def __init__(self, *args, deal=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.deal = deal
+        for name in ("first_name", "last_name", "email"):
+            self.fields[name].required = True
+        self.fields["email"].help_text = "They'll get their own secure link to this application."
+
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip()
+        if self.deal is not None:
+            on_deal = [self.deal.customer, *self.deal.co_applicants.all()]
+            if any(c and c.email and c.email.lower() == email.lower() for c in on_deal):
+                raise forms.ValidationError(
+                    "Someone with this email address is already on this application."
+                )
+        return email

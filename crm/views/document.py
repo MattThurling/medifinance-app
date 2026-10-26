@@ -17,7 +17,7 @@ from .shared import ParentDealMixin, VisibleDealChildMixin
 
 def _can_access_document(user, doc: Document) -> bool:
     """Anyone who can see the document's deal — admins, the owning
-    associate, or the deal's customer."""
+    associate, or any applicant on the deal with a portal login."""
     return visible_deals(user).filter(pk=doc.deal_id).exists()
 
 
@@ -73,7 +73,7 @@ class DocumentUploadView(LoginRequiredMixin, View):
                     type=Note.Type.CUSTOMER_UPDATE,
                     author=request.user,
                     datetime=timezone.now(),
-                    content=f"Customer uploaded “{doc.name}”{detail}.",
+                    content=f"{request.user.full_name} uploaded “{doc.name}”{detail}.",
                     deal=doc.deal,
                 )
             if is_htmx:

@@ -3,10 +3,11 @@ from .base import (
     ADDRESS_FIELDS_HOME,
     ADDRESS_FIELDS_ORG,
     DaisyUIFormMixin,
+    OptimisticLockFormMixin,
     OwnerInitialFormMixin,
 )
 from .organisation import CustomerCompanyForm, OrganisationForm
-from .contact import CoApplicantForm, ContactForm, CustomerInfoForm
+from .contact import ContactForm, CustomerApplicantForm, CustomerInfoForm
 from .deal import DealForm
 from .participation import ParticipationForm, SupplierInvoiceForm
 from .quote import QuoteForm, QuoteSelectionForm, TermsForm
@@ -21,11 +22,12 @@ __all__ = [
     "ADDRESS_FIELDS_HOME",
     "ADDRESS_FIELDS_ORG",
     "DaisyUIFormMixin",
+    "OptimisticLockFormMixin",
     "OwnerInitialFormMixin",
     "CustomerCompanyForm",
     "OrganisationForm",
-    "CoApplicantForm",
     "ContactForm",
+    "CustomerApplicantForm",
     "CustomerInfoForm",
     "DealForm",
     "ParticipationForm",

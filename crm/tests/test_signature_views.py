@@ -58,6 +58,9 @@ class SignatureRequestCreateViewTests(TestCase):
         self.assertEqual(kwargs["signer_email"], "jane@example.com")
         self.assertEqual(kwargs["values"]["Deal Name"], self.deal.name)
         self.assertIs(kwargs["send_email"], False)
+        # Prefill describes the signer — here the customer.
+        self.assertEqual(kwargs["values"]["Client Name"], self.deal.customer.full_name)
+
         self.assertNotIn("message", kwargs)  # the note goes with the send, not the create
         sr = SignatureRequest.objects.get()
         self.assertEqual(sr.deal, self.deal)
@@ -68,6 +71,25 @@ class SignatureRequestCreateViewTests(TestCase):
         self.assertEqual(sr.message, "Please sign this")
         self.assertEqual(sr.status, SignatureRequest.Status.PENDING)
         self.assertIsNone(sr.sent_at)
+
+    @mock.patch("crm.docuseal.create_submission",
+                return_value={"submission_id": 556, "submitter_id": 100})
+    @mock.patch("crm.docuseal.list_templates", return_value=TEMPLATES)
+    def test_post_for_a_co_applicant_prefills_their_details(self, _lt, m_create):
+        co = factories.make_co_applicant(self.deal, first_name="Chris", last_name="Co",
+                                         email="chris@example.com")
+        r = self.client.post(self.url, {
+            "template": "7",
+            "signer": co.pk,
+            "signer_email": co.email,
+            "signer_name": co.full_name,
+            "message": "",
+        })
+        self.assertRedirects(r, self.deal.get_absolute_url())
+        values = m_create.call_args.kwargs["values"]
+        self.assertEqual(values["Client Name"], "Chris Co")
+        self.assertEqual(values["Customer Email"], "chris@example.com")
+        self.assertEqual(SignatureRequest.objects.get(submission_id=556).signer, co)
 
     @mock.patch("crm.docuseal.create_submission",
                 return_value={"submission_id": 555, "submitter_id": 99})

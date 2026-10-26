@@ -37,6 +37,7 @@ urlpatterns = [
     path("deals/<int:pk>/edit/", views.DealUpdateView.as_view(), name="deal_update"),
     path("deals/<int:pk>/delete/", views.DealDeleteView.as_view(), name="deal_delete"),
     path("deals/<int:pk>/applicants/add/", views.DealApplicantAddView.as_view(), name="deal_applicant_add"),
+    path("deals/<int:pk>/applicants/<int:contact_pk>/remove/", views.DealApplicantRemoveView.as_view(), name="deal_applicant_remove"),
     path("deals/<int:pk>/request-commission-invoice/", views.RequestDealCommissionInvoiceView.as_view(), name="deal_request_commission_invoice"),
 
     # Quotes — created from a deal via `?deal=<pk>`; edit/delete use the quote's pk
@@ -112,6 +113,9 @@ urlpatterns = [
     path("my/deals/<int:pk>/", views.MyDealDetailView.as_view(), name="my_deal_detail"),
     path("my/deals/<int:pk>/quotes/", views.MyDealQuoteSelectView.as_view(), name="my_deal_quote_select"),
     path("my/deals/<int:deal_pk>/sign/<int:sr_pk>/", views.MyDealSignView.as_view(), name="my_deal_sign"),
+    # The primary applicant adds / removes people from their company.
+    path("my/deals/<int:pk>/applicants/add/", views.MyDealApplicantAddView.as_view(), name="my_deal_applicant_add"),
+    path("my/deals/<int:pk>/applicants/<int:contact_pk>/remove/", views.MyDealApplicantRemoveView.as_view(), name="my_deal_applicant_remove"),
 
     # Customer portal — issuance is staff-side, consumption is via /m/<token>/
     path("deals/<int:pk>/portal-link/", views.IssuePortalLinkView.as_view(), name="deal_issue_portal_link"),

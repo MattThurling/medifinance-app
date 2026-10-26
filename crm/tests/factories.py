@@ -95,6 +95,28 @@ def make_customer_with_deal(*, owner=None) -> tuple["User", Deal]:
     return user, deal
 
 
+def make_co_applicant(deal: Deal, *, with_user: bool = False, user=None,
+                      added_by_customer: bool = False, **extra) -> Contact:
+    """A co-applicant on ``deal``: a contact in the deal's organisation,
+    attached through ``Deal.co_applicants``. ``with_user=True`` (or an
+    explicit ``user``) gives them a portal login, as issuing a magic link
+    would. ``added_by_customer`` flags them as added from the portal."""
+    if with_user and user is None:
+        user = make_customer()
+    extra.setdefault("first_name", "Co")
+    extra.setdefault("last_name", f"Applicant-{_next()}")
+    contact = make_contact(user=user, organisation=deal.organisation, **extra)
+    deal.co_applicants.add(
+        contact,
+        through_defaults={
+            "added_by_customer": added_by_customer,
+            "added_by": deal.customer.user if added_by_customer else deal.owner,
+            "added_at": timezone.now(),
+        },
+    )
+    return contact
+
+
 def make_rate_band(*, organisation: Organisation | None = None,
                    term_months: int = 60, min_amount: int = 1_000,
                    max_amount: int = 1_000_000,

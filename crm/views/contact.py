@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Value
 from django.db.models.functions import Coalesce, Lower
+from django.utils import timezone
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
@@ -109,7 +110,10 @@ class ContactCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
     def form_valid(self, form):
         response = super().form_valid(form)  # saves contact + organisations M2M
         if self.parent_deal:
-            self.parent_deal.co_applicants.add(self.object)
+            self.parent_deal.co_applicants.add(
+                self.object,
+                through_defaults={"added_by": self.request.user, "added_at": timezone.now()},
+            )
             if self.parent_deal.organisation_id:
                 # Idempotent; covers the locked-org case even when the M2M field
                 # wasn't submitted (e.g. if the template renders a hidden input).

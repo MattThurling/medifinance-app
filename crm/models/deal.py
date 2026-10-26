@@ -195,9 +195,11 @@ class Deal(TimestampedModel):
         blank=True,
         related_name="+",
     )
-    # People applying alongside the primary customer (e.g. partners, directors)
+    # People applying alongside the primary customer (e.g. partners, directors).
+    # The through model records who attached them — see DealCoApplicant.
     co_applicants = models.ManyToManyField(
         Contact,
+        through="DealCoApplicant",
         blank=True,
         related_name="co_applicant_deals",
     )
@@ -336,3 +338,40 @@ class Deal(TimestampedModel):
         cheap."""
         return any(q.commitment_months for q in self.quotes.all())
 
+
+
+class DealCoApplicant(models.Model):
+    """Join row for ``Deal.co_applicants``.
+
+    Reuses the table Django auto-created for the plain M2M (``db_table``), so
+    the conversion was state-only. The three extra columns record who attached
+    the person: staff, through the deal page, or the deal's primary customer
+    from the portal — in which case the applicant is shown to staff as
+    "added by customer" until they have checked them."""
+
+    deal = models.ForeignKey(
+        "Deal", on_delete=models.CASCADE, related_name="co_applicant_links",
+    )
+    contact = models.ForeignKey(
+        Contact, on_delete=models.CASCADE, related_name="co_applicant_links",
+    )
+    added_by_customer = models.BooleanField(
+        default=False,
+        help_text="True when the deal's primary customer added this person from the portal.",
+    )
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    added_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "crm_deal_co_applicants"
+        # Django's auto M2M table already carries this constraint.
+        unique_together = [("deal", "contact")]
+
+    def __str__(self) -> str:
+        return f"{self.contact} on {self.deal}"

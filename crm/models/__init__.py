@@ -6,7 +6,7 @@ contact -> deal -> children) — do not alphabetize.
 from .base import LenderStatus, TimestampedModel, _hubspot_url
 from .organisation import Organisation
 from .contact import Contact
-from .deal import Deal
+from .deal import Deal, DealCoApplicant
 from .participation import (
     Participation,
     ParticipationInvoiceLink,
@@ -33,6 +33,7 @@ __all__ = [
     "Organisation",
     "Contact",
     "Deal",
+    "DealCoApplicant",
     "Participation",
     "ParticipationInvoiceLink",
     "participation_invoice_upload_path",

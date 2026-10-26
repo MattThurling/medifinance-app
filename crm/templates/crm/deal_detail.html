@@ -120,8 +120,42 @@ layout (main content left, amount + timeline right).
           <tbody>
             {% for a in applicants %}
               <tr>
-                <td><a href="{{ a.get_absolute_url }}" class="link link-hover">{{ a }}</a></td>
+                <td>
+                  <a href="{{ a.get_absolute_url }}" class="link link-hover">{{ a }}</a>
+                  {% if a.pk == deal.customer_id %}
+                    <span class="badge badge-ghost badge-xs ml-1">lead</span>
+                  {% elif a.link.added_by_customer %}
+                    <span class="badge badge-warning badge-xs ml-1"
+                          title="Added from the portal by {{ a.link.added_by.full_name|default:'the customer' }}{% if a.link.added_at %} on {{ a.link.added_at|date:'j M Y, H:i' }}{% endif %} — check who they are">Added by customer — unverified</span>
+                  {% endif %}
+                  {% if a.user_id %}<span class="badge badge-ghost badge-xs ml-1" title="Has a portal login">portal</span>{% endif %}
+                </td>
                 <td class="text-right whitespace-nowrap">
+                  {# Remove comes first (a same-size spacer on the lead's row) so the link and edit icons line up down the column. #}
+                  {% if a.link %}
+                    <form method="post" action="{% url 'crm:deal_applicant_remove' deal.pk a.pk %}" class="inline"
+                          onsubmit="return confirm('Remove {{ a|escapejs }} from this deal\'s applicants? The contact itself is kept.');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove from applicants" aria-label="Remove {{ a }} from applicants">{% icon "user-minus" class="h-3.5 w-3.5" %}</button>
+                    </form>
+                  {% else %}
+                    <span class="inline-block btn btn-xs btn-square invisible" aria-hidden="true"></span>
+                  {% endif %}
+                  {# Each applicant gets their own magic link; the lead's big button below does the same for them. #}
+                  {% if a.email %}
+                    <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="contact" value="{{ a.pk }}">
+                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Email a magic link to {{ a.email }}" aria-label="Email a magic link to {{ a.email }}">{% icon "mail" class="h-3.5 w-3.5" %}</button>
+                    </form>
+                    <form method="post" action="{% url 'crm:deal_issue_portal_link' deal.pk %}" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="contact" value="{{ a.pk }}">
+                      <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Generate a magic link to send manually" aria-label="Generate a magic link for {{ a }}">{% icon "link" class="h-3.5 w-3.5" %}</button>
+                    </form>
+                  {% else %}
+                    <button type="button" class="btn btn-ghost btn-xs btn-square" disabled title="No email on file">{% icon "mail" class="h-3.5 w-3.5" %}</button>
+                  {% endif %}
                   <a href="{% url 'crm:contact_update' a.pk %}" class="btn btn-ghost btn-xs btn-square" title="Edit contact">{% icon "pencil" class="h-3.5 w-3.5" %}</a>
                 </td>
               </tr>

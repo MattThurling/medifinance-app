@@ -15,6 +15,13 @@ co-applicants, organisation, introducer, suppliers, lenders, ...) is visible
 too, so links from a deal page never dead-end. Only records owned by staff
 outside the team are hidden.
 
+Customers see the portal: ``portal_deals`` is every deal they are on, as the
+primary applicant (``Deal.customer``) or as a co-applicant with a login.
+``deal_role`` says which of the two they are on a given deal — the primary
+edits everyone's details and the company, chooses the quote and manages
+applicants; a co-applicant edits only themselves and signs only requests
+addressed to them (``may_sign``).
+
 Kept out of ``crm.views`` so ``crm.api``, ``crm.stats``, ``crm.forms`` and
 ``accounts.views`` can import it without pulling in the whole views package.
 """
@@ -46,13 +53,61 @@ def _owned_by_team(user) -> Q:
     return Q(owner=user)
 
 
+def portal_deals(user):
+    """Deals a customer sees in the portal: those where their contact is the
+    primary applicant (``Deal.customer``) or a co-applicant. Anyone else gets
+    none.
+
+    The co-applicant term is a ``pk__in`` subquery over the through table, so
+    the result has no join on Deal and needs no ``distinct()`` — a customer
+    who is somehow both primary and co-applicant on one deal still gets a
+    single row (``DashboardView`` counts rows to pick a landing page).
+    """
+    if not (user.is_authenticated and user.is_customer):
+        return Deal.objects.none()
+    co_applicant_deal_ids = (
+        Deal.co_applicants.through.objects.filter(contact__user=user).values("deal_id")
+    )
+    return Deal.objects.filter(Q(customer__user=user) | Q(pk__in=co_applicant_deal_ids))
+
+
+PRIMARY = "primary"
+CO_APPLICANT = "co_applicant"
+
+
+def deal_role(deal, user) -> "str | None":
+    """``PRIMARY`` when ``user`` is the deal's customer contact, ``CO_APPLICANT``
+    when they are one of its co-applicants, else ``None``. Reads
+    ``deal.customer`` and ``deal.co_applicants.all()`` so a select/prefetch
+    keeps it query-free."""
+    if not (user.is_authenticated and user.is_customer):
+        return None
+    if deal.customer_id is not None and deal.customer.user_id == user.pk:
+        return PRIMARY
+    if any(c.user_id == user.pk for c in deal.co_applicants.all()):
+        return CO_APPLICANT
+    return None
+
+
+def may_sign(sr, user, role) -> bool:
+    """Whether ``user`` (with ``role`` on the request's deal) may open this
+    signature request's signing page. A request addressed to a contact may
+    only be opened by that contact's own login — never by another applicant,
+    now that co-applicants can log in. Requests created before signers were
+    recorded (``signer`` NULL) stay openable by the primary."""
+    if sr.signer_id is not None:
+        return sr.signer.user_id == user.pk
+    return role == PRIMARY
+
+
 def visible_deals(user):
     """Deals ``user`` may see and act on.
 
     * admin      -> every deal, including unowned ones (owner is NULL)
     * associate  -> deals owned by anyone in their organisation, or just
                     their own when they have no organisation
-    * customer   -> deals where they are the customer contact
+    * customer   -> deals they are on, as primary or co-applicant
+                    (see ``portal_deals``)
     * anonymous / anything else -> none
     """
     if not user.is_authenticated:
@@ -62,7 +117,7 @@ def visible_deals(user):
     if user.is_associate:
         return Deal.objects.filter(_owned_by_team(user))
     if user.is_customer:
-        return Deal.objects.filter(customer__user=user)
+        return portal_deals(user)
     return Deal.objects.none()
 
 

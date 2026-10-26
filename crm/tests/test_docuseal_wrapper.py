@@ -116,6 +116,19 @@ class PrefillValuesTests(TestCase):
         self.assertIn("Date", values)
         self.assertNotIn("Amount", values)  # no selected quote → no amount
 
+    def test_prefill_describes_the_signer_when_given(self):
+        deal = factories.make_deal()
+        co = factories.make_co_applicant(
+            deal, first_name="Jane", last_name="Co", email="jane@example.com",
+            home_address_line1="2 Side Street", home_address_postcode="AB1 2CD",
+        )
+        values = docuseal.build_prefill_values(deal, signer=co)
+        self.assertEqual(values["Client Name"], "Jane Co")
+        self.assertEqual(values["Customer Email"], "jane@example.com")
+        self.assertEqual(values["Client Address"], "2 Side Street, AB1 2CD")
+        self.assertEqual(values["Organisation"], deal.organisation.name)  # still the deal's
+        self.assertEqual(docuseal.build_prefill_values(deal)["Client Name"], deal.customer.full_name)
+
     def test_prefill_handles_missing_customer(self):
         deal = factories.make_deal()
         deal.customer = None

@@ -1,0 +1,12 @@
+A customer has added someone to their application from the portal. Please check who they are before relying on their details.
+
+Deal:      {{ deal_name }}
+Added by:  {{ added_by_name }}
+Applicant: {{ applicant_name }}
+Email:     {{ applicant_email }}
+
+View it in the CRM:
+
+{{ deal_url }}
+
+Medifinance

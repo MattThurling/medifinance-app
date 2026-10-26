@@ -28,6 +28,7 @@ from .contact import (
 )
 from .deal import (
     DealApplicantAddView,
+    DealApplicantRemoveView,
     DealCreateView,
     DealDeleteView,
     DealDetailView,
@@ -91,6 +92,8 @@ from .rateband import RateBandAddView, RatesView, RateUploadView
 from .customer import (
     MyCompanyCardView,
     MyCompanyEditView,
+    MyDealApplicantAddView,
+    MyDealApplicantRemoveView,
     MyDealDetailView,
     MyDealListView,
     MyDealQuoteSelectView,
@@ -120,6 +123,7 @@ __all__ = [
     "ContactUpdateView",
     "UserSearchView",
     "DealApplicantAddView",
+    "DealApplicantRemoveView",
     "DealCreateView",
     "DealDeleteView",
     "DealDetailView",
@@ -172,6 +176,8 @@ __all__ = [
     "RateUploadView",
     "MyCompanyCardView",
     "MyCompanyEditView",
+    "MyDealApplicantAddView",
+    "MyDealApplicantRemoveView",
     "MyDealDetailView",
     "MyDealListView",
     "MyDealQuoteSelectView",

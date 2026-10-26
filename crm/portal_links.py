@@ -1,4 +1,4 @@
-"""Mint customer portal magic links for a Deal.
+"""Mint customer portal magic links for a Deal, for its customer or a co-applicant.
 
 Pulled out of `_PortalLinkMixin` so the API path (which has no `request.user`
 and no `messages` framework available) can reuse the exact same logic.
@@ -13,24 +13,35 @@ from accounts.models import MagicLink, Role
 
 
 class NoCustomerEmailError(Exception):
-    """The Deal's customer Contact has no email on file."""
+    """The Contact the link is for has no email on file."""
 
 
-def issue_portal_link_for_deal(deal, *, created_by=None):
-    """Resolve (or create) the customer User for `deal.customer` and issue a
-    single-use MagicLink that lands straight on that deal's portal page —
-    the one screen that shows what we still need from them.
+class ContactNotOnDealError(Exception):
+    """The Contact is neither the deal's customer nor one of its co-applicants."""
+
+
+def issue_portal_link_for_deal(deal, *, contact=None, created_by=None):
+    """Resolve (or create) the portal User for ``contact`` — the deal's
+    customer by default, or one of its co-applicants — and issue a single-use
+    MagicLink that lands straight on that deal's portal page, the one screen
+    that shows what we still need from them.
 
     Returns ``(link, duplicate_user_warning)`` where the second element is a
     human-readable string when the contact's email is already attached to a
     different Contact (the link still works), or ``None`` otherwise.
 
     Raises ``NoCustomerEmailError`` if the contact has no email — magic links
-    are useless without one. Callers should surface this to the user.
+    are useless without one — and ``ContactNotOnDealError`` if the contact
+    isn't on the deal. Callers should surface both to the user.
     """
     from .models import Contact
 
-    contact = deal.customer
+    if contact is None:
+        contact = deal.customer
+    elif contact.pk != deal.customer_id and not deal.co_applicants.filter(pk=contact.pk).exists():
+        raise ContactNotOnDealError(f"{contact} isn't an applicant on this deal.")
+    if contact is None:
+        raise NoCustomerEmailError("Can't issue a link: this deal has no customer contact.")
 
     if contact.user is not None:
         link_user = contact.user

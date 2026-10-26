@@ -18,6 +18,7 @@ from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
 from .. import docuseal, pricing, stats
 from ..access import get_visible_deal_or_404, visible_contacts, visible_deals
+from ..applicants import removal_blocker, remove_applicant
 from ..forms import DealForm, XeroInvoiceForm
 from ..models import Contact, Deal, Stage, XeroInvoice
 from .shared import (
@@ -215,6 +216,8 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             "quotes__lender",
             "stage_events",
             "co_applicants",
+            "co_applicant_links__contact__user",
+            "co_applicant_links__added_by",
             "documents",
             "signature_requests",
             "participations__organisation",
@@ -232,8 +235,15 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             deal.stage_events.select_related("organisation").order_by("occurred_at", "pk")
         )
 
-        # Applicants = the lead (customer, if set) plus any co-applicants
-        applicants = [a for a in (deal.customer, *deal.co_applicants.all()) if a]
+        # Applicants = the lead (customer, if set) plus any co-applicants. Each
+        # co-applicant carries its through row as `.link` so the template can
+        # flag people the customer added from the portal (unverified) and
+        # offer a remove button; the lead has no link.
+        co_applicants = []
+        for link in deal.co_applicant_links.all():
+            link.contact.link = link
+            co_applicants.append(link.contact)
+        applicants = [a for a in (deal.customer, *co_applicants) if a]
         ctx["applicants"] = applicants
 
         # Other contacts in the deal's organisation that this user can see
@@ -336,8 +346,28 @@ class DealApplicantAddView(StaffRequiredMixin, View):
         elif contact.pk == deal.customer_id:
             messages.error(request, "That contact is already the lead applicant.")
         else:
-            deal.co_applicants.add(contact)
+            deal.co_applicants.add(
+                contact,
+                through_defaults={"added_by": request.user, "added_at": timezone.now()},
+            )
             messages.success(request, f"Added {contact} as an applicant.")
+        return redirect(deal.get_absolute_url())
+
+
+class DealApplicantRemoveView(StaffRequiredMixin, View):
+    """Detach a co-applicant from a deal. Refused while they have a signature
+    request or an upload on it (see ``crm.applicants.removal_blocker``); the
+    Contact itself is never deleted."""
+
+    def post(self, request, pk, contact_pk):
+        deal = get_visible_deal_or_404(request.user, pk)
+        contact = get_object_or_404(deal.co_applicants, pk=contact_pk)
+        blocker = removal_blocker(deal, contact)
+        if blocker:
+            messages.error(request, blocker)
+        else:
+            remove_applicant(deal, contact, by_user=request.user, log=False)
+            messages.success(request, f"Removed {contact} from the applicants.")
         return redirect(deal.get_absolute_url())
 
 

@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.utils.functional import cached_property
 
 from accounts.models import Role
 
@@ -48,6 +49,45 @@ class DaisyUIFormMixin:
             else:
                 base = "input input-bordered w-full"
             w.attrs["class"] = f"{existing} {base}".strip()
+
+
+class OptimisticLockFormMixin:
+    """Reject a save when the record changed since the form was rendered.
+
+    The portal's person and company cards can be open in two browsers at once
+    (the primary applicant and a co-applicant, or two tabs). Each form carries
+    the instance's ``updated_at`` in a hidden ``expected_updated_at`` field,
+    rendered from the database value — never from the posted one, so a form
+    re-rendered after a conflict carries the fresh stamp and the retry goes
+    through. A blank stamp skips the check (older clients, plain POSTs).
+    """
+
+    CONFLICT_MESSAGE = (
+        "Someone else changed these details while you were editing. Nothing "
+        "was saved — please check the current values and try again."
+    )
+
+    STAMP_FIELD = "expected_updated_at"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[self.STAMP_FIELD] = forms.CharField(
+            widget=forms.HiddenInput, required=False,
+        )
+
+    @cached_property
+    def changed_data(self):
+        # The stamp is bookkeeping, not an edit: keep it out of the audit
+        # trail and the "did anything change?" check.
+        return [name for name in super().changed_data if name != self.STAMP_FIELD]
+
+    def clean(self):
+        cleaned = super().clean()
+        expected = cleaned.get(self.STAMP_FIELD)
+        current = getattr(self.instance, "updated_at", None)
+        if expected and current is not None and expected != current.isoformat():
+            raise forms.ValidationError(self.CONFLICT_MESSAGE, code="stale")
+        return cleaned
 
 
 class OwnerInitialFormMixin:

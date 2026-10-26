@@ -30,7 +30,9 @@ logger = logging.getLogger(__name__)
 
 def _can_access_signature(user, sr: SignatureRequest) -> bool:
     """Anyone who can see the request's deal — admins, the owning associate,
-    or the deal's customer."""
+    or any applicant on the deal with a portal login (they are all parties
+    to the agreement). Opening the signing page itself is tighter: see
+    ``MyDealSignView``."""
     return visible_deals(user).filter(pk=sr.deal_id).exists()
 
 
@@ -200,7 +202,7 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
                 template_id=template_id,
                 signer_email=form.cleaned_data["signer_email"],
                 signer_name=form.cleaned_data["signer_name"],
-                values=docuseal.build_prefill_values(self.deal),
+                values=docuseal.build_prefill_values(self.deal, signer=form.cleaned_data["signer"]),
                 send_email=False,
             )
         except docuseal.DocuSealError as exc:
@@ -306,7 +308,7 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
                 template_id=old.template_id,
                 signer_email=old.signer_email,
                 signer_name=old.signer_name,
-                values=docuseal.build_prefill_values(deal),
+                values=docuseal.build_prefill_values(deal, signer=old.signer),
                 message=old.message or None,
             )
         except docuseal.DocuSealError as exc:

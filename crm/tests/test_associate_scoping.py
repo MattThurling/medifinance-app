@@ -16,12 +16,15 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from django.core import mail
+
 from crm.access import visible_contacts, visible_deals, visible_organisations
-from crm.models import Contact, Deal, Note, Organisation, Quote, Stage
+from crm.models import Contact, Deal, DealCoApplicant, Note, Organisation, Quote, Stage
 
 from .factories import (
     make_admin,
     make_associate,
+    make_co_applicant,
     make_commercial_quote,
     make_contact,
     make_customer,
@@ -749,3 +752,102 @@ class StaffApiTests(ScopingTestCase):
         self.assertEqual(
             self.client.get(reverse("crm_api:deal_detail", args=[self.unowned.pk])).status_code, 200,
         )
+
+
+class ApplicantManagementScopingTests(ScopingTestCase):
+    """Staff-side applicant controls: remove, the customer-added flag, and
+    per-applicant magic links — all scoped to deals the associate can see."""
+
+    def test_remove_is_scoped_and_respects_blockers(self):
+        co_theirs = make_co_applicant(self.theirs)
+        response = self.client.post(
+            reverse("crm:deal_applicant_remove", args=[self.theirs.pk, co_theirs.pk]),
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertIn(co_theirs, self.theirs.co_applicants.all())
+
+        co_own = make_co_applicant(self.own)
+        response = self.client.post(
+            reverse("crm:deal_applicant_remove", args=[self.own.pk, co_own.pk]),
+        )
+        self.assertRedirects(response, self.own.get_absolute_url())
+        self.assertNotIn(co_own, self.own.co_applicants.all())
+        self.assertTrue(Contact.objects.filter(pk=co_own.pk).exists())
+
+        signer = make_co_applicant(self.own)
+        make_signature_request(self.own, signer=signer)
+        response = self.client.post(
+            reverse("crm:deal_applicant_remove", args=[self.own.pk, signer.pk]), follow=True,
+        )
+        self.assertContains(response, "signature request")
+        self.assertIn(signer, self.own.co_applicants.all())
+
+    def test_staff_added_applicants_are_not_flagged_but_record_who_added_them(self):
+        loose = make_contact(organisation=self.own.organisation, last_name="Loose")
+        self.client.post(reverse("crm:deal_applicant_add", args=[self.own.pk]), {"contact": loose.pk})
+        link = DealCoApplicant.objects.get(deal=self.own, contact=loose)
+        self.assertFalse(link.added_by_customer)
+        self.assertEqual(link.added_by, self.associate)
+        self.assertIsNotNone(link.added_at)
+
+        # The same goes for "+ New contact" from the deal page.
+        response = self.client.post(
+            reverse("crm:contact_create") + f"?deal={self.own.pk}",
+            {"first_name": "New", "last_name": "Person", "email": "new@example.com",
+             "organisations": [self.own.organisation.pk]},
+        )
+        self.assertRedirects(response, self.own.get_absolute_url())
+        link = DealCoApplicant.objects.get(deal=self.own, contact__email="new@example.com")
+        self.assertFalse(link.added_by_customer)
+        self.assertEqual(link.added_by, self.associate)
+
+    def test_deal_detail_flags_customer_added_applicants_and_offers_controls(self):
+        by_customer = make_co_applicant(self.own, added_by_customer=True, last_name="Portal")
+        by_staff = make_co_applicant(self.own, last_name="Staff")
+        response = self.client.get(self.own.get_absolute_url())
+        self.assertContains(response, "Added by customer — unverified", count=1)
+        self.assertContains(response, reverse("crm:deal_applicant_remove", args=[self.own.pk, by_customer.pk]))
+        self.assertContains(response, reverse("crm:deal_applicant_remove", args=[self.own.pk, by_staff.pk]))
+        # The lead can't be removed; every applicant gets magic-link buttons.
+        self.assertNotContains(
+            response, reverse("crm:deal_applicant_remove", args=[self.own.pk, self.own.customer_id]),
+        )
+        for contact in (self.own.customer, by_customer, by_staff):
+            self.assertContains(response, f'name="contact" value="{contact.pk}"')
+
+    def test_portal_link_for_a_co_applicant_is_scoped_to_visible_contacts_on_the_deal(self):
+        co = make_co_applicant(self.own, email="own-co@example.com")
+        response = self.client.post(
+            reverse("crm:deal_email_portal_link", args=[self.own.pk]), {"contact": co.pk},
+        )
+        self.assertRedirects(response, self.own.get_absolute_url())
+        co.refresh_from_db()
+        self.assertEqual(co.user.email, "own-co@example.com")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["own-co@example.com"])
+
+        # A contact the associate can't see 404s like a missing row. (Once a
+        # contact is on a visible deal it becomes reachable, by design.)
+        response = self.client.post(
+            reverse("crm:deal_issue_portal_link", args=[self.own.pk]),
+            {"contact": self.hidden_contact.pk},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.hidden_contact.refresh_from_db()
+        self.assertIsNone(self.hidden_contact.user)
+
+        # A visible contact who isn't on the deal is refused with a message.
+        stranger = make_contact(email="stranger@example.com")
+        response = self.client.post(
+            reverse("crm:deal_issue_portal_link", args=[self.own.pk]), {"contact": stranger.pk},
+            follow=True,
+        )
+        self.assertContains(response, "isn&#x27;t an applicant on this deal")
+        stranger.refresh_from_db()
+        self.assertIsNone(stranger.user)
+
+        # No contact: the lead, as before.
+        response = self.client.post(reverse("crm:deal_issue_portal_link", args=[self.own.pk]))
+        self.assertRedirects(response, self.own.get_absolute_url())
+        self.own.customer.refresh_from_db()
+        self.assertIsNotNone(self.own.customer.user)

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .access import CO_APPLICANT, deal_role, may_sign
 from .models import Contact, Deal, Document, Organisation, SignatureRequest
 
 
@@ -63,25 +64,32 @@ def deal_people(deal: Deal) -> list[Contact]:
 def outstanding_items(deal: Deal, *, user=None) -> list[Item]:
     """Everything still needed on `deal`, in page order.
 
-    `user` (the logged-in customer) only affects wording: their own contact
-    is "Your details", anyone else is named."""
+    `user` is the logged-in applicant. For the primary (or when omitted) that
+    is everything on the deal, with their own contact worded "Your details".
+    A co-applicant only sees what is theirs to do: their own details, uploads,
+    and signature requests addressed to them — the company, the quote and
+    other people's details belong to the primary."""
     items: list[Item] = []
+    role = deal_role(deal, user) if user is not None else None
+    own_only = role == CO_APPLICANT
 
     for person in deal_people(deal):
+        is_me = user is not None and person.user_id == user.pk
+        if own_only and not is_me:
+            continue
         missing = contact_missing_fields(person)
         if missing:
-            is_me = user is not None and person.user_id == user.pk
             who = "Your details" if is_me else (person.full_name or person.email or "Co-applicant")
             items.append(Item(f"{who}: {', '.join(missing)}", person_anchor(person)))
 
-    if deal.organisation_id:
+    if deal.organisation_id and not own_only:
         missing = organisation_missing_fields(deal.organisation)
         if missing:
             items.append(Item(f"Company details: {', '.join(missing)}", "company"))
 
     # customer_quotes honours a prefetch; on commercial deals it is only the
     # approved Terms rows — the customer never chooses between unapproved ones.
-    if deal.selected_quote_id is None and deal.customer_quotes:
+    if not own_only and deal.selected_quote_id is None and deal.customer_quotes:
         items.append(Item("Choose your quote", "quotes"))
 
     for doc in deal.documents.all():
@@ -89,7 +97,10 @@ def outstanding_items(deal: Deal, *, user=None) -> list[Item]:
             items.append(Item(f"Upload: {doc.name}", "documents"))
 
     for sr in deal.signature_requests.all():
-        if sr.is_active:  # pending / sent / opened — all signable from the portal
-            items.append(Item(f"Sign: {sr.template_name or 'Agreement'}", "signatures"))
+        if not sr.is_active:  # pending / sent / opened — all signable from the portal
+            continue
+        if user is not None and not may_sign(sr, user, role):
+            continue
+        items.append(Item(f"Sign: {sr.template_name or 'Agreement'}", "signatures"))
 
     return items

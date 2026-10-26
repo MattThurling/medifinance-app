@@ -150,6 +150,30 @@ def send_supplier_invoice_submitted_email(
     _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.NOTIFY_EMAILS))
 
 
+def send_applicant_added_email(
+    *,
+    deal_name: str,
+    deal_url: str,
+    added_by_name: str,
+    applicant_name: str,
+    applicant_email: str,
+) -> None:
+    """Tell the NOTIFY_EMAILS staff list that a customer added a co-applicant
+    from the portal — the person is unverified until staff have checked them."""
+    context = {
+        "deal_name": deal_name,
+        "deal_url": deal_url,
+        "added_by_name": added_by_name,
+        "applicant_name": applicant_name,
+        "applicant_email": applicant_email,
+    }
+    subject = f"Applicant added by customer: {applicant_name} ({deal_name})"
+    text_body = render_to_string("email/applicant_added.txt", context)
+    html_body = render_to_string("email/applicant_added.html", context)
+
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.NOTIFY_EMAILS))
+
+
 def send_commission_invoice_request_email(
     *,
     deal_name: str,

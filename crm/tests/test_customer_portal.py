@@ -8,12 +8,17 @@ from django.core.exceptions import PermissionDenied  # noqa: F401 (documentation
 from django.test import TestCase
 from django.urls import reverse
 
+from django.conf import settings
+from django.core import mail
+
 from accounts.models import MagicLink
-from crm.models import Note
-from crm.portal_links import issue_portal_link_for_deal
+from crm.models import Contact, Deal, DealCoApplicant, Note
+from crm.portal_links import ContactNotOnDealError, issue_portal_link_for_deal
+from crm.views.customer import customer_people
 
 from .factories import (
     make_associate,
+    make_co_applicant,
     make_contact,
     make_customer,
     make_customer_with_deal,
@@ -54,6 +59,7 @@ def company_form_data(org, **overrides):
         f"{p}-phone": org.phone,
         f"{p}-email": org.email,
         f"{p}-url": org.url,
+        f"{p}-expected_updated_at": org.updated_at.isoformat(),
     }
     data.update({f"{p}-{k}": v for k, v in overrides.items()})
     return data
@@ -70,6 +76,7 @@ def person_form_data(person, **overrides):
         f"{p}-home_address_city": person.home_address_city,
         f"{p}-home_address_county": person.home_address_county,
         f"{p}-home_address_postcode": person.home_address_postcode,
+        f"{p}-expected_updated_at": person.updated_at.isoformat(),
     }
     data.update({f"{p}-{k}": v for k, v in overrides.items()})
     return data
@@ -141,6 +148,45 @@ class AccessControlTests(TestCase):
         self.assertRedirects(response, link.redirect_url)
         self.assertTrue(MagicLink.objects.get(pk=link.pk).is_consumed)
 
+    def test_root_routes_co_applicant_to_their_deal(self):
+        co = make_co_applicant(self.deal, with_user=True)
+        self.client.force_login(co.user)
+        response = self.client.get(reverse("dashboard"))
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+
+    def test_magic_link_for_co_applicant_creates_their_login_and_lands_on_the_deal(self):
+        co = make_co_applicant(self.deal, email="co@example.com")
+        link, warning = issue_portal_link_for_deal(self.deal, contact=co)
+        self.assertIsNone(warning)
+        co.refresh_from_db()
+        self.assertEqual(co.user.email, "co@example.com")
+        self.assertTrue(co.user.is_customer)
+        self.assertEqual(link.user, co.user)
+
+        response = self.client.get(reverse("consume_magic_link", args=[link.token]))
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        page = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, reverse("crm:my_person_edit", args=[co.pk]))
+        self.assertNotContains(page, reverse("crm:my_person_edit", args=[self.deal.customer_id]))
+
+    def test_magic_link_for_contact_not_on_the_deal_is_refused(self):
+        stranger = make_contact()
+        with self.assertRaises(ContactNotOnDealError):
+            issue_portal_link_for_deal(self.deal, contact=stranger)
+        self.assertFalse(MagicLink.objects.exists())
+
+    def test_co_applicant_sharing_the_primarys_login_email_gets_a_warning_not_a_relink(self):
+        # Contact emails aren't unique; the login (User) email is. A new
+        # applicant entered with an address that already has a login is
+        # issued a link for that login, but the contact isn't re-linked.
+        co = make_co_applicant(self.deal, email=self.customer.email)
+        link, warning = issue_portal_link_for_deal(self.deal, contact=co)
+        self.assertIsNotNone(warning)
+        self.assertEqual(link.user, self.customer)  # the existing login
+        co.refresh_from_db()
+        self.assertIsNone(co.user)
+
 
 class IsolationTests(TestCase):
     @classmethod
@@ -203,6 +249,69 @@ class IsolationTests(TestCase):
         response = self.client.get(reverse("crm:my_deal_detail", args=[deal_other.pk]))
         self.assertNotContains(response, "Only OnA")
         self.assertContains(response, reverse("crm:my_person_edit", args=[self.deal_a.customer_id]))
+
+    def test_co_applicant_with_login_sees_the_deal_with_a_restricted_view(self):
+        primary = self.deal_a.customer
+        primary.first_name, primary.last_name, primary.phone = "Pat", "Primary", "01234 567890"
+        primary.save()
+        co = make_co_applicant(self.deal_a, with_user=True, first_name="Chris", last_name="Co")
+        self.client.force_login(co.user)
+
+        response = self.client.get(reverse("crm:my_deals"))
+        self.assertContains(response, self.deal_a.name)
+        self.assertNotContains(response, self.deal_b.name)
+
+        page = self.client.get(reverse("crm:my_deal_detail", args=[self.deal_a.pk]))
+        self.assertEqual(page.status_code, 200)
+        # Their own card is editable; the primary is named but shows no
+        # personal data and no Edit; company, quote and applicant controls
+        # belong to the primary.
+        self.assertContains(page, reverse("crm:my_person_edit", args=[co.pk]))
+        self.assertContains(page, "Pat Primary")
+        self.assertNotContains(page, "01234 567890")
+        self.assertNotContains(page, reverse("crm:my_person_edit", args=[primary.pk]))
+        self.assertNotContains(page, reverse("crm:my_company_edit", args=[self.deal_a.organisation_id]))
+        self.assertContains(page, "The lead applicant manages the company details.")
+        self.assertNotContains(page, reverse("crm:my_deal_applicant_add", args=[self.deal_a.pk]))
+
+    def test_co_applicant_cannot_reach_company_or_other_peoples_edit_endpoints(self):
+        co = make_co_applicant(self.deal_a, with_user=True)
+        self.client.force_login(co.user)
+        for url in [
+            reverse("crm:my_company_card", args=[self.deal_a.organisation_id]),
+            reverse("crm:my_company_edit", args=[self.deal_a.organisation_id]),
+            reverse("crm:my_person_card", args=[self.deal_a.customer_id]),
+            reverse("crm:my_person_edit", args=[self.deal_a.customer_id]),
+        ]:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url, **HTMX).status_code, 404)
+
+        primary = self.deal_a.customer
+        response = self.client.post(
+            reverse("crm:my_person_edit", args=[primary.pk]),
+            person_form_data(primary, phone="HIJACKED"),
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 404)
+        primary.refresh_from_db()
+        self.assertNotEqual(primary.phone, "HIJACKED")
+        self.assertEqual(list(customer_people(co.user)), [co])
+
+    def test_co_applicant_edits_their_own_details(self):
+        co = make_co_applicant(self.deal_a, with_user=True)
+        self.client.force_login(co.user)
+        response = self.client.post(
+            reverse("crm:my_person_edit", args=[co.pk]),
+            person_form_data(co, phone="07700 900999"),
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        co.refresh_from_db()
+        self.assertEqual(co.phone, "07700 900999")
+        note = Note.objects.get(type=Note.Type.CUSTOMER_UPDATE)
+        self.assertEqual(note.author, co.user)
+        self.assertEqual(note.contact, co)
+        self.assertIn(co.user.full_name, note.content)
 
 
 class InlineEditTests(TestCase):
@@ -300,6 +409,75 @@ class InlineEditTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("hx-post", response.content.decode())
+
+    def test_note_names_the_actor(self):
+        self.client.post(
+            reverse("crm:my_person_edit", args=[self.contact.pk]),
+            person_form_data(self.contact, phone="07700 900123"),
+            **HTMX,
+        )
+        note = Note.objects.get(type=Note.Type.CUSTOMER_UPDATE)
+        self.assertTrue(note.content.startswith(self.customer.full_name))
+        self.assertNotIn("Customer updated", note.content)
+
+    def test_stale_edit_is_rejected_and_the_form_rerenders_with_a_fresh_stamp(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        data = person_form_data(self.contact, phone="07700 900123")  # stamp = as rendered
+        # Someone else saves in between.
+        Contact.objects.filter(pk=self.contact.pk).update(
+            phone="0117 000000", updated_at=timezone.now() + timedelta(seconds=5),
+        )
+        response = self.client.post(
+            reverse("crm:my_person_edit", args=[self.contact.pk]), data, **HTMX
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("hx-post", content)  # still the form
+        self.assertIn("Someone else changed these details", content)
+        self.contact.refresh_from_db()
+        self.assertEqual(self.contact.phone, "0117 000000")  # nothing saved
+        self.assertEqual(Note.objects.filter(type=Note.Type.CUSTOMER_UPDATE).count(), 0)
+        # The re-rendered form carries the current stamp, so a retry goes through.
+        self.assertIn(self.contact.updated_at.isoformat(), content)
+        response = self.client.post(
+            reverse("crm:my_person_edit", args=[self.contact.pk]),
+            person_form_data(self.contact, phone="07700 900123"),
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("hx-post", response.content.decode())
+        self.contact.refresh_from_db()
+        self.assertEqual(self.contact.phone, "07700 900123")
+
+    def test_stale_company_edit_is_rejected(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        data = company_form_data(self.org, address_line1="42 New Street")
+        from crm.models import Organisation
+        Organisation.objects.filter(pk=self.org.pk).update(
+            address_line1="1 Other Way", updated_at=timezone.now() + timedelta(seconds=5),
+        )
+        response = self.client.post(
+            reverse("crm:my_company_edit", args=[self.org.pk]), data, **HTMX
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Someone else changed these details", response.content.decode())
+        self.org.refresh_from_db()
+        self.assertEqual(self.org.address_line1, "1 Other Way")
+
+    def test_missing_stamp_is_tolerated(self):
+        p = f"person{self.contact.pk}"
+        data = person_form_data(self.contact, phone="07700 900123")
+        data.pop(f"{p}-expected_updated_at")
+        response = self.client.post(
+            reverse("crm:my_person_edit", args=[self.contact.pk]), data, **HTMX
+        )
+        self.assertEqual(response.status_code, 200)
+        self.contact.refresh_from_db()
+        self.assertEqual(self.contact.phone, "07700 900123")
 
     def test_non_htmx_get_redirects_to_page(self):
         response = self.client.get(reverse("crm:my_company_edit", args=[self.org.pk]))
@@ -524,6 +702,48 @@ class DealSigningTests(TestCase):
         self.client.force_login(make_associate())
         self.assertEqual(self.client.get(url).status_code, 403)  # other associate
 
+    @override_settings(**DOCUSEAL_ON)
+    def test_co_applicant_opens_only_requests_addressed_to_them(self):
+        co = make_co_applicant(self.deal, with_user=True, first_name="Chris", last_name="Co")
+        theirs = self._sr(signer=co, signer_email=co.email, signer_name="Chris Co", signing_slug="co-slug")
+        primarys = self._sr(signer=self.deal.customer, signer_name="Pat Primary")
+        self.client.force_login(co.user)
+
+        response = self.client.get(self._sign_url(theirs))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://sign.test:3000/s/co-slug")
+        self.assertEqual(self.client.get(self._sign_url(primarys)).status_code, 403)
+
+        page = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(page, self._sign_url(theirs))
+        self.assertNotContains(page, self._sign_url(primarys))
+        self.assertContains(page, "Awaiting Pat Primary")
+        # Signed documents on the deal stay downloadable by every applicant.
+        signed = self._sr(status=SignatureRequest.Status.COMPLETED)
+        signed.signed_file.save("signed.pdf", _pdf("signed.pdf"), save=True)
+        self.assertEqual(
+            self.client.get(reverse("crm:signature_signed_download", args=[signed.pk])).status_code, 200,
+        )
+
+    @override_settings(**DOCUSEAL_ON)
+    def test_primary_cannot_open_a_co_applicants_request(self):
+        co = make_co_applicant(self.deal, first_name="Chris", last_name="Co")
+        sr = self._sr(signer=co, signer_name="Chris Co")
+        self.assertEqual(self.client.get(self._sign_url(sr)).status_code, 403)
+        page = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertNotContains(page, self._sign_url(sr))
+        self.assertContains(page, "Awaiting Chris Co")
+        self.assertNotContains(page, "Sign now")
+
+    @override_settings(**DOCUSEAL_ON)
+    def test_primary_opens_legacy_requests_with_no_signer_recorded(self):
+        sr = self._sr()
+        self.assertIsNone(sr.signer)
+        self.assertEqual(self.client.get(self._sign_url(sr)).status_code, 302)
+        co = make_co_applicant(self.deal, with_user=True)
+        self.client.force_login(co.user)
+        self.assertEqual(self.client.get(self._sign_url(sr)).status_code, 403)
+
 
 class ActionBadgeTests(TestCase):
     @classmethod
@@ -671,6 +891,23 @@ class QuoteSelectionTests(TestCase):
         self._select()
         self.assertNotContains(self.client.get(reverse("crm:my_deals")), "needed")
 
+    def test_co_applicant_cannot_select_and_sees_the_card_read_only(self):
+        co = make_co_applicant(self.deal, with_user=True)
+        complete_details(self.deal)
+        self.client.force_login(co.user)
+        response = self._select(**HTMX)
+        self.assertEqual(response.status_code, 403)
+        self.deal.refresh_from_db()
+        self.assertIsNone(self.deal.selected_quote_id)
+
+        page = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(page, "Your lead applicant chooses the quote")
+        self.assertNotContains(page, 'hx-trigger="change"')
+        self.assertNotContains(page, "Action needed — please choose the quote")
+        self.assertNotContains(page, "Choose your quote")
+        self.assertContains(page, "disabled")
+        self.assertNotContains(self.client.get(reverse("crm:my_deals")), "needed")
+
 
 class CommittedQuoteCardTests(TestCase):
     @classmethod
@@ -766,3 +1003,159 @@ class CommercialQuoteCardTests(TestCase):
         self.assertContains(response, "Please pick one of the quotes")
         self.deal.refresh_from_db()
         self.assertIsNone(self.deal.selected_quote_id)
+
+
+class ApplicantManagementTests(TestCase):
+    """The primary applicant adds and removes people from their company."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.deal = make_customer_with_deal()
+        cls.other_customer, cls.other_deal = make_customer_with_deal()
+
+    def setUp(self):
+        self.client.force_login(self.customer)
+
+    def _add(self, **overrides):
+        data = {"first_name": "Jane", "last_name": "Partner",
+                "email": "jane@example.com", "phone": "0117 111222"}
+        data.update(overrides)
+        return self.client.post(
+            reverse("crm:my_deal_applicant_add", args=[self.deal.pk]), data, follow=True,
+        )
+
+    def _remove(self, contact):
+        return self.client.post(
+            reverse("crm:my_deal_applicant_remove", args=[self.deal.pk, contact.pk]), follow=True,
+        )
+
+    def _page(self):
+        return self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+
+    def test_page_offers_the_add_form_to_the_primary(self):
+        page = self._page()
+        self.assertContains(page, "Add someone applying with you")
+        self.assertContains(page, reverse("crm:my_deal_applicant_add", args=[self.deal.pk]))
+        self.assertNotContains(page, "To add someone applying with you, contact")
+
+    def test_add_creates_a_fresh_flagged_contact_in_the_org_with_note_and_staff_email(self):
+        stranger = make_contact(email="jane@example.com", first_name="Stranger", last_name="Elsewhere")
+        response = self._add()
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Added Jane Partner")
+
+        new = self.deal.co_applicants.get()
+        self.assertNotEqual(new.pk, stranger.pk)  # never matched by email
+        self.assertEqual((new.first_name, new.last_name, new.email, new.phone),
+                         ("Jane", "Partner", "jane@example.com", "0117 111222"))
+        self.assertIn(self.deal.organisation, new.organisations.all())
+        self.assertEqual(new.owner, self.deal.owner)
+        stranger.refresh_from_db()
+        self.assertEqual(stranger.first_name, "Stranger")
+
+        link = DealCoApplicant.objects.get(deal=self.deal, contact=new)
+        self.assertTrue(link.added_by_customer)
+        self.assertEqual(link.added_by, self.customer)
+        self.assertIsNotNone(link.added_at)
+
+        note = Note.objects.get(type=Note.Type.CUSTOMER_UPDATE)
+        self.assertEqual(note.deal, self.deal)
+        self.assertEqual(note.contact, new)
+        self.assertEqual(note.author, self.customer)
+        self.assertIn(self.customer.full_name, note.content)
+        self.assertIn("added Jane Partner", note.content)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, settings.NOTIFY_EMAILS)
+        self.assertIn("Jane Partner", mail.outbox[0].subject)
+        self.assertIn(self.deal.get_absolute_url(), mail.outbox[0].body)
+
+        page = self._page()
+        self.assertContains(page, "Jane Partner")
+        self.assertContains(page, "added by you")
+        self.assertContains(page, reverse("crm:my_deal_applicant_remove", args=[self.deal.pk, new.pk]))
+        self.assertContains(page, reverse("crm:my_person_edit", args=[new.pk]))  # primary edits them
+
+    def test_add_rejects_an_email_already_on_the_application(self):
+        response = self._add(email=self.deal.customer.email.upper())
+        self.assertContains(response, "already on this application")
+        self.assertFalse(self.deal.co_applicants.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_add_requires_names_and_email(self):
+        response = self._add(first_name="", email="")
+        self.assertContains(response, "Couldn&#x27;t add that person")
+        self.assertFalse(self.deal.co_applicants.exists())
+
+    def test_add_without_an_organisation_points_at_the_representative(self):
+        Deal.objects.filter(pk=self.deal.pk).update(organisation=None)
+        page = self._page()
+        self.assertNotContains(page, reverse("crm:my_deal_applicant_add", args=[self.deal.pk]))
+        self.assertContains(page, "To add someone applying with you, contact your Medifinance representative")
+        response = self._add()
+        self.assertContains(response, "contact your Medifinance representative")
+        self.assertFalse(Contact.objects.filter(email="jane@example.com").exists())
+
+    def test_co_applicant_cannot_add_or_remove(self):
+        co = make_co_applicant(self.deal, with_user=True, added_by_customer=True)
+        self.client.force_login(co.user)
+        response = self.client.post(
+            reverse("crm:my_deal_applicant_add", args=[self.deal.pk]),
+            {"first_name": "X", "last_name": "Y", "email": "x@example.com"},
+        )
+        self.assertEqual(response.status_code, 403)
+        response = self.client.post(
+            reverse("crm:my_deal_applicant_remove", args=[self.deal.pk, co.pk]),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(list(self.deal.co_applicants.all()), [co])
+
+    def test_foreign_customer_gets_404(self):
+        self.client.force_login(self.other_customer)
+        response = self.client.post(
+            reverse("crm:my_deal_applicant_add", args=[self.deal.pk]),
+            {"first_name": "X", "last_name": "Y", "email": "x@example.com"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(self.deal.co_applicants.exists())
+
+    def test_remove_unlinks_a_customer_added_person_but_keeps_the_contact(self):
+        co = make_co_applicant(self.deal, added_by_customer=True)
+        response = self._remove(co)
+        self.assertContains(response, "Removed")
+        self.assertFalse(self.deal.co_applicants.exists())
+        self.assertTrue(Contact.objects.filter(pk=co.pk).exists())
+        note = Note.objects.get(type=Note.Type.CUSTOMER_UPDATE)
+        self.assertEqual(note.deal, self.deal)
+        self.assertIn("removed", note.content)
+
+    def test_remove_refused_for_staff_added_people(self):
+        co = make_co_applicant(self.deal)
+        page = self._page()
+        self.assertNotContains(page, reverse("crm:my_deal_applicant_remove", args=[self.deal.pk, co.pk]))
+        response = self._remove(co)
+        self.assertContains(response, "added by Medifinance")
+        self.assertEqual(list(self.deal.co_applicants.all()), [co])
+
+    def test_remove_blocked_by_a_signature_request(self):
+        co = make_co_applicant(self.deal, added_by_customer=True)
+        make_signature_request(self.deal, signer=co)
+        page = self._page()
+        self.assertNotContains(page, reverse("crm:my_deal_applicant_remove", args=[self.deal.pk, co.pk]))
+        self.assertContains(page, "Can't be removed")
+        response = self._remove(co)
+        self.assertContains(response, "signature request")
+        self.assertEqual(list(self.deal.co_applicants.all()), [co])
+
+    def test_remove_blocked_by_an_upload(self):
+        co = make_co_applicant(self.deal, with_user=True, added_by_customer=True)
+        make_document(self.deal).attach(_pdf(), by=co.user)
+        response = self._remove(co)
+        self.assertContains(response, "uploaded documents")
+        self.assertEqual(list(self.deal.co_applicants.all()), [co])
+
+    def test_remove_someone_not_on_the_deal_404s(self):
+        response = self.client.post(
+            reverse("crm:my_deal_applicant_remove", args=[self.deal.pk, self.other_deal.customer_id]),
+        )
+        self.assertEqual(response.status_code, 404)

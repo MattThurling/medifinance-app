@@ -38,10 +38,10 @@ Dev logins (password `medifinance123`): `admin@…`, `associate@…`, `customer@
 | Model | Notes |
 |---|---|
 | **User** | email login (no username); `role` = admin / associate / customer; optional `organisation` (groups associates into a team that shares deals, contacts and organisations — see `crm/access.py`); `hubspot_id`. Imported & customer users have unusable passwords (use reset / magic link). |
-| **MagicLink** | single-use, 7-day login link for customers. `issue()` / `consume()`. Consumed at `/m/<token>/`. |
+| **MagicLink** | single-use, 7-day login link for customers. `issue()` / `consume()`. Consumed at `/m/<token>/`. Issued per applicant: the deal's customer or any co-applicant (`crm/portal_links.py`), from the deal page. |
 | **Organisation** | `name`, structured UK address (`address_line1/2/city/county/postcode`), optional `owner` (User; associates can't see records owned by staff outside their team — unowned ones are visible), `hubspot_id`. |
 | **Contact** | name/email/phone, `date_of_birth`, structured `home_address_*`, `organisations` M2M, optional `owner` (User; same visibility rule as Organisation), optional `user` (OneToOne), `hubspot_id`. |
-| **Deal** | `owner` (User, PROTECT), `customer` (Contact, PROTECT), optional `introducer` (Contact) + `equipment_supplier` (Organisation), financials (`funded_amount`, `earnings`, `flat_fee`, `commission`, `document_fee` — all nullable), `selected_quote`, `co_applicants` (M2M Contact), `hubspot_id`. Org is reached via `customer.organisation` (no direct FK — deliberate). |
+| **Deal** | `owner` (User, PROTECT), `customer` (Contact, PROTECT), optional `introducer` (Contact) + `equipment_supplier` (Organisation), financials (`funded_amount`, `earnings`, `flat_fee`, `commission`, `document_fee` — all nullable), `selected_quote`, `co_applicants` (M2M Contact through **DealCoApplicant**, which records `added_by` / `added_at` / `added_by_customer` — the last flags people the primary customer added from the portal, shown to staff as unverified), optional `organisation` FK, `hubspot_id`. |
 | **Quote** | belongs to a Deal; `apr`, `term`, `monthly_payment` (auto-calculated in `save()` from deal funded amount + apr + term). |
 | **Stage** | append-only event log per deal; `name` = application / info_received; latest = current (`deal.current_stage`). "Application" auto-created on deal creation. |
 | **Document** | per-deal request: `name`, `required`, `status` (requested/provided), `file`. `attach(file, by=…)` flips to provided. |
@@ -100,7 +100,8 @@ docs/       DEPLOYMENT, HUBSPOT_IMPORT, HUBSPOT_EXPORT_QUERIES, HANDOVER
 
 - Document **gating & progress** were built then **removed** for a simpler v1 (the `required` flag remains as metadata). Stage advancement is **not** gated.
 - Deal overview's amount card shows a **hardcoded** "Asset Finance / £2,500.00 commission" placeholder — wire to `deal.commission` when ready.
-- `owner` select isn't searchable (small staff set); applicants "remove" + staff "add applicant" actions are placeholders (no unlink/add-co-applicant view yet).
+- `owner` select isn't searchable (small staff set).
+- Portal roles: the deal's `customer` is the **primary** applicant (edits everyone's details and the company, chooses the quote, adds/removes people from their company); a **co-applicant** with a magic-link login sees the deal, edits only their own details, uploads, and signs only requests addressed to them (`crm/access.py`: `portal_deals`, `deal_role`, `may_sign`). Customers can only remove applicants a customer added; staff can remove anyone not yet on a signature request or upload. No consent/declaration capture per applicant yet.
 - Prod email goes through the Mailgun HTTP API (django-anymail) from the verified `send.medifinance.co.uk` domain, From `Medifinance <info@medifinance.co.uk>` — the `mailgun-api-key` secret in Secret Manager plus the `EMAIL_ENABLED=true` repo variable. Dev sends to the Mailtrap sandbox over SMTP; with no credentials at all the console backend logs the email instead.
 - Search uses `icontains`; add a `pg_trgm` GIN index when row counts get large (deferred).
 - Customer sessions use Django's default ~2-week length after magic-link consumption.

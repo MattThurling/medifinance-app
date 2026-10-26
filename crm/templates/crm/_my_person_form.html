@@ -4,6 +4,8 @@
       hx-post="{% url 'crm:my_person_edit' person.pk %}"
       hx-target="this" hx-swap="outerHTML">
   {% csrf_token %}
+  {# Conflict check: the record's updated_at as it was when this form rendered (crm.forms.OptimisticLockFormMixin). #}
+  <input type="hidden" name="{{ form.expected_updated_at.html_name }}" value="{{ person.updated_at.isoformat }}">
   <div class="card-body">
     <h2 class="card-title text-base">
       {% icon "contact" class="h-5 w-5 opacity-70" %}

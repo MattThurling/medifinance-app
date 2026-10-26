@@ -1,17 +1,18 @@
 {% load icons humanize %}
 {% comment %}
 The deal page's Quotes card — also the HTMX response for quote selection
-(the <form> is the swap target). Context: `deal`, `quotes`, and optionally
-`quote_saved` / `quote_error` after a POST.
+(the <form> is the swap target). Context: `deal`, `quotes`, `can_select_quote`
+(primary applicant only — co-applicants see the table read-only), and
+optionally `quote_saved` / `quote_error` after a POST.
 {% endcomment %}
 <form class="card bg-base-100 shadow w-full" id="quotes"
-      hx-post="{% url 'crm:my_deal_quote_select' deal.pk %}"
-      hx-trigger="change" hx-target="this" hx-swap="outerHTML">
+      {% if can_select_quote %}hx-post="{% url 'crm:my_deal_quote_select' deal.pk %}"
+      hx-trigger="change" hx-target="this" hx-swap="outerHTML"{% endif %}>
   {% csrf_token %}
   <div class="card-body">
     <h2 class="card-title text-base">{% icon "banknote" class="h-5 w-5 opacity-70" %} Your quote</h2>
 
-    {% if not deal.selected_quote_id %}
+    {% if not deal.selected_quote_id and can_select_quote %}
       <div class="alert alert-warning py-2 text-sm">
         <span>Action needed — please choose the quote you'd like to proceed with.</span>
       </div>
@@ -63,7 +64,8 @@ The deal page's Quotes card — also the HTMX response for quote selection
               <td class="text-right">
                 <input type="radio" name="quote" value="{{ q.pk }}"
                        class="radio radio-lg radio-primary"
-                       {% if deal.selected_quote_id == q.pk %}checked{% endif %} required />
+                       {% if deal.selected_quote_id == q.pk %}checked{% endif %}
+                       {% if not can_select_quote %}disabled{% endif %} required />
               </td>
             </tr>
           {% endfor %}
@@ -72,7 +74,7 @@ The deal page's Quotes card — also the HTMX response for quote selection
     </div>
 
     <p class="text-xs opacity-60 mt-1">
-      {% if deal.selected_quote_id %}You can change your choice at any time by picking a different quote.{% else %}Pick a quote to select it.{% endif %}
+      {% if not can_select_quote %}Your lead applicant chooses the quote.{% elif deal.selected_quote_id %}You can change your choice at any time by picking a different quote.{% else %}Pick a quote to select it.{% endif %}
     </p>
   </div>
 </form>
