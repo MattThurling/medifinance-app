@@ -90,6 +90,20 @@ class LastActivityTests(DealListTestCase):
         self.assertEqual(row.last_activity_label, "Document uploaded")
         self.assertEqual(row.last_activity_at, doc.uploaded_at)
 
+    def test_participation_label_follows_deal_type(self):
+        # A participation is the row behind a funded amount, so it must not
+        # read as a supplier invoice — Commercial Finance deals have none.
+        later = timezone.now() + timedelta(hours=1)
+        commercial = make_deal(owner=self.staff, type=Deal.Type.COMMERCIAL_FINANCE)
+        asset = make_deal(owner=self.staff, type=Deal.Type.ASSET_FINANCE)
+        for deal in (commercial, asset):
+            p = make_participation(deal)
+            p.created_at = later
+            p.save(update_fields=["created_at"])
+        rows = {d.pk: d for d in self.get().context["object_list"]}
+        self.assertEqual(rows[commercial.pk].last_activity_label, "Funded amount added")
+        self.assertEqual(rows[asset.pk].last_activity_label, "Supplier added")
+
 
 class SortTests(DealListTestCase):
     @classmethod

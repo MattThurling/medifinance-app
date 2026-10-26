@@ -86,7 +86,9 @@ _ACTIVITY_LABELS = [
     ("last_stage_at", None),
     ("last_note_at", "Note added"),
     ("last_document_at", "Document uploaded"),
-    ("last_participation_at", "Supplier invoice added"),
+    # Resolved per row — a participation is a funded amount, which only
+    # carries a supplier/invoice on Asset Finance deals.
+    ("last_participation_at", None),
     ("last_proposal_at", "Proposal added"),
     ("last_quote_at", "Quote added"),
     # Labelled without the word "Xero" — the integration is hidden from
@@ -95,18 +97,30 @@ _ACTIVITY_LABELS = [
 ]
 
 
+def _stage_label(deal) -> str:
+    try:
+        stage = Stage.Name(deal.current_stage_name).label
+    except ValueError:
+        stage = deal.current_stage_name or ""
+    return f"Stage: {stage}" if stage else "Stage changed"
+
+
+def _participation_label(deal) -> str:
+    """Commercial Finance deals only record a funded amount; Asset Finance
+    deals record a supplier, whose invoice is a separate stage event."""
+    return "Funded amount added" if deal.is_commercial_finance else "Supplier added"
+
+
 def _attach_activity_labels(deals):
     """Set `last_activity_label` on each deal from `_deal_summaries` annotations."""
     for d in deals:
         d.last_activity_label = "Deal created"
         for attr, label in _ACTIVITY_LABELS:
             if d.last_activity_at is not None and getattr(d, attr) == d.last_activity_at:
-                if label is None:
-                    try:
-                        stage = Stage.Name(d.current_stage_name).label
-                    except ValueError:
-                        stage = d.current_stage_name or ""
-                    label = f"Stage: {stage}" if stage else "Stage changed"
+                if attr == "last_stage_at":
+                    label = _stage_label(d)
+                elif attr == "last_participation_at":
+                    label = _participation_label(d)
                 d.last_activity_label = label
                 break
 
