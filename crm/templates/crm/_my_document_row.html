@@ -3,9 +3,9 @@ One document row on the customer deal page — also the HTMX response for
 uploads: the <li> is the swap target (hx-target="closest li", outerHTML).
 Context: `d` (Document), optional `upload_error` (string).
 {% endcomment %}
-<li class="py-2 flex items-center justify-between gap-3 flex-wrap">
+<li class="py-3 flex flex-col gap-2">
   <span class="font-medium">{{ d.name }}</span>
-  <span class="flex items-center gap-2">
+  <span class="flex items-center gap-2 flex-wrap">
     {% if d.is_provided %}
       <span class="badge badge-success badge-sm">Provided</span>
       <a href="{% url 'crm:document_download' d.pk %}" class="link link-hover text-sm">View</a>
@@ -28,6 +28,6 @@ Context: `d` (Document), optional `upload_error` (string).
     {% endif %}
   </span>
   {% if upload_error %}
-    <p class="text-error text-sm w-full">{{ upload_error }}</p>
+    <p class="text-error text-sm">{{ upload_error }}</p>
   {% endif %}
 </li>
