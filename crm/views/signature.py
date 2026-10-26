@@ -174,7 +174,6 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
         initial = {
             "signer": customer,
             "signer_email": customer.email if customer else "",
-            "signer_name": customer.full_name if customer else "",
         }
         return SignatureRequestForm(data, initial=initial, templates=templates, signers=self._signers())
 
@@ -197,12 +196,13 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
 
         template_id = int(form.cleaned_data["template"])
         template_name = dict(form.fields["template"].choices).get(template_id, "")
+        signer = form.cleaned_data["signer"]
         try:
             result = docuseal.create_submission(
                 template_id=template_id,
                 signer_email=form.cleaned_data["signer_email"],
-                signer_name=form.cleaned_data["signer_name"],
-                values=docuseal.build_prefill_values(self.deal, signer=form.cleaned_data["signer"]),
+                signer_name=signer.full_name,
+                values=docuseal.build_prefill_values(self.deal, signer=signer),
                 send_email=False,
             )
         except docuseal.DocuSealError as exc:
@@ -216,10 +216,9 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
             submission_id=result["submission_id"],
             submitter_id=result["submitter_id"],
             signing_slug=result.get("slug") or "",
-            signer=form.cleaned_data["signer"],
+            signer=signer,
             signer_email=form.cleaned_data["signer_email"],
-            signer_name=form.cleaned_data["signer_name"],
-            message=form.cleaned_data["message"] or "",
+            signer_name=signer.full_name,
             status=SignatureRequest.Status.PENDING,
             created_by=request.user,
         )

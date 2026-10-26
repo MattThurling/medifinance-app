@@ -37,8 +37,10 @@ class SignatureRequestCreateViewTests(TestCase):
         r = self.client.get(self.url)
         self.assertEqual(r.status_code, 200)
         form = r.context["form"]
+        self.assertEqual(form.initial["signer"], self.deal.customer)
         self.assertEqual(form.initial["signer_email"], self.deal.customer.email)
-        self.assertEqual(form.initial["signer_name"], self.deal.customer.full_name)
+        self.assertNotIn("signer_name", form.fields)  # derived from the picked contact
+        self.assertNotIn("message", form.fields)
         self.assertEqual(form.fields["template"].choices, [(7, "Finance agreement")])
 
     @mock.patch("crm.docuseal.create_submission",
@@ -49,13 +51,12 @@ class SignatureRequestCreateViewTests(TestCase):
             "template": "7",
             "signer": self.deal.customer.pk,
             "signer_email": "jane@example.com",
-            "signer_name": "Jane Doe",
-            "message": "Please sign this",
         })
         self.assertRedirects(r, self.deal.get_absolute_url())
         kwargs = m_create.call_args.kwargs
         self.assertEqual(kwargs["template_id"], 7)
         self.assertEqual(kwargs["signer_email"], "jane@example.com")
+        self.assertEqual(kwargs["signer_name"], self.deal.customer.full_name)
         self.assertEqual(kwargs["values"]["Deal Name"], self.deal.name)
         self.assertIs(kwargs["send_email"], False)
         # Prefill describes the signer — here the customer.
@@ -68,7 +69,9 @@ class SignatureRequestCreateViewTests(TestCase):
         self.assertEqual(sr.submitter_id, 99)
         self.assertEqual(sr.template_name, "Finance agreement")
         self.assertEqual(sr.created_by, self.staff)
-        self.assertEqual(sr.message, "Please sign this")
+        self.assertEqual(sr.signer, self.deal.customer)
+        self.assertEqual(sr.signer_name, self.deal.customer.full_name)
+        self.assertEqual(sr.message, "")
         self.assertEqual(sr.status, SignatureRequest.Status.PENDING)
         self.assertIsNone(sr.sent_at)
 
@@ -82,21 +85,36 @@ class SignatureRequestCreateViewTests(TestCase):
             "template": "7",
             "signer": co.pk,
             "signer_email": co.email,
-            "signer_name": co.full_name,
-            "message": "",
         })
         self.assertRedirects(r, self.deal.get_absolute_url())
-        values = m_create.call_args.kwargs["values"]
-        self.assertEqual(values["Client Name"], "Chris Co")
-        self.assertEqual(values["Customer Email"], "chris@example.com")
-        self.assertEqual(SignatureRequest.objects.get(submission_id=556).signer, co)
+        kwargs = m_create.call_args.kwargs
+        self.assertEqual(kwargs["signer_name"], "Chris Co")
+        self.assertEqual(kwargs["values"]["Client Name"], "Chris Co")
+        self.assertEqual(kwargs["values"]["Customer Email"], "chris@example.com")
+        sr = SignatureRequest.objects.get(submission_id=556)
+        self.assertEqual((sr.signer, sr.signer_name), (co, "Chris Co"))
+
+    @mock.patch("crm.docuseal.create_submission")
+    @mock.patch("crm.docuseal.list_templates", return_value=TEMPLATES)
+    def test_signer_is_required_and_must_be_on_the_deal(self, _lt, m_create):
+        r = self.client.post(self.url, {"template": "7", "signer_email": "jane@example.com"})
+        self.assertEqual(r.status_code, 200)
+        self.assertFormError(r.context["form"], "signer", ["This field is required."])
+        stranger = factories.make_contact()
+        r = self.client.post(self.url, {
+            "template": "7", "signer": stranger.pk, "signer_email": "jane@example.com",
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context["form"].errors["signer"])
+        m_create.assert_not_called()
+        self.assertFalse(SignatureRequest.objects.exists())
 
     @mock.patch("crm.docuseal.create_submission",
                 return_value={"submission_id": 555, "submitter_id": 99})
     @mock.patch("crm.docuseal.list_templates", return_value=TEMPLATES)
     def test_deal_page_offers_send_not_resend_for_a_pending_request(self, _lt, _create):
         self.client.post(self.url, {
-            "template": "7", "signer_email": "jane@example.com", "signer_name": "", "message": "",
+            "template": "7", "signer": self.deal.customer.pk, "signer_email": "jane@example.com",
         })
         sr = SignatureRequest.objects.get()
         r = self.client.get(self.deal.get_absolute_url())
@@ -115,9 +133,8 @@ class SignatureRequestCreateViewTests(TestCase):
         factories.make_signature_request(self.deal)
         r = self.client.post(self.url, {
             "template": "7",
+            "signer": self.deal.customer.pk,
             "signer_email": "jane@example.com",
-            "signer_name": "Jane Doe",
-            "message": "",
         })
         self.assertRedirects(r, self.deal.get_absolute_url())
         self.assertEqual(SignatureRequest.objects.count(), 2)
