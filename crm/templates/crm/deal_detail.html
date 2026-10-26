@@ -141,7 +141,7 @@ layout (main content left, amount + timeline right).
                   {% else %}
                     <span class="inline-block btn btn-xs btn-square invisible" aria-hidden="true"></span>
                   {% endif %}
-                  {# Each applicant gets their own magic link; the lead's big button below does the same for them. #}
+                  {# Each applicant, the lead included, gets their magic link from here. #}
                   {% if a.email %}
                     <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}" class="inline">
                       {% csrf_token %}
@@ -328,7 +328,7 @@ layout (main content left, amount + timeline right).
             {% icon "plus" class="h-3.5 w-3.5" %}
           </a>
         {% else %}
-          <p class="text-xs opacity-50 mt-2">Set a funded amount (Edit) to add quotes.</p>
+          <p class="text-xs opacity-50 mt-2">Set a funded amount to add quotes.</p>
         {% endif %}
       </div>
     </div>
@@ -621,22 +621,8 @@ layout (main content left, amount + timeline right).
     </ul>
   </div>
 
-  {# ---- Primary CTA ---- #}
+  {# ---- Finance ---- #}
   <div class="lg:col-start-1 lg:col-span-2 lg:row-start-3 space-y-4">
-    {% if deal.customer %}
-    <div>
-      <form method="post" action="{% url 'crm:deal_email_portal_link' deal.pk %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary btn-block">
-          Send magic link to {{ deal.customer.first_name|default:"customer" }}
-        </button>
-      </form>
-      <form method="post" action="{% url 'crm:deal_issue_portal_link' deal.pk %}" class="mt-2 text-center">
-        {% csrf_token %}
-        <button type="submit" class="link link-hover text-xs opacity-60">or generate a magic link to send manually</button>
-      </form>
-    </div>
-    {% endif %}
 
     {# Xero invoices raised against this deal — finance users only #}
     {% if user.is_finance_member %}
