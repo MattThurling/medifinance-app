@@ -75,7 +75,7 @@ All four core records + User carry a unique, nullable `hubspot_id`. Each model d
 
 Google Cloud Run, **one project / two services** (`medifinance-dev`, `medifinance-prod`), **one Cloud SQL Postgres** instance + two DBs, Artifact Registry, Secret Manager. GitHub Actions deploys via **Workload Identity Federation** (keyless): `develop`→dev, `main`→prod. Migrations run as a Cloud Run Job before each deploy. Multi-stage `Dockerfile` (Node builds CSS, Python runtime). The runbook has the exact `gcloud` commands.
 
-> Not yet pushed to GitHub / no GCP project created — that's step 1–8 of the runbook.
+> Both environments are live: `app-dev.medifinance.co.uk` (dev) and `app.medifinance.co.uk` (prod, reset to an empty database on 2026-10-26 ahead of go-live). Each has its own documents bucket.
 
 ## Repo layout
 

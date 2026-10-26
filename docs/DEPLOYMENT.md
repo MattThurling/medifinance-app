@@ -127,13 +127,19 @@ stored off the container — Cloud Run's filesystem is ephemeral. The bucket is
 **private**; files are served only through the app's permission-checked download
 view.
 
-```bash
-export DOCS_BUCKET="${PROJECT_ID}-medifinance-docs"   # bucket names are globally unique
+One bucket **per environment** — object keys are `deals/<pk>/…`, so dev and
+prod sharing a bucket would overwrite each other's files once ids collide.
 
-gcloud storage buckets create "gs://${DOCS_BUCKET}" \
-  --location="$REGION" \
-  --uniform-bucket-level-access \
-  --public-access-prevention
+```bash
+export DOCS_BUCKET="${PROJECT_ID}-medifinance-docs"             # dev — names are globally unique
+export DOCS_BUCKET_PROD="${PROJECT_ID}-medifinance-docs-prod"   # prod
+
+for B in "$DOCS_BUCKET" "$DOCS_BUCKET_PROD"; do
+  gcloud storage buckets create "gs://${B}" \
+    --location="$REGION" \
+    --uniform-bucket-level-access \
+    --public-access-prevention
+done
 ```
 
 (IAM for the runtime SA is granted in the next step.)
@@ -162,9 +168,11 @@ export RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${RUNTIME_SA}" --role="roles/cloudsql.client" --condition=None
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${RUNTIME_SA}" --role="roles/secretmanager.secretAccessor" --condition=None
 
-# Read/write the documents bucket (scoped to just that bucket)
-gcloud storage buckets add-iam-policy-binding "gs://${DOCS_BUCKET}" \
-  --member="serviceAccount:${RUNTIME_SA}" --role="roles/storage.objectAdmin"
+# Read/write the documents buckets (scoped to just those buckets)
+for B in "$DOCS_BUCKET" "$DOCS_BUCKET_PROD"; do
+  gcloud storage buckets add-iam-policy-binding "gs://${B}" \
+    --member="serviceAccount:${RUNTIME_SA}" --role="roles/storage.objectAdmin"
+done
 ```
 
 > Tightening later: `secretAccessor` is granted project-wide here for simplicity. For least privilege, grant it per-secret instead.
@@ -206,7 +214,8 @@ In the repo: **Settings → Secrets and variables → Actions → Variables** (n
 | `CLOUDSQL_CONNECTION` | the `$SQL_CONN` value (`PROJECT:REGION:INSTANCE`) |
 | `EMAIL_ENABLED` | *(optional)* **prod** — set to `true` after creating the `mailgun-api-key` secret to send through the Mailgun API. Unset = console backend (dev always uses the Mailtrap sandbox regardless). |
 | `MAILGUN_API_URL` | *(optional)* Mailgun API base URL for the region the sending domain lives in. Defaults to the EU region, `https://api.eu.mailgun.net/v3`; set `https://api.mailgun.net/v3` for a US-region domain. |
-| `GS_BUCKET_NAME` | the documents bucket (`$DOCS_BUCKET`) — required for uploaded documents to persist |
+| `GS_BUCKET_NAME` | **dev** documents bucket (`$DOCS_BUCKET`) — required for uploaded documents to persist |
+| `GS_BUCKET_NAME_PROD` | **prod** documents bucket (`$DOCS_BUCKET_PROD`). Unset = prod uploads land on the container disk and vanish on restart. |
 | `NOTIFY_EMAILS` | *(optional)* comma-separated staff addresses notified about new API-created deals. Defaults to `mnthurling@gmail.com`. |
 | `ACCOUNTS_EMAILS` | *(optional)* comma-separated accounts addresses notified when staff request a commission invoice from a deal. Defaults to `mnthurling@gmail.com`. |
 | `TWO_FACTOR_REQUIRED_ROLES` | *(optional)* **dev** — comma-separated roles that must use two-factor authentication (`admin`, `associate`, `customer`, or `all`), e.g. `admin,associate`. Those users are forced to enrol an authenticator app at their next sign-in and asked for a code on every login. Unset = nobody is forced (anyone can still opt in under Account → Security). An unknown role name fails the deploy's startup checks. |
@@ -238,23 +247,69 @@ Promote to production by merging into `main`:
 git checkout main && git merge develop && git push      # -> medifinance-prod
 ```
 
-## 9. Create the first admin user
+## 9. Bootstrap a fresh database
 
-The migrate job runs automatically, but you still need a superuser. Easiest is a one-off Cloud Run job (replace `dev`/`prod` and pick a strong password):
+The migrate job runs automatically, but an empty database still needs three
+things. Each is a one-off Cloud Run job using the deployed image. The snippets
+are for `dev`; swap in `prod` (service, job names, secret names) for production.
 
 ```bash
-IMAGE="$(gcloud run services describe medifinance-dev --region "$REGION" --format='value(spec.template.spec.containers[0].image)')"
-
-gcloud run jobs deploy createsuperuser-dev \
-  --image "$IMAGE" --region "$REGION" \
-  --set-cloudsql-instances "$SQL_CONN" \
-  --set-secrets "DJANGO_SECRET_KEY=django-secret-dev:latest,DATABASE_URL=database-url-dev:latest" \
-  --set-env-vars "DJANGO_DEBUG=0,DJANGO_SUPERUSER_EMAIL=you@medifinance.co.uk,DJANGO_SUPERUSER_PASSWORD=CHANGE_ME" \
-  --command python --args manage.py,createsuperuser,--noinput
-gcloud run jobs execute createsuperuser-dev --region "$REGION" --wait
+ENV=dev
+IMAGE="$(gcloud run services describe medifinance-${ENV} --region "$REGION" --format='value(spec.template.spec.containers[0].image)')"
+JOB_ARGS=(--image "$IMAGE" --region "$REGION" --set-cloudsql-instances "$SQL_CONN"
+          --set-secrets "DJANGO_SECRET_KEY=django-secret-${ENV}:latest,DATABASE_URL=database-url-${ENV}:latest")
 ```
 
-Then log in and change the password. (The custom User model uses email as the login, which `--noinput` reads from `DJANGO_SUPERUSER_EMAIL`.)
+**1. Superuser.** The custom User model logs in by email, which `--noinput`
+reads from `DJANGO_SUPERUSER_EMAIL`. Delete the job afterwards so the password
+isn't left sitting in its spec, and change the password at first login.
+
+```bash
+gcloud run jobs deploy "createsuperuser-${ENV}" "${JOB_ARGS[@]}" \
+  --set-env-vars "DJANGO_DEBUG=0,DJANGO_SUPERUSER_EMAIL=you@medifinance.co.uk,DJANGO_SUPERUSER_PASSWORD=CHANGE_ME" \
+  --command python --args manage.py,createsuperuser,--noinput
+gcloud run jobs execute "createsuperuser-${ENV}" --region "$REGION" --wait
+gcloud run jobs delete "createsuperuser-${ENV}" --region "$REGION" --quiet
+```
+
+**2. Site domain.** Password-reset emails build their link from the
+`django.contrib.sites` row, which migrate seeds as `example.com`. Point it at
+the environment's hostname (idempotent; re-run if the hostname ever changes):
+
+```bash
+gcloud run jobs deploy "set-site-domain-${ENV}" "${JOB_ARGS[@]}" \
+  --set-env-vars "DJANGO_DEBUG=0" \
+  --command python --args manage.py,set_site_domain,--domain,app-dev.medifinance.co.uk
+gcloud run jobs execute "set-site-domain-${ENV}" --region "$REGION" --wait
+```
+
+**3. BNP rate bands** (lender reference data, not customer data). The command
+needs an Organisation named `BNP` to exist first — create it in admin, then:
+
+```bash
+gcloud run jobs deploy "load-bnp-rates-${ENV}" "${JOB_ARGS[@]}" \
+  --set-env-vars "DJANGO_DEBUG=0" \
+  --command python --args manage.py,load_bnp_rates
+gcloud run jobs execute "load-bnp-rates-${ENV}" --region "$REGION" --wait
+```
+
+### Resetting an environment's database
+
+To start an environment again from nothing (done for prod on 2026-10-26, before
+go-live, when its data was disposable): drop and recreate the database, then
+redeploy so the migrate job rebuilds the schema, then repeat the bootstrap
+above. Postgres refuses the drop while a connection is open — if the service
+has a warm instance, wait for it to scale to zero and retry. The
+`database-url-${ENV}` secret doesn't change (same user and database name).
+**Never run this on an environment holding real customer data.**
+
+```bash
+gcloud sql databases delete "medifinance_${ENV}" --instance "$SQL_INSTANCE" --quiet
+gcloud sql databases create "medifinance_${ENV}" --instance "$SQL_INSTANCE"
+```
+
+The environment's documents bucket is separate from the database; empty it too
+if the old uploads should go (`gcloud storage rm -r "gs://${BUCKET}/**"`).
 
 ## 10. Custom domains (global load balancer)
 
