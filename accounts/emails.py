@@ -1,7 +1,8 @@
 """Transactional email helpers.
 
 These build multipart (text + HTML) messages and send via whatever
-EMAIL_BACKEND is configured (console in dev, Mailgun in prod).
+EMAIL_BACKEND is configured: the console locally, the Mailtrap sandbox over
+SMTP on Cloud Run dev, and the Mailgun HTTP API (django-anymail) on prod.
 """
 
 from __future__ import annotations

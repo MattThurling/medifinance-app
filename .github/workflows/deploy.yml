@@ -113,13 +113,15 @@ jobs:
             ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=${DOMAIN},${RUNAPP}|DJANGO_CSRF_TRUSTED_ORIGINS=https://${DOMAIN},https://medifinance-dev-3ibfasnqaq-nw.a.run.app,https://medifinance-dev-603222559250.europe-west2.run.app|HUBSPOT_PORTAL_ID=3378161"
           fi
 
-          # Dev email goes to the Mailtrap Sandbox (caught in the shared inbox,
-          # never delivered) — credentials live in the mailtrap-user /
-          # mailtrap-password secrets. Prod uses the real medi-finance.co.uk
-          # SMTP server when EMAIL_ENABLED=true; settings.py already encodes
-          # its host / port / SSL / user as defaults, so only the password is
-          # needed. Without credentials the app falls back to the console
-          # backend (emails -> Cloud Run logs).
+          # Dev email goes to the Mailtrap Sandbox over SMTP (caught in the
+          # shared inbox, never delivered) — credentials live in the
+          # mailtrap-user / mailtrap-password secrets. Prod sends through the
+          # Mailgun HTTP API (django-anymail) from the verified
+          # send.medifinance.co.uk domain when EMAIL_ENABLED=true; the API key
+          # is the mailgun-api-key secret and MAILGUN_API_URL picks the
+          # Mailgun region (EU by default — override with the MAILGUN_API_URL
+          # repo variable). Without credentials the app falls back to the
+          # console backend (emails -> Cloud Run logs).
           if [ "$SUFFIX" = "dev" ]; then
             ENVVARS="${ENVVARS}|EMAIL_HOST=sandbox.smtp.mailtrap.io|EMAIL_PORT=2525|EMAIL_USE_SSL=0|EMAIL_USE_TLS=1"
             # Demo-friendly API safeguards: repeat submissions create real
@@ -127,7 +129,8 @@ jobs:
             ENVVARS="${ENVVARS}|API_DEAL_DEDUP_SECONDS=10|API_DEAL_RATE_LIMIT_HOUR=500|API_DEAL_RATE_LIMIT_DAY=2500|API_DEAL_EMAIL_RATE_LIMIT_HOUR=500"
             SECRETS="${SECRETS},EMAIL_HOST_USER=mailtrap-user:latest,EMAIL_HOST_PASSWORD=mailtrap-password:latest"
           elif [ "${{ vars.EMAIL_ENABLED }}" = "true" ]; then
-            SECRETS="${SECRETS},EMAIL_HOST_PASSWORD=email-host-password:latest"
+            ENVVARS="${ENVVARS}|MAILGUN_SENDER_DOMAIN=send.medifinance.co.uk|MAILGUN_API_URL=${{ vars.MAILGUN_API_URL || 'https://api.eu.mailgun.net/v3' }}|DEFAULT_FROM_EMAIL=Medifinance <info@medifinance.co.uk>"
+            SECRETS="${SECRETS},MAILGUN_API_KEY=mailgun-api-key:latest"
           fi
 
           # Xero integration — Connect button + invoice-raising flow. Both

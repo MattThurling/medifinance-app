@@ -17,7 +17,7 @@ Static files are served in-container by WhiteNoise. Media (documents, later) wil
 - `gcloud` CLI installed and logged in (`gcloud auth login`)
 - A GCP project with billing enabled
 - The repo pushed to GitHub
-- The `info@medi-finance.co.uk` SMTP password to hand (for real email; optional — without it the app falls back to the console backend)
+- A Mailgun account with `send.medifinance.co.uk` verified and its API key to hand (for real prod email; optional — without it the app falls back to the console backend)
 
 Set shell variables used throughout:
 
@@ -89,14 +89,15 @@ printf 'postgres://%s:%s@/medifinance_dev?host=/cloudsql/%s'  "$DB_USER" "$DB_PA
 printf 'postgres://%s:%s@/medifinance_prod?host=/cloudsql/%s' "$DB_USER" "$DB_PASSWORD" "$SQL_CONN" | gcloud secrets create database-url-prod --data-file=-
 ```
 
-### Email (optional — skip if you don't have the SMTP password yet)
+### Email (optional — skip if the Mailgun domain isn't set up yet)
 
 ```bash
-# The mail.medi-finance.co.uk SMTP password for info@medi-finance.co.uk.
-# One secret shared across dev + prod (same mailbox).
-read -rsp "EMAIL_HOST_PASSWORD: " EMAIL_PW && echo
-printf '%s' "$EMAIL_PW" | gcloud secrets create email-host-password --data-file=-
-unset EMAIL_PW
+# Mailgun sending key for send.medifinance.co.uk (prod only — dev uses the
+# Mailtrap sandbox below). See the Email section for the full setup.
+# printf + read -rs rather than read -p: in zsh, -p means "from coprocess".
+printf 'MAILGUN_API_KEY: '; read -rs MG_KEY; echo
+printf '%s' "$MG_KEY" | gcloud secrets create mailgun-api-key --data-file=-
+unset MG_KEY
 ```
 
 > Without this secret the app falls back to the console backend (emails print
@@ -203,7 +204,8 @@ In the repo: **Settings → Secrets and variables → Actions → Variables** (n
 | `WIF_PROVIDER` | the provider resource name printed in step 6 (`projects/NUMBER/locations/global/workloadIdentityPools/github/providers/github`) |
 | `DEPLOY_SA_EMAIL` | `deployer@PROJECT_ID.iam.gserviceaccount.com` |
 | `CLOUDSQL_CONNECTION` | the `$SQL_CONN` value (`PROJECT:REGION:INSTANCE`) |
-| `EMAIL_ENABLED` | *(optional)* set to `true` after creating the `email-host-password` secret to wire real SMTP. Unset = console backend. |
+| `EMAIL_ENABLED` | *(optional)* **prod** — set to `true` after creating the `mailgun-api-key` secret to send through the Mailgun API. Unset = console backend (dev always uses the Mailtrap sandbox regardless). |
+| `MAILGUN_API_URL` | *(optional)* Mailgun API base URL for the region the sending domain lives in. Defaults to the EU region, `https://api.eu.mailgun.net/v3`; set `https://api.mailgun.net/v3` for a US-region domain. |
 | `GS_BUCKET_NAME` | the documents bucket (`$DOCS_BUCKET`) — required for uploaded documents to persist |
 | `NOTIFY_EMAILS` | *(optional)* comma-separated staff addresses notified about new API-created deals. Defaults to `mnthurling@gmail.com`. |
 | `ACCOUNTS_EMAILS` | *(optional)* comma-separated accounts addresses notified when staff request a commission invoice from a deal. Defaults to `mnthurling@gmail.com`. |
@@ -419,12 +421,13 @@ gcloud run deploy docuseal-dev \
   `postgres://USER:PASS@%2Fcloudsql%2FPROJECT%3AREGION%3AINSTANCE/docuseal_dev`.
   Django's `?host=/cloudsql/…` style makes Rails' URI parser bail with
   "the scheme postgres does not accept registry part".
-- **Prod SMTP**: the medi-finance.co.uk server uses implicit SSL on 465, but
-  DocuSeal's env config only speaks STARTTLS — try
-  `SMTP_ADDRESS=mail.medi-finance.co.uk,SMTP_PORT=587` (+
-  `SMTP_USERNAME=info@medi-finance.co.uk`, `SMTP_PASSWORD=email-host-password`
-  secret) first; if 587/STARTTLS isn't accepted, configure SMTP in DocuSeal's
-  admin UI (Settings → Email) which exposes more options.
+- **Prod SMTP**: DocuSeal only speaks SMTP, so give it Mailgun's SMTP relay
+  for the same sending domain the app uses — `SMTP_ADDRESS=smtp.eu.mailgun.org`
+  (`smtp.mailgun.org` for a US-region domain), `SMTP_PORT=587`,
+  `SMTP_USERNAME=postmaster@send.medifinance.co.uk` and `SMTP_PASSWORD` from a
+  `mailgun-smtp-password` secret (Mailgun → Sending → Domain settings → SMTP
+  credentials). DocuSeal's admin UI (Settings → Email) exposes more options if
+  the env config doesn't take.
 - **Ingress staging**: deploy with `--ingress=all` first and use the printed
   `*.run.app` URL as `HOST` for setup. Once the LB host + cert are ACTIVE
   (11d), redeploy prod with `--ingress=internal-and-cloud-load-balancing` and
@@ -466,11 +469,14 @@ static IP. Cert goes ACTIVE 15–60 min after propagation.
 
 ## Email
 
-The app sends via the **medi-finance.co.uk SMTP server** over SSL on port 465
-as `info@medi-finance.co.uk`. The host / port / user are baked into
-`settings.py` as defaults; only the password is configured at deploy time.
+Production sends through the **Mailgun HTTP API** (django-anymail's Mailgun
+backend) from the verified sending domain **`send.medifinance.co.uk`**, with
+From `Medifinance <info@medifinance.co.uk>` and Reply-To
+`info@medifinance.co.uk`. The sender domain, region and From address are set
+by the deploy workflow; only the API key is a secret. Dev is unchanged: it
+sends to the Mailtrap sandbox over SMTP.
 
-**Until you set the password**, the app uses Django's **console email backend**:
+**Until you set the API key**, prod uses Django's **console email backend**:
 "Email link to customer" prints the email (with the magic link) to the Cloud
 Run logs —
 
@@ -481,25 +487,37 @@ gcloud run services logs read medifinance-dev --region "$REGION" --limit 50
 — and the **"Generate link"** button on a deal shows the magic-link URL directly
 in the UI, so you can test the full portal flow without sending anything.
 
-### Switching on real email
+### Switching on real email (Mailgun)
 
-1. Create the secret (one-time, shared by both envs since the mailbox is the same):
+1. In Mailgun, add the domain `send.medifinance.co.uk` (EU region unless you
+   have a reason otherwise) and publish the DNS records it gives you at the
+   registrar: the two SPF/DKIM TXT records, the MX records, and the tracking
+   CNAME. Wait for Mailgun to show the domain as **verified**. Add a DMARC
+   record on `medifinance.co.uk` if there isn't one; a subdomain sender passes
+   relaxed alignment for an `info@medifinance.co.uk` From address.
+2. Create a **sending API key** for that domain (Mailgun → Send → Domain
+   settings → Sending keys; a domain-scoped key is enough, the account-wide
+   private key is not needed) and store it:
    ```bash
-   read -rsp "EMAIL_HOST_PASSWORD: " EMAIL_PW && echo
-   printf '%s' "$EMAIL_PW" | gcloud secrets create email-host-password --data-file=-
-   unset EMAIL_PW
+   printf 'MAILGUN_API_KEY: '; read -rs MG_KEY; echo
+   printf '%s' "$MG_KEY" | gcloud secrets create mailgun-api-key --data-file=-
+   unset MG_KEY
    ```
-2. Grant the runtime SA read access (only needed once, and only if you skipped
+3. Grant the runtime SA read access (only needed once, and only if you skipped
    the project-wide `secretmanager.secretAccessor` binding in step 5):
    ```bash
-   gcloud secrets add-iam-policy-binding email-host-password \
+   gcloud secrets add-iam-policy-binding mailgun-api-key \
      --member="serviceAccount:${RUNTIME_SA}" --role=roles/secretmanager.secretAccessor
    ```
-3. Set the GitHub **variable** `EMAIL_ENABLED = true`.
-4. Push to redeploy. The app picks up `EMAIL_HOST_PASSWORD` from Secret Manager
-   and switches to SMTP automatically; From is `Medifinance <info@medi-finance.co.uk>`.
+4. Set the GitHub **variable** `EMAIL_ENABLED = true` (and `MAILGUN_API_URL`
+   only if the domain is in the US region).
+5. Push `main` to redeploy. The app picks up `MAILGUN_API_KEY` from Secret
+   Manager and switches to the Mailgun backend automatically. A deploy with
+   `EMAIL_ENABLED=true` but no `mailgun-api-key` secret fails outright.
 
-Rotating the password later: `gcloud secrets versions add email-host-password --data-file=-` and re-deploy.
+Rotating the key later: `gcloud secrets versions add mailgun-api-key --data-file=-` and re-deploy.
+The old `email-host-password` secret (the medi-finance.co.uk SMTP password) is
+no longer referenced by the app and can be deleted.
 
 ## Notes & gotchas
 

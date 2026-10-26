@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     "guardian",
     "storages",
+    "anymail",
 
     "accounts",
     "crm",
@@ -253,10 +254,11 @@ DOCUSEAL_API_TOKEN = os.getenv("DOCUSEAL_API_TOKEN", "").strip()
 DOCUSEAL_WEBHOOK_SECRET = os.getenv("DOCUSEAL_WEBHOOK_SECRET", "").strip()
 
 
-# Email — SMTP over SSL to the medi-finance.co.uk mail server (used in dev too).
-# Password comes from EMAIL_HOST_PASSWORD; if it's empty we fall back to the
-# console backend so local runs without credentials still work (emails print to
-# the terminal instead of failing SMTP auth).
+# Email. Production sends through the Mailgun HTTP API (MAILGUN_* below).
+# Everything else is SMTP: the Mailtrap sandbox on Cloud Run dev, or whatever
+# EMAIL_HOST* points at locally (defaults: the medi-finance.co.uk server).
+# With no credentials at all we fall back to the console backend so local runs
+# still work (emails print to the terminal instead of failing auth).
 EMAIL_HOST = os.getenv("EMAIL_HOST", "mail.medi-finance.co.uk")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "1") == "1"   # port 465 = implicit SSL/SMTPS
@@ -309,7 +311,25 @@ ACCOUNTS_EMAILS = [
     e.strip() for e in os.getenv("ACCOUNTS_EMAILS", "mnthurling@gmail.com").split(",") if e.strip()
 ]
 
-if EMAIL_HOST_PASSWORD:
+# Mailgun — HTTP API via django-anymail (production). Setting MAILGUN_API_KEY
+# switches the backend; the sender domain must be verified in Mailgun and
+# MAILGUN_API_URL selects the region the domain lives in (EU by default; the
+# US base URL is https://api.mailgun.net/v3). Anymail turns the inline logo
+# (Content-ID attachment in accounts/emails.py) into a Mailgun "inline" part.
+MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY", "").strip()
+MAILGUN_SENDER_DOMAIN = os.getenv("MAILGUN_SENDER_DOMAIN", "send.medifinance.co.uk")
+MAILGUN_API_URL = os.getenv("MAILGUN_API_URL", "https://api.eu.mailgun.net/v3")
+ANYMAIL = {
+    "MAILGUN_API_KEY": MAILGUN_API_KEY,
+    "MAILGUN_SENDER_DOMAIN": MAILGUN_SENDER_DOMAIN,
+    "MAILGUN_API_URL": MAILGUN_API_URL,
+    "REQUESTS_TIMEOUT": EMAIL_TIMEOUT,
+}
+
+# Backend precedence: Mailgun API > SMTP > console.
+if MAILGUN_API_KEY:
+    EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
+elif EMAIL_HOST_PASSWORD:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

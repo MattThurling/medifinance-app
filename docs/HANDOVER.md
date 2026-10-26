@@ -13,7 +13,7 @@ magic-link portal.
 | UI | server-rendered templates, Tailwind v4 + DaisyUI v5, Lucide icons |
 | Interactivity | HTMX (vendored, no jQuery) — searchable selects |
 | Auth perms | role field + django-guardian (object perms on deals) |
-| Email | Django SMTP backend → `mail.medi-finance.co.uk:465` (SSL); console backend if no password set |
+| Email | Prod: Mailgun HTTP API via django-anymail (`send.medifinance.co.uk`); dev: Mailtrap sandbox over SMTP; console backend if no credentials set |
 | Files | django-storages → GCS in prod, local `media/` in dev |
 | Serving | gunicorn + WhiteNoise (static), Cloud Run |
 
@@ -63,7 +63,7 @@ All four core records + User carry a unique, nullable `hubspot_id`. Each model d
 - **Terms (commercial deals)**: every deal type except Asset Finance (`Deal.is_commercial_finance`) shows ONE "Terms" card in place of Quotes + Proposals. A Terms row is a `Quote` carrying the lender, a `status` (Submitted / Approved / Declined / Withdrawn, shared `LenderStatus` choices), `lender_reference`, `notified_at`, and — once the bank comes back — `interest_rate_percent`, `term` (nullable until then) and `commitment_months` ("rate fixed for"). `TermsForm` requires rate + term only when Approved. Status changes emit the same `proposal_*` stage events as Proposals, via `crm/lender_status.py`, which also holds the shared client "Notify" flow (`quote_notify` / `proposal_notify`). `Deal.accepted_lender_terms` is what the commission-invoice email and Xero prefill read (selected Terms row on commercial deals, selected Proposal otherwise); `Deal.customer_quotes` is what the portal shows (Approved rows only on commercial deals). Migration 0047 folded the migrated HubSpot proposals on commercial deals into Terms rows. Asset Finance deals are unchanged.
 - **Searchable selects** (HTMX): company/contact FK fields query `/search/{contacts,organisations}/` (≤20 results) instead of dumping every row into a `<select>`. Reusable `_combobox.html`.
 - **Customer portal** (`/my/`, same app shell as staff with a one-item sidebar): the magic link lands on the deal page `/my/deals/<pk>/`, which is the customer's home — a derived "What we still need from you" summary (`crm/portal_checklist.py`: blank key details, quote to choose, requested documents, outstanding signatures), inline-editable (HTMX) cards for each applicant and the company, then quotes, documents, signatures and repayments. `/my/deals/` lists all deals with an "N actions needed" badge. `/` routes a customer to their deal (one deal) or the list.
-- **Email** (SMTP/SSL via `mail.medi-finance.co.uk:465` as `info@medi-finance.co.uk`): "Email link to customer" + password reset. Console backend until `EMAIL_HOST_PASSWORD` is set.
+- **Email** (prod: Mailgun API from `send.medifinance.co.uk`, From `info@medifinance.co.uk`; dev: Mailtrap sandbox over SMTP): "Email link to customer" + password reset. Console backend until `MAILGUN_API_KEY` or `EMAIL_HOST_PASSWORD` is set.
 
 ## HubSpot migration
 
@@ -101,6 +101,6 @@ docs/       DEPLOYMENT, HUBSPOT_IMPORT, HUBSPOT_EXPORT_QUERIES, HANDOVER
 - Document **gating & progress** were built then **removed** for a simpler v1 (the `required` flag remains as metadata). Stage advancement is **not** gated.
 - Deal overview's amount card shows a **hardcoded** "Asset Finance / £2,500.00 commission" placeholder — wire to `deal.commission` when ready.
 - `owner` select isn't searchable (small staff set); applicants "remove" + staff "add applicant" actions are placeholders (no unlink/add-co-applicant view yet).
-- Prod email goes through `mail.medi-finance.co.uk:465` (SSL) as `info@medi-finance.co.uk` — set `EMAIL_HOST_PASSWORD` in Secret Manager. Dev uses the same server when the password is set, else the console backend.
+- Prod email goes through the Mailgun HTTP API (django-anymail) from the verified `send.medifinance.co.uk` domain, From `Medifinance <info@medifinance.co.uk>` — the `mailgun-api-key` secret in Secret Manager plus the `EMAIL_ENABLED=true` repo variable. Dev sends to the Mailtrap sandbox over SMTP; with no credentials at all the console backend logs the email instead.
 - Search uses `icontains`; add a `pg_trgm` GIN index when row counts get large (deferred).
 - Customer sessions use Django's default ~2-week length after magic-link consumption.
