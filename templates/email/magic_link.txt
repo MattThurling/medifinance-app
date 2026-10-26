@@ -1,6 +1,6 @@
 Hello,
 
-{% if via_partner %}A finance application "{{ deal_name }}" was started for this email address through {{ via_partner }}, which arranges finance with Medifinance.{% else %}{{ owner_name }} at Medifinance has shared your application "{{ deal_name }}" with you.{% endif %}
+{% if via_partner %}A finance application "{{ deal_name }}" was started for this email address through {{ via_partner }}, which arranges finance with Medifinance.{% elif added_by %}{{ added_by }} has added you to their finance application "{{ deal_name }}", which {{ owner_name }} at Medifinance is arranging.{% else %}{{ owner_name }} at Medifinance has shared your application "{{ deal_name }}" with you.{% endif %}
 
 Open the secure link below to review your quote and complete your details:
 
@@ -8,7 +8,7 @@ Open the secure link below to review your quote and complete your details:
 
 For your security this link can only be used once, and expires on {{ expires_at|date:"j M Y, H:i" }}.
 If it stops working, just ask your Medifinance contact to send you a new one.
-{% if via_partner %}
+{% if via_partner or added_by %}
 If you didn't request this, you can ignore this email. Nothing will happen unless you open the link, and no finance is agreed at this stage.
 {% endif %}
 Thanks,

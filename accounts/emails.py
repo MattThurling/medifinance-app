@@ -74,20 +74,28 @@ def _build_message(*, subject: str, text_body: str, html_body: str, to: list[str
 
 
 def send_magic_link_email(*, to_email: str, link_url: str, deal_name: str, owner_name: str,
-                          expires_at, via_partner: str | None = None) -> None:
+                          expires_at, via_partner: str | None = None,
+                          added_by: str | None = None) -> None:
     """Email a customer their single-use portal link.
 
     `via_partner` names the partner (e.g. a supplier's website or AI agent)
     that started the application through the partner API. When set, the email
     explains who asked for it and makes clear the recipient can ignore it if
     they weren't expecting it — a guest or an agent may have typed the wrong
-    address, and nothing proceeds unless the recipient opens the link."""
+    address, and nothing proceeds unless the recipient opens the link.
+
+    `added_by` names the lead applicant who added the recipient as a
+    co-applicant from the portal, so the email says who invited them and
+    that the Medifinance contact (`owner_name`) is handling the application.
+    Like a partner-started link, it may reach someone who wasn't expecting
+    it, so it carries the same "ignore this if it's not you" note."""
     context = {
         "link_url": link_url,
         "deal_name": deal_name,
         "owner_name": owner_name,
         "expires_at": expires_at,
         "via_partner": via_partner,
+        "added_by": added_by,
     }
     subject = "Your Medifinance application link"
     text_body = render_to_string("email/magic_link.txt", context)
@@ -157,15 +165,18 @@ def send_applicant_added_email(
     added_by_name: str,
     applicant_name: str,
     applicant_email: str,
+    link_sent: bool = True,
 ) -> None:
     """Tell the NOTIFY_EMAILS staff list that a customer added a co-applicant
-    from the portal — the person is unverified until staff have checked them."""
+    from the portal. ``link_sent`` says whether the person's own portal link
+    went out with it; when it didn't, staff need to send one from the deal."""
     context = {
         "deal_name": deal_name,
         "deal_url": deal_url,
         "added_by_name": added_by_name,
         "applicant_name": applicant_name,
         "applicant_email": applicant_email,
+        "link_sent": link_sent,
     }
     subject = f"Applicant added by customer: {applicant_name} ({deal_name})"
     text_body = render_to_string("email/applicant_added.txt", context)

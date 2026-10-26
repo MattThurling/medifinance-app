@@ -346,8 +346,8 @@ class DealCoApplicant(models.Model):
     Reuses the table Django auto-created for the plain M2M (``db_table``), so
     the conversion was state-only. The three extra columns record who attached
     the person: staff, through the deal page, or the deal's primary customer
-    from the portal — in which case the applicant is shown to staff as
-    "added by customer" until they have checked them."""
+    from the portal — in which case the deal page says so, and the customer
+    may remove them again."""
 
     deal = models.ForeignKey(
         "Deal", on_delete=models.CASCADE, related_name="co_applicant_links",

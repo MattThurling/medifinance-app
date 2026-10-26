@@ -125,8 +125,8 @@ layout (main content left, amount + timeline right).
                   {% if a.pk == deal.customer_id %}
                     <span class="badge badge-ghost badge-xs ml-1">lead</span>
                   {% elif a.link.added_by_customer %}
-                    <span class="badge badge-warning badge-xs ml-1"
-                          title="Added from the portal by {{ a.link.added_by.full_name|default:'the customer' }}{% if a.link.added_at %} on {{ a.link.added_at|date:'j M Y, H:i' }}{% endif %} — check who they are">Added by customer — unverified</span>
+                    <span class="badge badge-info badge-outline badge-xs ml-1"
+                          title="Added from the portal by {{ a.link.added_by.full_name|default:'the customer' }}{% if a.link.added_at %} on {{ a.link.added_at|date:'j M Y, H:i' }}{% endif %}">added by customer</span>
                   {% endif %}
                   {% if a.user_id %}<span class="badge badge-ghost badge-xs ml-1" title="Has a portal login">portal</span>{% endif %}
                 </td>

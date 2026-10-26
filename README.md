@@ -87,7 +87,7 @@ docker run -d --name docuseal -p 3000:3000 -v ~/.docuseal:/data docuseal/docusea
 |-----------|-----------------------------------------------------------|
 | Admin     | Full Django admin, all CRM data                           |
 | Associate | Internal CRM UI; own deals (plus colleagues' when linked to the same Organisation). Contacts and organisations: everything except records owned by staff outside their team — unowned ones are visible, as is anything attached to a deal they can see |
-| Customer  | The `/my/` portal for deals they are on: the primary applicant edits people and company, picks the quote and adds co-applicants; a co-applicant edits only themselves, uploads and signs their own requests |
+| Customer  | The `/my/` portal for deals they are on: the primary applicant edits people and company, picks the quote and adds co-applicants (who are emailed their own portal link at once); a co-applicant edits only themselves, uploads and signs their own requests |
 
 Use the helpers in `accounts/permissions.py`:
 

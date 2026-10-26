@@ -1,4 +1,4 @@
-A customer has added someone to their application from the portal. Please check who they are before relying on their details.
+A customer has added someone to their application from the portal.{% if link_sent %} They've been emailed their own secure portal link.{% else %} We couldn't email them their portal link — please send one from the deal page.{% endif %}
 
 Deal:      {{ deal_name }}
 Added by:  {{ added_by_name }}

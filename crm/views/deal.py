@@ -237,7 +237,7 @@ class DealDetailView(StaffRequiredMixin, DetailView):
 
         # Applicants = the lead (customer, if set) plus any co-applicants. Each
         # co-applicant carries its through row as `.link` so the template can
-        # flag people the customer added from the portal (unverified) and
+        # show who the customer added from the portal themselves and
         # offer a remove button; the lead has no link.
         co_applicants = []
         for link in deal.co_applicant_links.all():

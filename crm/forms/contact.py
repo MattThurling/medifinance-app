@@ -64,7 +64,7 @@ class CustomerApplicantForm(DaisyUIFormMixin, forms.ModelForm):
         self.deal = deal
         for name in ("first_name", "last_name", "email"):
             self.fields[name].required = True
-        self.fields["email"].help_text = "They'll get their own secure link to this application."
+        self.fields["email"].help_text = "We'll email them their own secure link to this application."
 
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip()

@@ -70,7 +70,7 @@
             {% icon "user-plus" class="h-5 w-5 opacity-70" %} Add someone applying with you
           </summary>
           <div class="collapse-content">
-            <p class="text-sm opacity-70 mb-3">Another director or partner at {{ deal.organisation.name }} who should be on this application. We'll send them their own secure link.</p>
+            <p class="text-sm opacity-70 mb-3">Another director or partner at {{ deal.organisation.name }} who should be on this application. We'll email them their own secure link straight away.</p>
             <form method="post" action="{% url 'crm:my_deal_applicant_add' deal.pk %}">
               {% csrf_token %}
               <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">

@@ -14,7 +14,7 @@ other people's cards show the name only (no personal data, no Edit).
           {% icon "contact" class="h-5 w-5 opacity-70" %}
           {{ person.full_name|default:person.email }}
           {% if person.user_id == request.user.pk %}<span class="badge badge-ghost badge-sm">you</span>{% endif %}
-          {% if person.customer_added and is_primary %}<span class="badge badge-ghost badge-sm" title="Added from the portal — your Medifinance representative will confirm their details">added by you</span>{% endif %}
+          {% if person.customer_added and is_primary %}<span class="badge badge-ghost badge-sm" title="You added this person from the portal and they've been sent their own secure link">added by you</span>{% endif %}
         </h2>
         {% if person.can_edit and person.email %}<p class="text-xs opacity-60 mt-1">{{ person.email }}</p>{% endif %}
       </div>

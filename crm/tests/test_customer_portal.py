@@ -1038,7 +1038,7 @@ class ApplicantManagementTests(TestCase):
         self.assertContains(page, reverse("crm:my_deal_applicant_add", args=[self.deal.pk]))
         self.assertNotContains(page, "To add someone applying with you, contact")
 
-    def test_add_creates_a_fresh_flagged_contact_in_the_org_with_note_and_staff_email(self):
+    def test_add_creates_a_fresh_flagged_contact_sends_their_link_and_tells_staff(self):
         stranger = make_contact(email="jane@example.com", first_name="Stranger", last_name="Elsewhere")
         response = self._add()
         self.assertEqual(response.status_code, 200)
@@ -1065,16 +1065,40 @@ class ApplicantManagementTests(TestCase):
         self.assertIn(self.customer.full_name, note.content)
         self.assertIn("added Jane Partner", note.content)
 
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, settings.NOTIFY_EMAILS)
-        self.assertIn("Jane Partner", mail.outbox[0].subject)
-        self.assertIn(self.deal.get_absolute_url(), mail.outbox[0].body)
+        # Their own portal login and single-use link, emailed straight away
+        # in the deal owner's name, followed by the staff notification.
+        new.refresh_from_db()
+        self.assertIsNotNone(new.user)
+        self.assertEqual(new.user.email, "jane@example.com")
+        link = MagicLink.objects.get(user=new.user)
+        self.assertEqual(link.created_by, self.customer)
+        self.assertEqual(link.redirect_url, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(response, "emailed them their own secure link")
+
+        self.assertEqual(len(mail.outbox), 2)
+        invite, notice = mail.outbox
+        self.assertEqual(invite.to, ["jane@example.com"])
+        self.assertIn(reverse("consume_magic_link", args=[link.token]), invite.body)
+        self.assertIn(f"{self.customer.full_name} has added you", invite.body)
+        self.assertIn(self.deal.owner.full_name, invite.body)
+        self.assertIn("ignore this email", invite.body)
+        self.assertEqual(notice.to, settings.NOTIFY_EMAILS)
+        self.assertIn("Jane Partner", notice.subject)
+        self.assertIn(self.deal.get_absolute_url(), notice.body)
+        self.assertIn("emailed their own secure portal link", notice.body)
 
         page = self._page()
         self.assertContains(page, "Jane Partner")
         self.assertContains(page, "added by you")
         self.assertContains(page, reverse("crm:my_deal_applicant_remove", args=[self.deal.pk, new.pk]))
         self.assertContains(page, reverse("crm:my_person_edit", args=[new.pk]))  # primary edits them
+
+        # The link works: Jane lands on the deal as a co-applicant, with the
+        # restricted view (no company edit).
+        self.client.logout()
+        landed = self.client.get(reverse("consume_magic_link", args=[link.token]), follow=True)
+        self.assertEqual(landed.status_code, 200)
+        self.assertContains(landed, self.deal.name)
 
     def test_add_rejects_an_email_already_on_the_application(self):
         response = self._add(email=self.deal.customer.email.upper())

@@ -378,7 +378,13 @@ class MyDealApplicantAddView(_PrimaryDealView):
     """The primary applicant adds someone from their company to the
     application. A plain POST + redirect (the page's flash messages carry the
     outcome). Always creates a new Contact — see crm.applicants — flags it
-    as customer-added for staff, logs a deal Note and emails the team."""
+    as customer-added for staff, logs a deal Note, emails the new person
+    their own secure portal link and tells the team.
+
+    The link goes out without staff approval: the portal only shows the
+    person the application and lets them fill in their own details. Nothing
+    binding reaches them until staff have reviewed the deal and raised a
+    signature request, so that review is the control point, not the link."""
 
     def post(self, request, pk):
         deal = self.get_primary_deal(request, pk)
@@ -408,6 +414,7 @@ class MyDealApplicantAddView(_PrimaryDealView):
             by_user=request.user,
             by_customer=True,
         )
+        link_sent = self._send_portal_link(request, deal, contact)
         try:
             from accounts.emails import send_applicant_added_email
             send_applicant_added_email(
@@ -416,16 +423,53 @@ class MyDealApplicantAddView(_PrimaryDealView):
                 added_by_name=request.user.full_name,
                 applicant_name=contact.full_name or contact.email,
                 applicant_email=contact.email,
+                link_sent=link_sent,
             )
         except Exception:
             # The applicant is already saved; a mailserver hiccup shouldn't
             # turn that into an error page for the customer.
             logger.exception("Applicant-added notification failed for deal %s", deal.pk)
-        messages.success(
-            request,
-            f"Added {contact}. Your Medifinance representative can send them their own secure link.",
-        )
+        if link_sent:
+            messages.success(
+                request,
+                f"Added {contact} and emailed them their own secure link to this application.",
+            )
+        else:
+            messages.warning(
+                request,
+                f"Added {contact}, but we couldn't email them their secure link. "
+                "Your Medifinance representative can send it.",
+            )
         return redirect(page)
+
+    @staticmethod
+    def _send_portal_link(request, deal, contact) -> bool:
+        """Issue the new applicant's magic link and email it, the same link
+        staff would send from the deal page. Returns whether it went out;
+        failures are logged, never raised — the person is already on the deal
+        and staff can resend from the CRM."""
+        from accounts.emails import send_magic_link_email
+        from ..portal_links import issue_portal_link_for_deal
+        try:
+            link, dup_warning = issue_portal_link_for_deal(
+                deal, contact=contact, created_by=request.user,
+            )
+            if dup_warning:
+                logger.warning("Portal link for deal %s: %s", deal.pk, dup_warning)
+            send_magic_link_email(
+                to_email=link.user.email,
+                link_url=request.build_absolute_uri(
+                    reverse("consume_magic_link", args=[link.token])
+                ),
+                deal_name=deal.name,
+                owner_name=deal.owner.full_name if deal.owner else "The team",
+                expires_at=link.expires_at,
+                added_by=request.user.full_name,
+            )
+        except Exception:
+            logger.exception("Couldn't send portal link to new applicant on deal %s", deal.pk)
+            return False
+        return True
 
 
 class MyDealApplicantRemoveView(_PrimaryDealView):

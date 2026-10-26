@@ -805,7 +805,7 @@ class ApplicantManagementScopingTests(ScopingTestCase):
         by_customer = make_co_applicant(self.own, added_by_customer=True, last_name="Portal")
         by_staff = make_co_applicant(self.own, last_name="Staff")
         response = self.client.get(self.own.get_absolute_url())
-        self.assertContains(response, "Added by customer — unverified", count=1)
+        self.assertContains(response, "added by customer</span>", count=1)
         self.assertContains(response, reverse("crm:deal_applicant_remove", args=[self.own.pk, by_customer.pk]))
         self.assertContains(response, reverse("crm:deal_applicant_remove", args=[self.own.pk, by_staff.pk]))
         # The lead can't be removed; every applicant gets magic-link buttons.
