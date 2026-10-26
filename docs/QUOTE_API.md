@@ -25,8 +25,8 @@ versa) — call the right base URL for the key you're using.
 
 | Environment | URL                                |
 |-------------|------------------------------------|
-| Production  | `https://crm.medifinance.co.uk`    |
-| Sandbox     | `https://medifinance-dev-3ibfasnqaq-nw.a.run.app` |
+| Production  | `https://app.medifinance.co.uk`     |
+| Sandbox     | `https://app-dev.medifinance.co.uk` |
 
 ## Request
 

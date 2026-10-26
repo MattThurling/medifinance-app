@@ -95,23 +95,14 @@ jobs:
         run: |
           SUFFIX="${{ steps.target.outputs.suffix }}"
 
-          # Traffic arrives via the global load balancer on the custom domain;
-          # direct *.run.app access is blocked by the ingress setting below.
+          # Traffic arrives only via the global load balancer on the custom
+          # domain (app / app-dev .medifinance.co.uk): the deploy below pins
+          # ingress to internal-and-cloud-load-balancing, so the *.run.app
+          # URLs answer 404 and ALLOWED_HOSTS / CSRF origins are exactly the
+          # per-env domain.
           DOMAIN="${{ steps.target.outputs.domain }}"
           SECRETS="DJANGO_SECRET_KEY=django-secret-${SUFFIX}:latest,DATABASE_URL=database-url-${SUFFIX}:latest"
           ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=${DOMAIN}|DJANGO_CSRF_TRUSTED_ORIGINS=https://${DOMAIN}|HUBSPOT_PORTAL_ID=3378161"
-
-          # INTERIM until the app/app-dev A records exist at the registrar:
-          # the LB certs can't provision without DNS, so dev stays reachable
-          # directly on its *.run.app URLs (both host forms) with open ingress.
-          # Once DNS is live and the certs are ACTIVE, delete this block (and
-          # the ${INGRESS} override below) to restore the LB-only lockdown.
-          INGRESS="internal-and-cloud-load-balancing"
-          if [ "$SUFFIX" = "dev" ]; then
-            INGRESS="all"
-            RUNAPP="medifinance-dev-3ibfasnqaq-nw.a.run.app,medifinance-dev-603222559250.europe-west2.run.app"
-            ENVVARS="DJANGO_DEBUG=0|DJANGO_ALLOWED_HOSTS=${DOMAIN},${RUNAPP}|DJANGO_CSRF_TRUSTED_ORIGINS=https://${DOMAIN},https://medifinance-dev-3ibfasnqaq-nw.a.run.app,https://medifinance-dev-603222559250.europe-west2.run.app|HUBSPOT_PORTAL_ID=3378161"
-          fi
 
           # Dev email goes to the Mailtrap Sandbox over SMTP (caught in the
           # shared inbox, never delivered) — credentials live in the
@@ -198,7 +189,7 @@ jobs:
             --image "$IMAGE" \
             --region "$REGION" \
             --allow-unauthenticated \
-            --ingress "$INGRESS" \
+            --ingress internal-and-cloud-load-balancing \
             --add-cloudsql-instances "${{ vars.CLOUDSQL_CONNECTION }}" \
             --set-secrets "$SECRETS" \
             --set-env-vars "^|^${ENVVARS}"
