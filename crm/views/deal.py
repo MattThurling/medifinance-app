@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.db.models import Case, F, Q, Value, When
+from django.db.models import F, Q, Value
 from django.db.models.functions import Coalesce, Lower
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -49,13 +49,6 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
     sort_fields = {
         "name": Lower("name"),
         "type": F("type"),
-        # Pipeline order (choice declaration order), not alphabetical-by-code.
-        "stage": Case(
-            *[
-                When(current_stage_name=code, then=Value(i))
-                for i, (code, _label) in enumerate(Stage.Name.choices)
-            ]
-        ),
         "funded": F("funded_total"),
         "owner": Lower(Coalesce("owner__first_name", Value(""))),
         "created": F("created_at"),

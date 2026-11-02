@@ -1,6 +1,7 @@
 """Deal list: last-activity annotation/labels, sortable columns, and
 stage/type/owner filters — and that they all compose with search + pagination."""
 
+import re
 from datetime import timedelta
 
 from django.db import connection
@@ -218,6 +219,40 @@ class TypeFilterTests(DealListTestCase):
 
     def test_type_column_shows_display_label(self):
         self.assertContains(self.get(), "Commercial Finance")
+
+
+class ColumnTests(DealListTestCase):
+    HEADERS = ["Organisation", "Customer", "Deal name", "Amount", "Type", "Owner", "Last activity"]
+
+    def header_labels(self, response):
+        html = response.content.decode()
+        thead = html[html.index("<thead>") : html.index("</thead>")]
+        cells = re.findall(r"<th[^>]*>(.*?)</th>", thead, re.S)
+        return [" ".join(re.sub(r"<[^>]+>", "", c).split()) for c in cells]
+
+    def test_column_order_with_owner(self):
+        # A second active staff user means more than one owner can appear.
+        make_associate(first_name="Colleague", last_name="Person")
+        make_deal(owner=self.staff)
+        response = self.get()
+        self.assertTrue(response.context["show_owner_column"])
+        self.assertEqual(self.header_labels(response)[:-1], self.HEADERS)
+        self.assertContains(response, self.staff.full_name)
+
+    def test_owner_column_hidden_for_single_owner(self):
+        # The admin is the only staff user, so the owner column is noise.
+        make_deal(owner=self.staff)
+        response = self.get()
+        self.assertFalse(response.context["show_owner_column"])
+        self.assertEqual(self.header_labels(response)[:-1], [h for h in self.HEADERS if h != "Owner"])
+        self.assertNotContains(response, "sort=owner")
+        # Empty-state row still spans the table.
+        empty = self.get(q="nothing-matches")
+        self.assertContains(empty, 'colspan="7"')
+
+    def test_deactivated_colleague_does_not_count(self):
+        make_associate(is_active=False)
+        self.assertFalse(self.get().context["show_owner_column"])
 
 
 class QueryCountTests(DealListTestCase):

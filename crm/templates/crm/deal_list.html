@@ -59,13 +59,12 @@
     <table class="table table-xs">
       <thead>
         <tr>
-          {% include "_th_sort.html" with key="name" label="Deal" %}
-          {% include "_th_sort.html" with key="type" label="Type" %}
-          {% include "_th_sort.html" with key="stage" label="Stage" %}
-          {% include "_th_sort.html" with key="funded" label="Funded" %}
-          <th>Customer</th>
           <th>Organisation</th>
-          {% include "_th_sort.html" with key="owner" label="Owner" %}
+          <th>Customer</th>
+          {% include "_th_sort.html" with key="name" label="Deal name" %}
+          {% include "_th_sort.html" with key="funded" label="Amount" %}
+          {% include "_th_sort.html" with key="type" label="Type" %}
+          {% if show_owner_column %}{% include "_th_sort.html" with key="owner" label="Owner" %}{% endif %}
           {% include "_th_sort.html" with key="activity" label="Last activity" %}
           <th class="w-1"></th>
         </tr>
@@ -74,24 +73,19 @@
         {% for d in object_list %}
           <tr>
             <td>
-              <a href="{{ d.get_absolute_url }}" class="link link-hover font-medium">{{ d.name }}</a>
-            </td>
-            <td class="opacity-80">{{ d.get_type_display|default:"—" }}</td>
-            <td>
-              {% if d.current_stage_name %}
-                {{ d.current_stage_name|stage_display }}
-              {% else %}<span class="opacity-60">—</span>{% endif %}
-            </td>
-            <td class="whitespace-nowrap">
-              {% if d.funded_total is not None %}£{{ d.funded_total|floatformat:2|intcomma }}{% else %}<span class="opacity-60">—</span>{% endif %}
+              {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
             </td>
             <td>
               <a href="{{ d.customer.get_absolute_url }}" class="link link-hover">{{ d.customer }}</a>
             </td>
             <td>
-              {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
+              <a href="{{ d.get_absolute_url }}" class="link link-hover font-medium">{{ d.name }}</a>
             </td>
-            <td class="opacity-80">{{ d.owner.full_name }}</td>
+            <td class="whitespace-nowrap">
+              {% if d.funded_total is not None %}£{{ d.funded_total|floatformat:2|intcomma }}{% else %}<span class="opacity-60">—</span>{% endif %}
+            </td>
+            <td class="opacity-80">{{ d.get_type_display|default:"—" }}</td>
+            {% if show_owner_column %}<td class="opacity-80">{{ d.owner.full_name }}</td>{% endif %}
             <td class="whitespace-nowrap text-xs">
               <span title="{{ d.last_activity_at|date:'j M Y, H:i' }}">{{ d.last_activity_at|timesince }} ago</span>
               <span class="opacity-60">— {{ d.last_activity_label }}</span>
@@ -103,7 +97,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="9" class="text-center opacity-60 py-8">
+            <td colspan="{% if show_owner_column %}8{% else %}7{% endif %}" class="text-center opacity-60 py-8">
               {% if q or stage_filter or type_filter or owner_filter %}No deals match the current filters.{% else %}No deals yet.{% endif %}
             </td>
           </tr>

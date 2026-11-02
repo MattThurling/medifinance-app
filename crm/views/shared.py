@@ -286,6 +286,10 @@ class OwnerFilterMixin:
                 .order_by("first_name", "last_name")
             )
             ctx["owner_filter"] = self.request.GET.get("owner", "")
+        # Owner column only earns its space when more than one owner's records
+        # can appear. len() evaluates and caches the queryset the dropdown
+        # iterates anyway, so this costs no extra query.
+        ctx["show_owner_column"] = len(ctx["owner_choices"]) > 1
         return ctx
 
 
