@@ -9,14 +9,13 @@ from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
-    ListView,
     TemplateView,
     UpdateView,
 )
 
 from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
-from .. import docuseal, pricing, stats
+from .. import docuseal, stats
 from ..access import get_visible_deal_or_404, visible_contacts, visible_deals
 from ..applicants import removal_blocker, remove_applicant
 from ..forms import DealForm, XeroInvoiceForm
@@ -87,84 +86,6 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         ctx["type_filter"] = self.request.GET.get("type", "")
         ctx["source_choices"] = Deal.Source.choices
         ctx["source_filter"] = self.request.GET.get("source", "")
-        return ctx
-
-
-class DealMaturingListView(OwnerFilterMixin, StaffRequiredMixin, ListView):
-    """Live deals whose finance term ends within a chosen window — the
-    call-before-it-matures worklist for refinance / upgrade business.
-
-    Maturity comes from `Deal.maturity_date` (explicit `term_end_date`, else
-    derived from the selected quote), which can't be expressed in portable
-    ORM SQL — so the live subset is filtered and sorted in Python. That set
-    is a few hundred rows, well within a single page's budget.
-    """
-
-    model = Deal
-    template_name = "crm/deal_maturing_list.html"
-    paginate_by = 50
-
-    WINDOW_CHOICES = (3, 6, 12, 24)  # months
-    DEFAULT_WINDOW = 12
-
-    # Python-side equivalents of DealListView.sort_fields — attribute getters
-    # rather than ORM expressions, since this list is sorted in memory. Rows
-    # whose key is None go last in both directions, like the mixin's
-    # nulls_last ordering.
-    SORT_KEYS = {
-        "name": lambda d: d.name.lower(),
-        "type": lambda d: d.type or None,
-        "ends": lambda d: d.maturity_date,
-        "funded": lambda d: d.funded_total,
-        "owner": lambda d: (d.owner.first_name or "").lower() if d.owner else "",
-        "activity": lambda d: d.last_activity_at,
-    }
-    default_sort = "ends"
-
-    def get_window(self) -> int:
-        try:
-            window = int(self.request.GET.get("window", ""))
-        except ValueError:
-            return self.DEFAULT_WINDOW
-        return window if window in self.WINDOW_CHOICES else self.DEFAULT_WINDOW
-
-    def get_sort(self) -> str:
-        sort = self.request.GET.get("sort", "")
-        if sort.lstrip("-") not in self.SORT_KEYS:
-            return self.default_sort
-        return sort
-
-    def _live_deals(self):
-        qs = _deal_summaries(
-            visible_deals(self.request.user).select_related(
-                "owner", "customer", "organisation", "selected_quote"
-            )
-        ).filter(current_stage_name=Stage.Name.DEAL_LIVE)
-        return self.apply_owner_filter(qs)
-
-    def get_queryset(self):
-        horizon = pricing.add_months(timezone.localdate(), self.get_window())
-        deals = list(self._live_deals())
-        self.no_maturity_count = sum(1 for d in deals if d.maturity_date is None)
-        maturing = [
-            d for d in deals
-            if d.maturity_date is not None and d.maturity_date <= horizon
-        ]
-        sort = self.get_sort()
-        keyfn = self.SORT_KEYS[sort.lstrip("-")]
-        valued = [d for d in maturing if keyfn(d) is not None]
-        nulled = [d for d in maturing if keyfn(d) is None]
-        valued.sort(key=keyfn, reverse=sort.startswith("-"))
-        return valued + nulled
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        _attach_activity_labels(ctx["object_list"])
-        ctx["sort"] = self.get_sort()
-        ctx["window"] = self.get_window()
-        ctx["window_choices"] = self.WINDOW_CHOICES
-        ctx["no_maturity_count"] = self.no_maturity_count
-        ctx["today"] = timezone.localdate()
         return ctx
 
 

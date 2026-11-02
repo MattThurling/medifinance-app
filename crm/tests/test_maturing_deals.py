@@ -1,29 +1,11 @@
-"""The maturing-deals radar: `Deal.maturity_date` derivation and the
-/deals/maturing/ worklist of live deals whose finance term ends soon."""
+"""`Deal.maturity_date` derivation and the term-end date on the deal form/detail."""
 
-from datetime import date, timedelta
+from datetime import date
 
 from django.test import TestCase
 from django.urls import reverse
-from django.utils import timezone
 
-from crm.models import Stage
-from crm.pricing import add_months
-
-from .factories import make_admin, make_associate, make_deal, make_participation, make_quote
-
-
-def _names(response):
-    return [d.name for d in response.context["object_list"]]
-
-
-def _make_live(deal):
-    Stage.objects.create(deal=deal, name=Stage.Name.DEAL_LIVE)
-    return deal
-
-
-def _live_deal(*, name, term_end_date=None, owner=None):
-    return _make_live(make_deal(name=name, owner=owner, term_end_date=term_end_date))
+from .factories import make_associate, make_deal, make_quote
 
 
 class MaturityDateTests(TestCase):
@@ -64,79 +46,6 @@ class MaturityDateTests(TestCase):
         self.assertIsNone(deal.maturity_date)
         deal.first_payment_date = date(2026, 1, 1)  # no quote → still None
         self.assertIsNone(deal.maturity_date)
-
-
-class MaturingListTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.staff = make_admin()  # owner filter is admin-only
-        cls.today = timezone.localdate()
-
-    def setUp(self):
-        self.client.force_login(self.staff)
-
-    def get(self, **params):
-        return self.client.get(reverse("crm:deal_maturing"), params)
-
-    def test_includes_only_live_deals_inside_window(self):
-        _live_deal(name="Soon", term_end_date=self.today + timedelta(days=60), owner=self.staff)
-        _live_deal(name="Far", term_end_date=add_months(self.today, 30), owner=self.staff)
-        make_deal(name="Not live", owner=self.staff,
-                  term_end_date=self.today + timedelta(days=60))  # stays at Application
-        _live_deal(name="No data", owner=self.staff)
-
-        response = self.get()  # default window: 12 months
-        self.assertEqual(_names(response), ["Soon"])
-        self.assertEqual(response.context["no_maturity_count"], 1)
-
-    def test_sorted_soonest_first_with_overdue_on_top(self):
-        _live_deal(name="Overdue", term_end_date=self.today - timedelta(days=30), owner=self.staff)
-        _live_deal(name="Next month", term_end_date=self.today + timedelta(days=30), owner=self.staff)
-        _live_deal(name="Next week", term_end_date=self.today + timedelta(days=7), owner=self.staff)
-        self.assertEqual(_names(self.get()), ["Overdue", "Next week", "Next month"])
-        self.assertContains(self.get(), "Overdue</span>")
-
-    def test_window_param(self):
-        _live_deal(name="Month 2", term_end_date=add_months(self.today, 2), owner=self.staff)
-        _live_deal(name="Month 9", term_end_date=add_months(self.today, 9), owner=self.staff)
-        self.assertEqual(_names(self.get(window="3")), ["Month 2"])
-        self.assertEqual(_names(self.get(window="12")), ["Month 2", "Month 9"])
-        # Unknown values fall back to the 12-month default.
-        self.assertEqual(_names(self.get(window="7")), ["Month 2", "Month 9"])
-        self.assertEqual(_names(self.get(window="soon")), ["Month 2", "Month 9"])
-
-    def test_composes_with_owner_filter(self):
-        other = make_associate()
-        _live_deal(name="Mine", term_end_date=self.today + timedelta(days=30), owner=self.staff)
-        _live_deal(name="Theirs", term_end_date=self.today + timedelta(days=30), owner=other)
-        self.assertEqual(_names(self.get(owner="me")), ["Mine"])
-        self.assertEqual(_names(self.get(owner=other.pk)), ["Theirs"])
-
-    def test_sortable_columns(self):
-        alpha = _live_deal(name="Alpha", term_end_date=self.today + timedelta(days=60), owner=self.staff)
-        beta = _live_deal(name="Beta", term_end_date=self.today + timedelta(days=30), owner=self.staff)
-        # Default: soonest term end first.
-        self.assertEqual(_names(self.get()), ["Beta", "Alpha"])
-        self.assertEqual(_names(self.get(sort="-ends")), ["Alpha", "Beta"])
-        self.assertEqual(_names(self.get(sort="name")), ["Alpha", "Beta"])
-        self.assertEqual(_names(self.get(sort="-name")), ["Beta", "Alpha"])
-        # Unknown keys fall back to the default sort.
-        self.assertEqual(_names(self.get(sort="bogus")), ["Beta", "Alpha"])
-
-    def test_sort_puts_unset_values_last_both_directions(self):
-        funded = _live_deal(name="Funded", term_end_date=self.today + timedelta(days=60), owner=self.staff)
-        make_participation(funded, amount="5000.00")
-        _live_deal(name="Unfunded", term_end_date=self.today + timedelta(days=30), owner=self.staff)
-        self.assertEqual(_names(self.get(sort="funded")), ["Funded", "Unfunded"])
-        self.assertEqual(_names(self.get(sort="-funded")), ["Funded", "Unfunded"])
-
-    def test_derived_maturity_appears_without_explicit_date(self):
-        deal = make_deal(name="Quoted", owner=self.staff,
-                         first_payment_date=self.today - timedelta(days=30))
-        deal.selected_quote = make_quote(deal, term=6)
-        deal.save()
-        _make_live(deal)
-        self.assertEqual(_names(self.get(window="6")), ["Quoted"])
 
 
 class TermEndDateFormTests(TestCase):

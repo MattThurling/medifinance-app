@@ -113,13 +113,6 @@ class DealListTests(OrgScopingTestCase):
         _, names = self._names(owner="none")
         self.assertEqual(names, [])
 
-    def test_maturing_list_unlocked(self):
-        response = self.client.get(reverse("crm:deal_maturing"))
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.context["owner_filter_locked"])
-        self.assertContains(response, 'name="owner"')
-        self.assertNotContains(response, "Unowned</option>")
-
     def test_loner_still_locked(self):
         self.client.force_login(self.loner)
         response, names = self._names()

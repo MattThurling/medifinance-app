@@ -120,12 +120,6 @@ class DealListTests(ScopingTestCase):
         _, names = self._names(owner="none")
         self.assertEqual(names, ["Unowned deal"])
 
-    def test_maturing_list_scoped_and_dropdown_hidden(self):
-        response = self.client.get(reverse("crm:deal_maturing"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.context["owner_filter_locked"])
-        self.assertNotContains(response, 'name="owner"')
-
 
 class DealPageTests(ScopingTestCase):
     def test_other_and_unowned_deals_404(self):
