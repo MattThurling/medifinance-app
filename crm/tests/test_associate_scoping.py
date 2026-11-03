@@ -672,9 +672,8 @@ class AddressBookScopingTests(ScopingTestCase):
         org = self.own.organisation
         hidden = make_contact(organisation=org, owner=self.other, last_name="Hidden too")
         loose = make_contact(organisation=org, last_name="Loose")
-        mine = make_contact(organisation=org, owner=self.associate, last_name="Mine")
         response = self.client.get(self.own.get_absolute_url())
-        self.assertCountEqual(response.context["available_applicants"], [loose, mine])
+        self.assertContains(response, reverse("crm:contact_search"))
 
         response = self.client.post(
             reverse("crm:deal_applicant_add", args=[self.own.pk]), {"contact": hidden.pk},
@@ -686,6 +685,30 @@ class AddressBookScopingTests(ScopingTestCase):
         )
         self.assertRedirects(response, self.own.get_absolute_url())
         self.assertIn(loose, self.own.co_applicants.all())
+
+    def test_applicant_add_accepts_contact_from_any_organisation(self):
+        # A director already in the CRM under another practice can be added;
+        # they join the deal's organisation as part of it.
+        other_org = make_organisation()
+        elsewhere = make_contact(organisation=other_org, owner=self.associate, last_name="Elsewhere")
+        response = self.client.post(
+            reverse("crm:deal_applicant_add", args=[self.own.pk]), {"contact": elsewhere.pk}, follow=True,
+        )
+        self.assertRedirects(response, self.own.get_absolute_url())
+        self.assertContains(response, "Added")
+        self.assertIn(elsewhere, self.own.co_applicants.all())
+        self.assertCountEqual(elsewhere.organisations.all(), [other_org, self.own.organisation])
+
+        # Adding them again is a no-op, and an empty pick is refused.
+        response = self.client.post(
+            reverse("crm:deal_applicant_add", args=[self.own.pk]), {"contact": elsewhere.pk}, follow=True,
+        )
+        self.assertContains(response, "already an applicant")
+        response = self.client.post(
+            reverse("crm:deal_applicant_add", args=[self.own.pk]), {"contact": ""}, follow=True,
+        )
+        self.assertContains(response, "Pick a contact")
+        self.assertEqual(self.own.co_applicants.count(), 1)
 
 
 class ReportsAndDashboardTests(ScopingTestCase):

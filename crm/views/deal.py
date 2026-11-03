@@ -161,16 +161,6 @@ class DealDetailView(StaffRequiredMixin, DetailView):
         applicants = [a for a in (deal.customer, *co_applicants) if a]
         ctx["applicants"] = applicants
 
-        # Other contacts in the deal's organisation that this user can see
-        # and attach as applicants.
-        org = deal.organisation
-        ctx["available_applicants"] = (
-            visible_contacts(self.request.user)
-            .filter(organisations=org)
-            .exclude(pk__in=[a.pk for a in applicants])
-            if org else Contact.objects.none()
-        )
-
         # Split the amount so the pence can render smaller (£25,000.00). The
         # headline card shows what's actually being financed — participations
         # minus the selected quote's deposit and balloon.
@@ -249,18 +239,30 @@ class DealDeleteView(StaffRequiredMixin, VisibleDealsMixin, DeleteView):
 
 
 class DealApplicantAddView(StaffRequiredMixin, View):
-    """Attach an existing contact from the customer's organisation as a co-applicant."""
+    """Attach an existing contact as a co-applicant.
+
+    Any contact the user can see will do, not just the organisation's own:
+    a director who is already in the CRM under another practice, say. They
+    are added to the deal's organisation at the same time (idempotent), the
+    same as the portal and "+ New contact" flows, so the organisation page
+    keeps listing everyone on its deals.
+    """
 
     def post(self, request, pk):
         deal = get_visible_deal_or_404(request.user, pk, "organisation")
-        contact = get_object_or_404(visible_contacts(request.user), pk=request.POST.get("contact"))
+        contact_pk = request.POST.get("contact")
+        if not contact_pk:
+            messages.error(request, "Pick a contact from the search results first.")
+            return redirect(deal.get_absolute_url())
+        contact = get_object_or_404(visible_contacts(request.user), pk=contact_pk)
         if deal.organisation_id is None:
             messages.error(request, "Set the deal's organisation before adding applicants.")
-        elif not contact.organisations.filter(pk=deal.organisation_id).exists():
-            messages.error(request, "You can only add applicants from the deal's organisation.")
         elif contact.pk == deal.customer_id:
             messages.error(request, "That contact is already the lead applicant.")
+        elif deal.co_applicants.filter(pk=contact.pk).exists():
+            messages.info(request, f"{contact} is already an applicant on this deal.")
         else:
+            contact.organisations.add(deal.organisation_id)
             deal.co_applicants.add(
                 contact,
                 through_defaults={"added_by": request.user, "added_at": timezone.now()},

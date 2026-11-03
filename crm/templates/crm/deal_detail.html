@@ -4,6 +4,7 @@
 {% block title %}{{ deal.name }} · Deals{% endblock %}
 
 {% block content %}
+{% url 'crm:contact_search' as contact_search_url %}
 {% comment %}
 Source order = the small-screen stack (header, amount, quotes/applicants/docs,
 timeline, CTA). On lg+ the explicit col/row placement rebuilds the two-column
@@ -163,18 +164,14 @@ layout (main content left, amount + timeline right).
           </tbody>
         </table>
         <div class="flex flex-wrap items-center gap-2 mt-3">
-          {% if available_applicants %}
-            <form method="post" action="{% url 'crm:deal_applicant_add' deal.pk %}" class="flex items-center gap-2">
-              {% csrf_token %}
-              <select name="contact" required class="select select-bordered select-xs max-w-xs">
-                <option value="" selected disabled>Add existing contact…</option>
-                {% for c in available_applicants %}
-                  <option value="{{ c.pk }}">{{ c }}</option>
-                {% endfor %}
-              </select>
-              <button type="submit" class="btn btn-xs btn-outline">Add</button>
-            </form>
-          {% endif %}
+          {# Any contact this user can see, searched by name, email or organisation; the view joins them to the deal's organisation. #}
+          <form method="post" action="{% url 'crm:deal_applicant_add' deal.pk %}" class="flex items-center gap-2">
+            {% csrf_token %}
+            <div class="w-64 max-w-full">
+              {% include "crm/_combobox.html" with name="contact" search_url=contact_search_url placeholder="Add existing contact…" compact=True %}
+            </div>
+            <button type="submit" class="btn btn-xs btn-outline">Add</button>
+          </form>
           <a href="{% url 'crm:contact_create' %}?deal={{ deal.pk }}" class="btn btn-xs btn-outline">+ New contact</a>
         </div>
       </div>
