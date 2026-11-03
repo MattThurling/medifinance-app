@@ -14,7 +14,13 @@ class ContactForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
     # open to all staff (see OrganisationSearchView).
     class Meta:
         model = Contact
-        fields = ["title", "first_name", "last_name", "email", "phone", "organisations", "owner"]
+        fields = [
+            "title", "first_name", "last_name", "email", "phone", "date_of_birth",
+            *ADDRESS_FIELDS_HOME, "organisations", "owner",
+        ]
+        widgets = {
+            "date_of_birth": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        }
 
     def selected_organisations(self):
         """Orgs to render as chips on the form. On a bound (POSTed) form we

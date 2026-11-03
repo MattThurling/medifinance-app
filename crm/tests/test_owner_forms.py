@@ -40,6 +40,26 @@ class ContactOwnerTests(OwnerFormTestCase):
         self.assertRedirects(response, contact.get_absolute_url())
         self.assertEqual(contact.owner, self.colleague)
 
+    def test_edit_saves_date_of_birth_and_home_address(self):
+        contact = make_contact(owner=self.staff)
+        response = self.client.post(
+            reverse("crm:contact_update", args=[contact.pk]),
+            {
+                "first_name": contact.first_name,
+                "last_name": contact.last_name,
+                "date_of_birth": "1980-01-01",
+                "home_address_line1": "5 Park Lane",
+                "home_address_city": "Leeds",
+                "home_address_postcode": "LS2 2BB",
+            },
+        )
+        contact.refresh_from_db()
+        self.assertRedirects(response, contact.get_absolute_url())
+        self.assertEqual(str(contact.date_of_birth), "1980-01-01")
+        self.assertEqual(contact.home_address_line1, "5 Park Lane")
+        self.assertEqual(contact.home_address_city, "Leeds")
+        self.assertEqual(contact.home_address_postcode, "LS2 2BB")
+
     def test_edit_can_clear_owner(self):
         contact = make_contact(owner=self.staff)
         response = self.client.post(

@@ -40,7 +40,20 @@
         {% include "_field.html" with field=form.last_name %}
       </div>
       {% include "_field.html" with field=form.email %}
-      {% include "_field.html" with field=form.phone %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.phone %}
+        {% include "_field.html" with field=form.date_of_birth %}
+      </div>
+      <div class="divider text-xs opacity-60 my-2">Home address</div>
+      {% include "_field.html" with field=form.home_address_line1 %}
+      {% include "_field.html" with field=form.home_address_line2 %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+        {% include "_field.html" with field=form.home_address_city %}
+        {% include "_field.html" with field=form.home_address_county %}
+      </div>
+      <div class="max-w-xs">
+        {% include "_field.html" with field=form.home_address_postcode %}
+      </div>
 
       <div class="form-control mb-4 m2m-combobox" data-name="organisations">
         <label class="label"><span class="label-text">Organisations</span></label>

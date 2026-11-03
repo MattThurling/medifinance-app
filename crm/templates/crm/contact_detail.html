@@ -26,6 +26,12 @@
         <dd class="col-span-2">{{ contact.email|default:"—" }}</dd>
         <dt class="opacity-60">Phone</dt>
         <dd class="col-span-2">{{ contact.phone|default:"—" }}</dd>
+        <dt class="opacity-60">Date of birth</dt>
+        <dd class="col-span-2">{% if contact.date_of_birth %}{{ contact.date_of_birth|date:"j M Y" }}{% else %}—{% endif %}</dd>
+        <dt class="opacity-60">Home address</dt>
+        <dd class="col-span-2">
+          {% with c=contact %}{% if c.home_address_line1 or c.home_address_line2 or c.home_address_city or c.home_address_county or c.home_address_postcode %}{% if c.home_address_line1 %}{{ c.home_address_line1 }}<br>{% endif %}{% if c.home_address_line2 %}{{ c.home_address_line2 }}<br>{% endif %}{% if c.home_address_city %}{{ c.home_address_city }}<br>{% endif %}{% if c.home_address_county %}{{ c.home_address_county }}<br>{% endif %}{{ c.home_address_postcode }}{% else %}—{% endif %}{% endwith %}
+        </dd>
         <dt class="opacity-60">Organisations</dt>
         <dd class="col-span-2">
           {% for o in contact.organisations.all %}<a href="{{ o.get_absolute_url }}" class="link link-hover">{{ o.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="opacity-50">— not set</span>{% endfor %}
