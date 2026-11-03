@@ -46,3 +46,12 @@ class CustomerCompanyForm(OptimisticLockFormMixin, DaisyUIFormMixin, forms.Model
         model = Organisation
         fields = ADDRESS_FIELDS_ORG + ["phone", "email", "url"]
         labels = {"url": "Website"}
+
+
+class QuickOrganisationForm(OrganisationForm):
+    """Inline "New organisation" from a combobox (deal form, supplier form):
+    the identifying fields only. No owner field — the quick-create view
+    assigns the creator (see ``crm.views.shared._QuickCreateView``)."""
+
+    class Meta(OrganisationForm.Meta):
+        fields = ["name", "legal_name", "companies_house_number", "sector", "email", "phone"]

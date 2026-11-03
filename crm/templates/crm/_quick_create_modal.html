@@ -1,0 +1,15 @@
+{% comment %}
+Dialog for a combobox's "+ New" (see _combobox.html `create_url`). Params:
+  name   the combobox field this dialog feeds — must match the button's
+         data-dialog="quick-create-<name>"
+
+Include it AFTER the page's </form>: a <form> nested inside another <form>
+is dropped by the browser. The body is filled by HTMX from the quick-create
+endpoint; static/js/combobox.js opens/closes it and resets the body.
+{% endcomment %}
+<dialog id="quick-create-{{ name }}" class="modal quick-create" data-for="{{ name }}">
+  <div class="modal-box">
+    <div class="quick-create-body"><span class="loading loading-spinner"></span></div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>

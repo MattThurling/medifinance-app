@@ -8,6 +8,14 @@ Searchable FK field (HTMX). Params:
   selected_label current display text (optional, for edit forms)
   errors         bound field errors (optional)
   required       True to mark the label with the red * (optional)
+  create_url     quick-create endpoint (optional). Renders a "+ New" button
+                 beside the label that opens the dialog rendered by
+                 crm/_quick_create_modal.html (include it AFTER the page's
+                 </form> with the same `name`) and HTMX-loads the slim form
+                 into it. See crm.views.shared._QuickCreateView.
+  create_include hx-include selector sent with the quick-create GET, e.g.
+                 "[name='organisation']" so a new contact is linked to the
+                 organisation already picked on the form (optional)
 
 The visible search box is name="q" (used only for the AJAX query; the form
 reads the hidden input). Typing clears the hidden value until a result is
@@ -15,7 +23,17 @@ clicked — see static/js/combobox.js.
 {% endcomment %}
 <div class="form-control mb-4 combobox relative">
   {% if label %}
-    <label class="label"><span class="label-text">{{ label }}{% if required %} <span class="text-error">*</span>{% endif %}</span></label>
+    <div class="flex items-center justify-between">
+      <label class="label"><span class="label-text">{{ label }}{% if required %} <span class="text-error">*</span>{% endif %}</span></label>
+      {% if create_url %}
+        {# h-5 keeps this row the label's height so the input lines up with neighbouring fields #}
+        <button type="button" class="btn btn-ghost btn-xs h-5 min-h-0 px-1.5 combobox-new"
+                data-dialog="quick-create-{{ name }}" aria-controls="quick-create-{{ name }}"
+                hx-get="{{ create_url }}"
+                hx-target="#quick-create-{{ name }} .quick-create-body" hx-swap="innerHTML"
+                {% if create_include %}hx-include="{{ create_include }}"{% endif %}>+ New</button>
+      {% endif %}
+    </div>
   {% endif %}
 
   <input type="hidden" name="{{ name }}" value="{{ selected_id|default:'' }}" />

@@ -9,7 +9,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 from accounts.permissions import StaffRequiredMixin
 
 from ..access import owner_choices, visible_contacts, visible_deals, visible_organisations
-from ..forms import ContactForm
+from ..forms import ContactForm, QuickContactForm
 from ..models import Contact, Organisation
 from .shared import (
     OwnerFilterMixin,
@@ -19,6 +19,7 @@ from .shared import (
     VisibleContactsMixin,
     _deal_summaries,
     _OwnerFormMixin,
+    _QuickCreateView,
     _SearchView,
 )
 
@@ -127,6 +128,43 @@ class ContactCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
         if self.parent_organisation:
             return self.parent_organisation.get_absolute_url()
         return self.object.get_absolute_url()
+
+
+class ContactQuickCreateView(_QuickCreateView):
+    """Inline "+ New" beside the deal form's customer combobox. The picker
+    sends ``?organisation=<pk>`` (the organisation currently chosen on the
+    deal, via hx-include) so the new contact is linked to it.
+
+    The lookup is deliberately unscoped, unlike ``ContactCreateView``: the
+    deal's organisation picker is open to all staff (OrganisationSearchView)
+    and ``ContactForm.organisations`` validates unscoped, so scoping here
+    would silently drop a legitimately picked organisation."""
+
+    model = Contact
+    form_class = QuickContactForm
+    full_create_url_name = "crm:contact_create"
+    quick_title = "New contact"
+
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        self.linked_organisation = None
+        org_pk = request.GET.get("organisation")
+        if org_pk:
+            try:
+                self.linked_organisation = Organisation.objects.get(pk=org_pk)
+            except (Organisation.DoesNotExist, ValueError, TypeError):
+                pass
+
+    def get_initial(self):
+        initial = super().get_initial()
+        if self.linked_organisation:
+            initial["organisations"] = [self.linked_organisation]
+        return initial
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["linked_organisation"] = self.linked_organisation
+        return ctx
 
 
 class ContactUpdateView(StaffRequiredMixin, VisibleContactsMixin, _OwnerFormMixin, UpdateView):

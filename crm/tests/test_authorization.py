@@ -55,12 +55,14 @@ class StaffUrlAccessMatrixTests(TestCase):
             # Organisations
             reverse("crm:organisation_list"),
             reverse("crm:organisation_create"),
+            reverse("crm:organisation_quick_create"),
             reverse("crm:organisation_detail", args=[self.org.pk]),
             reverse("crm:organisation_update", args=[self.org.pk]),
             reverse("crm:organisation_delete", args=[self.org.pk]),
             # Contacts
             reverse("crm:contact_list"),
             reverse("crm:contact_create"),
+            reverse("crm:contact_quick_create"),
             reverse("crm:contact_detail", args=[self.contact.pk]),
             reverse("crm:contact_update", args=[self.contact.pk]),
             reverse("crm:contact_delete", args=[self.contact.pk]),

@@ -1,12 +1,15 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import OuterRef, ProtectedError, Q, Subquery, Sum
 from django.db.models.functions import Coalesce, Greatest
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.views import View
-from django.views.generic import ListView
+from django.views.generic import CreateView, ListView
 
 from accounts.permissions import StaffRequiredMixin
 
@@ -386,3 +389,44 @@ class _SearchView(StaffRequiredMixin, View):
                 cond |= Q(**{f"{field}__icontains": q})
             results = list(self.get_queryset().filter(cond).distinct()[: self.limit])
         return render(request, "crm/_combobox_results.html", {"results": results})
+
+
+class _QuickCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
+    """Base for the HTMX inline "+ New" beside a combobox.
+
+    GET (HTMX) renders the slim form partial into the dialog; a plain GET
+    redirects to the full create page (query string kept). POST re-renders
+    the partial with errors, or on success answers 204 with an ``HX-Trigger``
+    header ``{"quickCreated": {"id", "label"}}`` which static/js/combobox.js
+    turns into the selected record and closes the dialog. An HTMX GET must
+    never redirect: htmx follows redirects and would swap the whole page into
+    the dialog.
+
+    The slim forms have no owner field, so the owner is always the creator.
+    """
+
+    template_name = "crm/_quick_create_form.html"
+    full_create_url_name = ""  # e.g. "crm:organisation_create"
+    quick_title = ""
+
+    def is_htmx(self) -> bool:
+        return self.request.headers.get("HX-Request") == "true"
+
+    def get(self, request, *args, **kwargs):
+        if not self.is_htmx():
+            url = reverse(self.full_create_url_name)
+            qs = request.META.get("QUERY_STRING")
+            return redirect(f"{url}?{qs}" if qs else url)
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["quick_title"] = self.quick_title
+        return ctx
+
+    def form_valid(self, form):
+        if form.instance.owner_id is None:
+            form.instance.owner = self.request.user
+        self.object = form.save()
+        payload = {"quickCreated": {"id": self.object.pk, "label": str(self.object)}}
+        return HttpResponse(status=204, headers={"HX-Trigger": json.dumps(payload)})

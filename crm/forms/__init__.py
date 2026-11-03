@@ -6,8 +6,8 @@ from .base import (
     OptimisticLockFormMixin,
     OwnerInitialFormMixin,
 )
-from .organisation import CustomerCompanyForm, OrganisationForm
-from .contact import ContactForm, CustomerApplicantForm, CustomerInfoForm
+from .organisation import CustomerCompanyForm, OrganisationForm, QuickOrganisationForm
+from .contact import ContactForm, CustomerApplicantForm, CustomerInfoForm, QuickContactForm
 from .deal import DealForm
 from .participation import ParticipationForm, SupplierInvoiceForm
 from .quote import QuoteForm, QuoteSelectionForm, TermsForm
@@ -26,9 +26,11 @@ __all__ = [
     "OwnerInitialFormMixin",
     "CustomerCompanyForm",
     "OrganisationForm",
+    "QuickOrganisationForm",
     "ContactForm",
     "CustomerApplicantForm",
     "CustomerInfoForm",
+    "QuickContactForm",
     "DealForm",
     "ParticipationForm",
     "SupplierInvoiceForm",

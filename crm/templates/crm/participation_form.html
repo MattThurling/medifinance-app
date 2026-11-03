@@ -5,6 +5,7 @@
 {% block content %}
 {% url 'crm:organisation_search' as organisation_search_url %}
 {% url 'crm:contact_search' as contact_search_url %}
+{% url 'crm:organisation_quick_create' as organisation_quick_create_url %}
 <div class="max-w-xl">
   <p class="text-sm opacity-60 mb-1">
     <a href="{% url 'crm:deal_list' %}" class="link link-hover">Deals</a> /
@@ -34,7 +35,7 @@
       {% else %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
           {% include "_field.html" with field=form.amount %}
-          {% include "crm/_combobox.html" with name="organisation" label="Supplier" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
+          {% include "crm/_combobox.html" with name="organisation" label="Supplier" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors create_url=organisation_quick_create_url %}
         </div>
 
         {% include "_field.html" with field=form.description %}
@@ -65,5 +66,10 @@
       </div>
     </div>
   </form>
+
+  {# Quick-create dialog lives outside the form: nested <form>s are dropped by the browser. #}
+  {% if not parent_deal.is_commercial_finance %}
+    {% include "crm/_quick_create_modal.html" with name="organisation" %}
+  {% endif %}
 </div>
 {% endblock %}

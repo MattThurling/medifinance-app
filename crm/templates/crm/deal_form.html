@@ -6,6 +6,8 @@
 {% url 'crm:contact_search' as contact_search_url %}
 {% url 'crm:organisation_search' as organisation_search_url %}
 {% url 'crm:user_search' as user_search_url %}
+{% url 'crm:contact_quick_create' as contact_quick_create_url %}
+{% url 'crm:organisation_quick_create' as organisation_quick_create_url %}
 <div class="max-w-xl">
   <p class="text-sm opacity-60 mb-1">
     {% if parent_contact %}
@@ -33,6 +35,9 @@
         {% include "_field.html" with field=form.type %}
       </div>
 
+      {# Organisation first: a customer created inline via "+ New" is linked to whatever is picked here. #}
+      {% include "crm/_combobox.html" with name="organisation" label="Organisation" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors create_url=organisation_quick_create_url %}
+
       {% if parent_contact %}
         <div class="form-control mb-4">
           <label class="label"><span class="label-text">Customer</span></label>
@@ -42,10 +47,8 @@
           <input type="hidden" name="customer" value="{{ parent_contact.pk }}" />
         </div>
       {% else %}
-        {% include "crm/_combobox.html" with name="customer" label="Customer" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.customer.value selected_label=form.instance.customer errors=form.customer.errors %}
+        {% include "crm/_combobox.html" with name="customer" label="Customer" search_url=contact_search_url placeholder="Search contacts…" selected_id=form.customer.value selected_label=form.instance.customer errors=form.customer.errors create_url=contact_quick_create_url create_include="[name='organisation']" %}
       {% endif %}
-
-      {% include "crm/_combobox.html" with name="organisation" label="Organisation" search_url=organisation_search_url placeholder="Search organisations…" selected_id=form.organisation.value selected_label=form.instance.organisation errors=form.organisation.errors %}
 
       {% if not owner_locked %}
         {% include "crm/_combobox.html" with name="owner" label="Owner" search_url=user_search_url placeholder="Search staff…" selected_id=owner_selected_id selected_label=owner_selected_label errors=form.owner.errors %}
@@ -79,5 +82,11 @@
       </div>
     </div>
   </form>
+
+  {# Quick-create dialogs live outside the form: nested <form>s are dropped by the browser. #}
+  {% if not parent_contact %}
+    {% include "crm/_quick_create_modal.html" with name="customer" %}
+  {% endif %}
+  {% include "crm/_quick_create_modal.html" with name="organisation" %}
 </div>
 {% endblock %}

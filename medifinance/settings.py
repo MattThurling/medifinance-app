@@ -34,6 +34,11 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    # Let WhiteNoise serve static files under runserver too. Django's own
+    # handler sends no Cache-Control, so browsers kept a stale output.css
+    # after `npm run build:css`; WhiteNoise in DEBUG answers max-age=0 + ETag
+    # and the browser revalidates on every load.
+    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.contrib.humanize",

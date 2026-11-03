@@ -6,7 +6,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 from accounts.permissions import StaffRequiredMixin
 
 from ..access import visible_contacts, visible_deals, visible_organisations
-from ..forms import OrganisationForm
+from ..forms import OrganisationForm, QuickOrganisationForm
 from ..models import Organisation
 from .shared import (
     OwnerFilterMixin,
@@ -17,6 +17,7 @@ from .shared import (
     VisibleOrganisationsMixin,
     _deal_summaries,
     _OwnerFormMixin,
+    _QuickCreateView,
     _SearchView,
 )
 
@@ -74,6 +75,16 @@ class OrganisationCreateView(StaffRequiredMixin, _OwnerFormMixin, CreateView):
 
     def get_success_url(self):
         return self.object.get_absolute_url()
+
+
+class OrganisationQuickCreateView(_QuickCreateView):
+    """Inline "+ New" beside an organisation combobox (deal organisation,
+    supplier on a participation)."""
+
+    model = Organisation
+    form_class = QuickOrganisationForm
+    full_create_url_name = "crm:organisation_create"
+    quick_title = "New organisation"
 
 
 class OrganisationUpdateView(StaffRequiredMixin, VisibleOrganisationsMixin, _OwnerFormMixin, UpdateView):

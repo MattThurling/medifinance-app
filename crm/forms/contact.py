@@ -75,3 +75,15 @@ class CustomerApplicantForm(DaisyUIFormMixin, forms.ModelForm):
                     "Someone with this email address is already on this application."
                 )
         return email
+
+
+class QuickContactForm(ContactForm):
+    """Inline "New contact" from the deal form's customer combobox.
+
+    ``organisations`` is a hidden M2M prefilled with the organisation picked
+    on the deal form, so the new customer lands under the right company. No
+    owner field — the quick-create view assigns the creator."""
+
+    class Meta(ContactForm.Meta):
+        fields = ["title", "first_name", "last_name", "email", "phone", "organisations"]
+        widgets = {"organisations": forms.MultipleHiddenInput()}

@@ -9,6 +9,7 @@ urlpatterns = [
     # Organisations
     path("organisations/", views.OrganisationListView.as_view(), name="organisation_list"),
     path("organisations/new/", views.OrganisationCreateView.as_view(), name="organisation_create"),
+    path("organisations/quick-new/", views.OrganisationQuickCreateView.as_view(), name="organisation_quick_create"),
     path("organisations/<int:pk>/", views.OrganisationDetailView.as_view(), name="organisation_detail"),
     path("organisations/<int:pk>/edit/", views.OrganisationUpdateView.as_view(), name="organisation_update"),
     path("organisations/<int:pk>/delete/", views.OrganisationDeleteView.as_view(), name="organisation_delete"),
@@ -16,6 +17,7 @@ urlpatterns = [
     # Contacts
     path("contacts/", views.ContactListView.as_view(), name="contact_list"),
     path("contacts/new/", views.ContactCreateView.as_view(), name="contact_create"),
+    path("contacts/quick-new/", views.ContactQuickCreateView.as_view(), name="contact_quick_create"),
     path("contacts/<int:pk>/", views.ContactDetailView.as_view(), name="contact_detail"),
     path("contacts/<int:pk>/edit/", views.ContactUpdateView.as_view(), name="contact_update"),
     path("contacts/<int:pk>/delete/", views.ContactDeleteView.as_view(), name="contact_delete"),

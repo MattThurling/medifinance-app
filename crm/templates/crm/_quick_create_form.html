@@ -1,0 +1,26 @@
+{% comment %}
+Slim create form swapped into a quick-create dialog's .quick-create-body.
+Posts back to itself; on success the view answers 204 + HX-Trigger and
+combobox.js selects the new record (see crm.views.shared._QuickCreateView).
+{% endcomment %}
+<form hx-post="{{ request.path }}" hx-target="closest .quick-create-body" hx-swap="innerHTML">
+  {% csrf_token %}
+  <h3 class="text-lg font-semibold mb-4">{{ quick_title }}</h3>
+  {% if form.non_field_errors %}
+    <div class="alert alert-error mb-4">{{ form.non_field_errors }}</div>
+  {% endif %}
+  {% for field in form.hidden_fields %}
+    {{ field }}
+    {% if field.errors %}<p class="text-error text-sm mb-2">{{ field.errors|join:", " }}</p>{% endif %}
+  {% endfor %}
+  {% for field in form.visible_fields %}
+    {% include "_field.html" with field=field %}
+  {% endfor %}
+  {% if linked_organisation %}
+    <p class="text-xs opacity-60">Will be linked to {{ linked_organisation }}.</p>
+  {% endif %}
+  <div class="modal-action">
+    <button type="button" class="btn btn-ghost quick-create-cancel">Cancel</button>
+    <button type="submit" class="btn btn-primary">Create</button>
+  </div>
+</form>
