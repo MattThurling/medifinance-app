@@ -222,7 +222,7 @@ class TypeFilterTests(DealListTestCase):
 
 
 class ColumnTests(DealListTestCase):
-    HEADERS = ["Organisation", "Customer", "Deal name", "Amount", "Type", "Owner", "Last activity"]
+    HEADERS = ["ID", "Organisation", "Customer", "Deal name", "Amount", "Type", "Owner", "Last activity"]
 
     def header_labels(self, response):
         html = response.content.decode()
@@ -248,7 +248,7 @@ class ColumnTests(DealListTestCase):
         self.assertNotContains(response, "sort=owner")
         # Empty-state row still spans the table.
         empty = self.get(q="nothing-matches")
-        self.assertContains(empty, 'colspan="7"')
+        self.assertContains(empty, 'colspan="8"')
 
     def test_deactivated_colleague_does_not_count(self):
         make_associate(is_active=False)

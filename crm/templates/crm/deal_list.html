@@ -59,6 +59,7 @@
     <table class="table table-xs">
       <thead>
         <tr>
+          {% include "_th_sort.html" with key="id" label="ID" %}
           <th>Organisation</th>
           <th>Customer</th>
           {% include "_th_sort.html" with key="name" label="Deal name" %}
@@ -72,6 +73,9 @@
       <tbody>
         {% for d in object_list %}
           <tr>
+            <td class="whitespace-nowrap opacity-80">
+              <a href="{{ d.get_absolute_url }}" class="link link-hover">{{ d.pk }}</a>
+            </td>
             <td>
               {% if d.organisation %}<a href="{{ d.organisation.get_absolute_url }}" class="link link-hover">{{ d.organisation.name }}</a>{% else %}<span class="opacity-50">—</span>{% endif %}
             </td>
@@ -97,7 +101,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="{% if show_owner_column %}8{% else %}7{% endif %}" class="text-center opacity-60 py-8">
+            <td colspan="{% if show_owner_column %}9{% else %}8{% endif %}" class="text-center opacity-60 py-8">
               {% if q or stage_filter or type_filter or owner_filter %}No deals match the current filters.{% else %}No deals yet.{% endif %}
             </td>
           </tr>

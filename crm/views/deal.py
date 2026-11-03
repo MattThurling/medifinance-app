@@ -46,6 +46,7 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
     ]
     default_sort = "-created"
     sort_fields = {
+        "id": F("pk"),
         "name": Lower("name"),
         "type": F("type"),
         "funded": F("funded_total"),
