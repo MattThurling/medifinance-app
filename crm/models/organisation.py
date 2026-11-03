@@ -40,8 +40,8 @@ class Organisation(TimestampedModel):
     )
 
     # UK structured address. All blank-allowed — fill in as you go.
-    address_line1 = models.CharField("Line 1", max_length=255, blank=True, help_text="House number and street")
-    address_line2 = models.CharField("Line 2", max_length=255, blank=True, help_text="Flat, suite, etc.")
+    address_line1 = models.CharField("Line 1", max_length=255, blank=True)
+    address_line2 = models.CharField("Line 2", max_length=255, blank=True)
     address_city = models.CharField("City", max_length=100, blank=True)
     address_county = models.CharField("County", max_length=100, blank=True, help_text="Optional")
     address_postcode = models.CharField("Postcode", max_length=10, blank=True)

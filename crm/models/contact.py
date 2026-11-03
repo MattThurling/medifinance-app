@@ -15,8 +15,8 @@ class Contact(TimestampedModel):
     date_of_birth = models.DateField(null=True, blank=True)
 
     # UK structured home address.
-    home_address_line1 = models.CharField("Line 1", max_length=255, blank=True, help_text="House number and street")
-    home_address_line2 = models.CharField("Line 2", max_length=255, blank=True, help_text="Flat, etc.")
+    home_address_line1 = models.CharField("Line 1", max_length=255, blank=True)
+    home_address_line2 = models.CharField("Line 2", max_length=255, blank=True)
     home_address_city = models.CharField("City", max_length=100, blank=True)
     home_address_county = models.CharField("County", max_length=100, blank=True, help_text="Optional")
     home_address_postcode = models.CharField("Postcode", max_length=10, blank=True)
