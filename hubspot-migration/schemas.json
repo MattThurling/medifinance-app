@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://medifinance.app/schemas/models.json",
+  "title": "Medifinance CRM model schemas",
+  "description": "JSON Schema definitions generated from the Django models in accounts/models.py and crm/models.py. Decimals are represented as strings (matching DRF's default) with a numeric pattern; foreign keys are represented as integer IDs. `readOnly` marks server-managed fields (pk, timestamps, auto-populated fields). `required` reflects Django's blank/null/default rules — a field is required only when Django would refuse to save the row without it.",
+
+  "$defs": {
+
+    "Organisation": {
+      "type": "object",
+      "title": "Organisation",
+      "description": "A company record — customer, supplier, lender or introducer.",
+      "properties": {
+        "id":                       { "type": "integer", "readOnly": true },
+        "created_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "name":                     { "type": "string", "maxLength": 255, "description": "Everyday name staff use to find this org." },
+        "legal_name":               { "type": "string", "maxLength": 255, "description": "Registered Companies House name." },
+        "trading_name":             { "type": "string", "maxLength": 255 },
+        "companies_house_number":   { "type": "string", "maxLength": 10, "description": "UK CH number — 8 digits, or NI/SC/OC + 6 digits." },
+        "address_line1":            { "type": "string", "maxLength": 255 },
+        "address_line2":            { "type": "string", "maxLength": 255 },
+        "address_city":             { "type": "string", "maxLength": 100 },
+        "address_county":           { "type": "string", "maxLength": 100 },
+        "address_postcode":         { "type": "string", "maxLength": 10 },
+        "url":                      { "type": "string", "format": "uri", "maxLength": 255, "description": "Homepage / website URL." },
+        "email":                    { "type": "string", "format": "email", "maxLength": 254, "description": "Shared / role inbox for the organisation (e.g. info@, reception@). Contacts may share this address." },
+        "phone":                    { "type": "string", "maxLength": 32, "description": "Main phone number for the organisation." },
+        "hubspot_id":               { "type": ["string", "null"], "maxLength": 64 }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+
+    "Contact": {
+      "type": "object",
+      "title": "Contact",
+      "description": "A person — customer, co-applicant, or contact at a supplier/lender.",
+      "properties": {
+        "id":                       { "type": "integer", "readOnly": true },
+        "created_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "title":                    { "type": "string", "maxLength": 20, "description": "Honorific (Dr, Prof, Mrs …). Optional." },
+        "first_name":               { "type": "string", "maxLength": 150 },
+        "last_name":                { "type": "string", "maxLength": 150 },
+        "email":                    { "type": "string", "format": "email", "maxLength": 254 },
+        "phone":                    { "type": "string", "maxLength": 32 },
+        "date_of_birth":            { "type": ["string", "null"], "format": "date" },
+        "home_address_line1":       { "type": "string", "maxLength": 255 },
+        "home_address_line2":       { "type": "string", "maxLength": 255 },
+        "home_address_city":        { "type": "string", "maxLength": 100 },
+        "home_address_county":      { "type": "string", "maxLength": 100 },
+        "home_address_postcode":    { "type": "string", "maxLength": 10 },
+        "organisations":            { "type": "array", "items": { "type": "integer" }, "description": "M2M: Organisation ids." },
+        "user":                     { "type": ["integer", "null"], "description": "FK to User (accounts.User)." },
+        "hubspot_id":               { "type": ["string", "null"], "maxLength": 64 }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+
+    "Deal": {
+      "type": "object",
+      "title": "Deal",
+      "description": "A financing deal for one customer/organisation.",
+      "properties": {
+        "id":                       { "type": "integer", "readOnly": true },
+        "created_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "name":                     { "type": "string", "maxLength": 255 },
+        "owner":                    { "type": ["integer", "null"], "description": "FK to User (owning associate). Null for API-created deals." },
+        "customer":                 { "type": ["integer", "null"], "description": "FK to Contact. Nullable — some commercial / historical deals genuinely have no individual customer, only an organisation." },
+        "organisation":             { "type": ["integer", "null"], "description": "FK to Organisation." },
+        "introducer":               { "type": ["integer", "null"], "description": "FK to Organisation." },
+        "earnings":                 { "type": ["string", "null"], "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$", "description": "Decimal(12,2)." },
+        "flat_fee":                 { "type": ["string", "null"], "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$", "description": "Decimal(12,2)." },
+        "commission":               { "type": ["string", "null"], "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$", "description": "Decimal(12,2)." },
+        "document_fee":             { "type": ["string", "null"], "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$", "description": "Decimal(12,2)." },
+        "deposit":                  { "type": ["string", "null"], "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$", "description": "Decimal(12,2). Customer deposit — reduces amount financed." },
+        "balloon":                  { "type": ["string", "null"], "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$", "description": "Decimal(12,2). Balloon — reduces amount financed." },
+        "first_payment_date":       { "type": ["string", "null"], "format": "date", "description": "Date the first repayment falls due." },
+        "repayment_profile":        { "type": "string", "maxLength": 100, "description": "Free-text repayment profile (e.g. monthly, quarterly, balloon). May be structured later." },
+        "selected_quote":           { "type": ["integer", "null"], "description": "FK to Quote." },
+        "selected_proposal":        { "type": ["integer", "null"], "description": "FK to Proposal." },
+        "co_applicants":            { "type": "array", "items": { "type": "integer" }, "description": "M2M: Contact ids." },
+        "hubspot_id":               { "type": ["string", "null"], "maxLength": 64 },
+        "created_via_api_key":      { "type": ["integer", "null"], "description": "FK to ApiKey." },
+        "funded_amount":            { "type": ["string", "null"], "pattern": "^-?\\d+(\\.\\d{1,2})?$", "readOnly": true, "description": "Derived: sum of participations." },
+        "finance_amount":           { "type": ["string", "null"], "pattern": "^-?\\d+(\\.\\d{1,2})?$", "readOnly": true, "description": "Derived: funded_amount - deposit - balloon." }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+
+    "Participation": {
+      "type": "object",
+      "title": "Participation",
+      "description": "One contribution to a deal's funded amount (many per deal).",
+      "properties": {
+        "id":                       { "type": "integer", "readOnly": true },
+        "created_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":               { "type": "string", "format": "date-time", "readOnly": true },
+        "deal":                     { "type": "integer", "description": "FK to Deal." },
+        "organisation":             { "type": ["integer", "null"], "description": "FK to Organisation (the supplier)." },
+        "amount":                   { "type": "string", "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$", "description": "Decimal(12,2)." },
+        "description":              { "type": "string" },
+        "invoice_number":           { "type": "string", "maxLength": 100 },
+        "invoice_contact":          { "type": ["integer", "null"], "description": "FK to Contact." },
+        "invoice":                  { "type": ["string", "null"], "format": "uri", "description": "Uploaded invoice file URL." }
+      },
+      "required": ["deal", "amount"],
+      "additionalProperties": false
+    },
+
+    "ParticipationInvoiceLink": {
+      "type": "object",
+      "title": "ParticipationInvoiceLink",
+      "description": "Single-use, time-limited link for a supplier to upload their invoice.",
+      "properties": {
+        "id":           { "type": "integer", "readOnly": true },
+        "created_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "participation":{ "type": "integer", "description": "FK to Participation." },
+        "token":        { "type": "string", "maxLength": 64, "readOnly": true },
+        "created_by":   { "type": ["integer", "null"], "description": "FK to User." },
+        "expires_at":   { "type": "string", "format": "date-time" },
+        "used_at":      { "type": ["string", "null"], "format": "date-time" },
+        "used_ip":      { "type": ["string", "null"], "oneOf": [{ "format": "ipv4" }, { "format": "ipv6" }] }
+      },
+      "required": ["participation", "token", "expires_at"],
+      "additionalProperties": false
+    },
+
+    "Proposal": {
+      "type": "object",
+      "title": "Proposal",
+      "description": "A proposal sent to a lender for a deal.",
+      "properties": {
+        "id":               { "type": "integer", "readOnly": true },
+        "created_at":       { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":       { "type": "string", "format": "date-time", "readOnly": true },
+        "deal":             { "type": "integer", "description": "FK to Deal." },
+        "lender":           { "type": "integer", "description": "FK to Organisation." },
+        "contact":          { "type": ["integer", "null"], "description": "FK to Contact (at the lender)." },
+        "proposal_number":  { "type": "string", "maxLength": 100 },
+        "status":           { "type": "string", "enum": ["submitted", "approved", "declined", "withdrawn"], "default": "submitted" }
+      },
+      "required": ["deal", "lender"],
+      "additionalProperties": false
+    },
+
+    "Stage": {
+      "type": "object",
+      "title": "Stage",
+      "description": "A stage-change event on a Deal. The latest one is the deal's current stage.",
+      "properties": {
+        "id":           { "type": "integer", "readOnly": true },
+        "created_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "deal":         { "type": "integer", "description": "FK to Deal." },
+        "name":         {
+          "type": "string",
+          "enum": [
+            "application",
+            "info_received",
+            "proposal_submitted",
+            "proposal_approved",
+            "documents_out",
+            "awaiting_payout",
+            "deal_live",
+            "commission_invoice_requested",
+            "invoice_requested",
+            "invoice_received",
+            "proposal_declined",
+            "proposal_withdrawn"
+          ]
+        },
+        "organisation": { "type": ["integer", "null"], "description": "FK to Organisation this stage is about." },
+        "occurred_at":  { "type": "string", "format": "date-time" },
+        "set_by":       { "type": ["integer", "null"], "description": "FK to User." },
+        "note":         { "type": "string" }
+      },
+      "required": ["deal", "name"],
+      "additionalProperties": false
+    },
+
+    "Quote": {
+      "type": "object",
+      "title": "Quote",
+      "description": "A financing quote against a deal. Monthly payment / APR / flat rate are derived at read-time.",
+      "properties": {
+        "id":                   { "type": "integer", "readOnly": true },
+        "created_at":           { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":           { "type": "string", "format": "date-time", "readOnly": true },
+        "deal":                 { "type": "integer", "description": "FK to Deal." },
+        "rate":                 { "type": ["integer", "null"], "description": "FK to RateBand." },
+        "term":                 { "type": "integer", "minimum": 0, "maximum": 32767, "description": "Term in months." },
+        "commission_percent":   { "type": ["string", "null"], "pattern": "^-?\\d{1,3}(\\.\\d{1,2})?$", "description": "Decimal(5,2)." },
+        "yield_percent":        { "type": ["string", "null"], "pattern": "^-?\\d{1,3}(\\.\\d{1,2})?$", "readOnly": true, "description": "From the linked RateBand." },
+        "monthly_payment":      { "type": ["string", "null"], "pattern": "^-?\\d+(\\.\\d{1,2})?$", "readOnly": true, "description": "Derived from principal + rate + term + commission." },
+        "apr":                  { "type": ["string", "null"], "pattern": "^-?\\d+(\\.\\d{1,4})?$", "readOnly": true },
+        "flat_rate":            { "type": ["string", "null"], "pattern": "^-?\\d+(\\.\\d{1,4})?$", "readOnly": true }
+      },
+      "required": ["deal", "term"],
+      "additionalProperties": false
+    },
+
+    "RateBand": {
+      "type": "object",
+      "title": "RateBand",
+      "description": "A lender's rate for a band of loan amount at a given term. New bands supersede old ones — history is preserved via is_active + effective_from.",
+      "properties": {
+        "id":               { "type": "integer", "readOnly": true },
+        "created_at":       { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":       { "type": "string", "format": "date-time", "readOnly": true },
+        "organisation":     { "type": "integer", "description": "FK to Organisation (the lender)." },
+        "term_months":      { "type": "integer", "minimum": 0, "maximum": 32767 },
+        "yield_percent":    { "type": "string", "pattern": "^-?\\d{1,3}(\\.\\d{1,2})?$", "description": "Decimal(5,2). Annual yield %, e.g. \"15.65\"." },
+        "min_amount":       { "type": "integer", "minimum": 0 },
+        "max_amount":       { "type": "integer", "minimum": 0 },
+        "is_active":        { "type": "boolean", "default": true },
+        "effective_from":   { "type": "string", "format": "date" }
+      },
+      "required": ["organisation", "term_months", "yield_percent", "min_amount", "max_amount"],
+      "additionalProperties": false,
+      "allOf": [
+        { "description": "DB check constraint: max_amount >= min_amount." }
+      ]
+    },
+
+    "XeroConnection": {
+      "type": "object",
+      "title": "XeroConnection",
+      "description": "OAuth tokens for the Xero tenant this environment is connected to.",
+      "properties": {
+        "id":               { "type": "integer", "readOnly": true },
+        "created_at":       { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":       { "type": "string", "format": "date-time", "readOnly": true },
+        "tenant_id":        { "type": "string", "maxLength": 64 },
+        "tenant_name":      { "type": "string", "maxLength": 255 },
+        "access_token":     { "type": "string" },
+        "refresh_token":    { "type": "string" },
+        "expires_at":       { "type": "string", "format": "date-time" },
+        "scopes":           { "type": "string" },
+        "connected_by":     { "type": ["integer", "null"], "description": "FK to User." }
+      },
+      "required": ["tenant_id", "tenant_name", "access_token", "refresh_token", "expires_at"],
+      "additionalProperties": false
+    },
+
+    "XeroInvoice": {
+      "type": "object",
+      "title": "XeroInvoice",
+      "description": "Local mirror of a Xero invoice raised against a Deal.",
+      "properties": {
+        "id":                   { "type": "integer", "readOnly": true },
+        "created_at":           { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":           { "type": "string", "format": "date-time", "readOnly": true },
+        "deal":                 { "type": "integer", "description": "FK to Deal." },
+        "xero_invoice_id":      { "type": "string", "maxLength": 64 },
+        "xero_invoice_number":  { "type": "string", "maxLength": 100 },
+        "contact_name":         { "type": "string", "maxLength": 255 },
+        "online_invoice_url":   { "type": "string", "format": "uri" },
+        "total":                { "type": ["string", "null"], "pattern": "^-?\\d{1,10}(\\.\\d{1,2})?$" },
+        "status":               { "type": "string", "maxLength": 32 },
+        "created_by":           { "type": ["integer", "null"], "description": "FK to User." }
+      },
+      "required": ["deal", "xero_invoice_id"],
+      "additionalProperties": false
+    },
+
+    "Document": {
+      "type": "object",
+      "title": "Document",
+      "description": "A document a deal needs. Staff request it; customer or staff uploads a file.",
+      "properties": {
+        "id":           { "type": "integer", "readOnly": true },
+        "created_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "deal":         { "type": "integer", "description": "FK to Deal." },
+        "name":         { "type": "string", "maxLength": 255 },
+        "required":     { "type": "boolean", "default": true },
+        "status":       { "type": "string", "enum": ["requested", "provided"], "default": "requested" },
+        "file":         { "type": ["string", "null"], "format": "uri" },
+        "uploaded_at":  { "type": ["string", "null"], "format": "date-time" },
+        "uploaded_by":  { "type": ["integer", "null"], "description": "FK to User." }
+      },
+      "required": ["deal", "name"],
+      "additionalProperties": false
+    },
+
+    "Note": {
+      "type": "object",
+      "title": "Note",
+      "description": "A note attached to a contact, organisation and/or deal. Initially used to port notes and logged emails from HubSpot; `datetime` holds when the note was originally written (not when it was imported).",
+      "properties": {
+        "id":           { "type": "integer", "readOnly": true },
+        "created_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "updated_at":   { "type": "string", "format": "date-time", "readOnly": true },
+        "type":         { "type": "string", "enum": ["hubspot_note", "hubspot_email", "hubspot_migration_comment", "admin_comment"] },
+        "contact":      { "type": ["integer", "null"], "description": "FK to Contact." },
+        "organisation": { "type": ["integer", "null"], "description": "FK to Organisation." },
+        "deal":         { "type": ["integer", "null"], "description": "FK to Deal." },
+        "author":       { "type": ["integer", "null"], "description": "FK to User." },
+        "content":      { "type": "string", "description": "Markdown. Rendered to sanitized HTML in the UI (bare URLs auto-link). HubSpot HTML should be converted to Markdown at import time." },
+        "datetime":     { "type": "string", "format": "date-time", "description": "When the note was originally written or the email sent." },
+        "hubspot_id":   { "type": ["string", "null"], "maxLength": 64 }
+      },
+      "required": ["type", "content", "datetime"],
+      "additionalProperties": false
+    },
+
+    "User": {
+      "type": "object",
+      "title": "User",
+      "description": "Auth user. Role determines UI access: admin/associate use the internal UI, customer uses the portal.",
+      "properties": {
+        "id":               { "type": "integer", "readOnly": true },
+        "email":            { "type": "string", "format": "email", "maxLength": 254 },
+        "first_name":       { "type": "string", "maxLength": 150 },
+        "last_name":        { "type": "string", "maxLength": 150 },
+        "role":             { "type": "string", "enum": ["admin", "associate", "customer"], "default": "associate" },
+        "is_active":        { "type": "boolean", "default": true },
+        "is_staff":         { "type": "boolean", "default": false },
+        "date_joined":      { "type": "string", "format": "date-time" },
+        "hubspot_id":       { "type": ["string", "null"], "maxLength": 64 },
+        "last_login":       { "type": ["string", "null"], "format": "date-time", "description": "From AbstractBaseUser." }
+      },
+      "required": ["email"],
+      "additionalProperties": false
+    },
+
+    "MagicLink": {
+      "type": "object",
+      "title": "MagicLink",
+      "description": "Single-use, time-limited login URL. Consuming it logs the user in and redirects.",
+      "properties": {
+        "id":           { "type": "integer", "readOnly": true },
+        "token":        { "type": "string", "maxLength": 64, "readOnly": true },
+        "user":         { "type": "integer", "description": "FK to User." },
+        "redirect_url": { "type": "string", "maxLength": 512 },
+        "created_by":   { "type": ["integer", "null"], "description": "FK to User." },
+        "created_at":   { "type": "string", "format": "date-time" },
+        "expires_at":   { "type": "string", "format": "date-time" },
+        "used_at":      { "type": ["string", "null"], "format": "date-time" },
+        "used_ip":      { "type": ["string", "null"], "oneOf": [{ "format": "ipv4" }, { "format": "ipv6" }] }
+      },
+      "required": ["token", "user", "redirect_url", "expires_at"],
+      "additionalProperties": false
+    },
+
+    "ApiKey": {
+      "type": "object",
+      "title": "ApiKey",
+      "description": "Bearer token for the public API. Only the SHA-256 hash is stored; the raw key is shown once at issue.",
+      "properties": {
+        "id":               { "type": "integer", "readOnly": true },
+        "organisation":     { "type": "integer", "description": "FK to Organisation (the partner)." },
+        "prefix":           { "type": "string", "maxLength": 16, "readOnly": true, "description": "First 12 chars of the raw key (mfk_ + 8) — identifies the key without exposing it." },
+        "hashed_key":       { "type": "string", "maxLength": 64, "readOnly": true, "description": "SHA-256 hex of the raw key." },
+        "is_active":        { "type": "boolean", "default": true },
+        "created_at":       { "type": "string", "format": "date-time" },
+        "last_used_at":     { "type": ["string", "null"], "format": "date-time" },
+        "created_by":       { "type": ["integer", "null"], "description": "FK to User." }
+      },
+      "required": ["organisation"],
+      "additionalProperties": false
+    },
+
+    "SiteSettings": {
+      "type": "object",
+      "title": "SiteSettings",
+      "description": "Single-row global settings. Currently just the API kill switch.",
+      "properties": {
+        "id":           { "type": "integer", "const": 1, "readOnly": true, "description": "Singleton — always 1." },
+        "api_enabled":  { "type": "boolean", "default": true },
+        "updated_at":   { "type": "string", "format": "date-time", "readOnly": true }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  }
+}

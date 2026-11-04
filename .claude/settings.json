@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python manage.py check)",
+      "Bash(.venv/bin/python manage.py test *)",
+      "Bash(.venv/bin/python manage.py makemigrations *)",
+      "Bash(.venv/bin/python manage.py migrate *)",
+      "Bash(.venv/bin/python manage.py shell -c *)",
+      "Bash(python manage.py check)",
+      "Bash(python manage.py test *)",
+      "Bash(python manage.py makemigrations *)",
+      "Bash(python manage.py migrate *)",
+      "Bash(python manage.py shell -c *)",
+      "Bash(npm run build:css)",
+      "Bash(npm run watch:css)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git rm *)",
+      "Bash(gcloud config *)",
+      "Bash(gcloud run *)",
+      "Bash(gcloud sql *)",
+      "Bash(gcloud secrets *)",
+      "Bash(gcloud storage *)",
+      "Bash(gcloud logging *)",
+      "Bash(gcloud artifacts *)",
+      "Bash(gcloud iam *)",
+      "Bash(gcloud services *)",
+      "Bash(gcloud compute *)",
+      "Bash(lsof -nP -iTCP:8000 -sTCP:LISTEN)"
+    ]
+  }
+}

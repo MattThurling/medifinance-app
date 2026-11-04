@@ -1,0 +1,92 @@
+pipeline,hubspot_stage,derived_current_stage,deal_count
+Asset Finance,Deal live,deal_live,379
+Asset Finance,Deal live,settled,259
+MF Commercial Finance,Active Negotiations,dormant,147
+Asset Finance,Lost,lost,120
+MF Commercial Finance,Dead,lost,112
+Medifinance Ltd Business Loans,Deal Live,settled,111
+Structured Finance,Closed won,deal_live,93
+Medifinance Ltd Business Loans,Deal Live,deal_live,89
+Medifinance Ltd Business Loans,create_new,application,82
+Medifinance Ltd Business Loans,create_new,mf_invoiced,82
+Medifinance Ltd Business Loans,Lost,lost,81
+Asset Finance,Awaiting Payout,mf_invoiced,44
+Medifinance Ltd Business Loans,Paid Off,settled,34
+Asset Finance,GDPR required,application,30
+Structured Finance,Sanctioned,mf_invoiced,29
+Structured Finance,Early Discussion,mf_invoiced,26
+MF Commercial Finance,Live,deal_live,22
+Medifinance Ltd Business Loans,Awaiting Payout,mf_invoiced,19
+MF Commercial Finance,Initial Contact,dormant,19
+Structured Finance,Early Discussion,info_received,18
+MF Commercial Finance,Sanctioned,dormant,14
+Medifinance Ltd Business Loans,GDPR required,application,13
+Asset Finance,GDPR required,mf_invoiced,13
+Medifinance Ltd Business Loans,Application Received/Privacy ok,application,12
+MF Commercial Finance,Initial Contact,initial_contact,11
+Structured Finance,Sanctioned,proposal_approved,11
+Asset Finance,Docs Out,mf_invoiced,11
+MF Commercial Finance,Indicative Terms,dormant,11
+KMC Associates,Email 3 sent,dormant,11
+Asset Finance,Application Received/Privacy ok,application,10
+Asset Finance,Awaiting Invoice,mf_invoiced,10
+Medifinance Ltd Business Loans,Ready to Prop,proposal_submitted,9
+Structured Finance,Lost,lost,9
+KMC Associates,NTU Dead,lost,9
+Asset Finance,Awaiting Invoice,supplier_invoice_requested,8
+Medifinance Ltd Business Loans,Awaiting Payout,supplier_invoice_received,8
+Asset Finance,Application Received/Privacy ok,mf_invoiced,8
+Asset Finance,Ready to Prop,proposal_submitted,7
+Asset Finance,Awaiting Payout,supplier_invoice_received,6
+MF Commercial Finance,Engagement Letter,dormant,6
+KMC Associates,Live,deal_live,6
+Medifinance Ltd Business Loans,Accepted / next step?,proposal_approved,5
+Asset Finance,Propped,dormant,5
+Asset Finance,Application Received/Privacy ok,dormant,5
+Asset Finance,Propped,mf_invoiced,5
+Asset Finance,Propped,proposal_submitted,4
+Structured Finance,Quoted,mf_invoiced,4
+Medifinance Ltd Business Loans,Docs Out,mf_invoiced,4
+MF Commercial Finance,Sanctioned,proposal_approved,4
+MF Commercial Finance,Active Negotiations,info_received,4
+MF Commercial Finance,Engagement Letter,proposal_submitted,3
+Asset Finance,Docs Out,dormant,3
+Asset Finance,GDPR required,dormant,3
+Asset Finance,Accepted,mf_invoiced,3
+Asset Finance,Awaiting Payout,settled,3
+Asset Finance,More Info,info_received,3
+Medifinance Ltd Business Loans,Application Received/Privacy ok,dormant,3
+Asset Finance,Awaiting Invoice,dormant,3
+Asset Finance,Accepted,proposal_approved,2
+Short term Finance,Deal Live,deal_live,2
+Medifinance Ltd Business Loans,Propped,proposal_submitted,2
+Asset Finance,Paid off,settled,2
+Medifinance Ltd Business Loans,More Info,mf_invoiced,2
+Medifinance Ltd Business Loans,Propped,mf_invoiced,2
+Medifinance Ltd Business Loans,Accepted / next step?,dormant,2
+Medifinance Ltd Business Loans,GDPR required,mf_invoiced,2
+Medifinance Ltd Business Loans,Application Received/Privacy ok,mf_invoiced,2
+Asset Finance,Ready to Prop,mf_invoiced,2
+Medifinance Ltd Business Loans,Docs Out,settled,2
+Asset Finance,More Info,dormant,2
+MF Commercial Finance,Sanctioned,mf_invoiced,1
+Medifinance Ltd Business Loans,Docs Out,documents_out,1
+Asset Finance,Docs Out,documents_out,1
+Medifinance Ltd Business Loans,GDPR required,dormant,1
+Structured Finance,Early Discussion,dormant,1
+MF Commercial Finance,Indicative Terms,proposal_submitted,1
+MF Commercial Finance,Engagement Letter,mf_invoiced,1
+Medifinance Ltd Business Loans,Ready to Prop,mf_invoiced,1
+Asset Finance,Accepted,settled,1
+Asset Finance,Docs Out,settled,1
+Medifinance Ltd Business Loans,create_new,dormant,1
+Medifinance Ltd Business Loans,Docs Out,dormant,1
+Asset Finance,Awaiting Payout,dormant,1
+Medifinance Ltd Business Loans,Propped,dormant,1
+Asset Finance,Accepted,dormant,1
+MF Commercial Finance,Live,settled,1
+KMC Associates,Sanctioned,dormant,1
+KMC Associates,Email 1 sent,dormant,1
+KMC Associates,Assigned to Owner,application,1
+KMC Associates,Indicative Terms,dormant,1
+KMC Associates,Other Provider,lost,1

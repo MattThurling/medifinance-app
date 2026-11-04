@@ -1,0 +1,16 @@
+field_name,category,surviving_rows_populated,suggested_action,final_action,notes
+Account Number,financial,5,drop,drop,"no schema field, only 5 populated"
+Sort Code,financial,5,drop,drop,"no schema field, only 5 populated"
+Main Bankers,financial,6,drop,drop,"no schema field, only 6 populated"
+Gross Annual Income,financial,4,drop,drop,"no schema field, only 4 populated"
+Your Net Monthly Income,financial,3,drop,drop,"no schema field, only 3 populated"
+Your Partner/Spouse's Gross Annual Income,financial,2,drop,drop,no schema field
+Total Other Household income,financial,3,drop,drop,no schema field
+Do You have Any CCJ's Or Are You Currently Bankrupt?,credit_history,5,drop,drop,no schema field
+Value of Home,financial,5,drop,drop,no schema field
+Employers Address,employment,5,drop,drop,no schema field
+Previous Employer,employment,4,drop,drop,no schema field
+Upload Accounts,financial_attachment,40,drop,drop,"attachment refs; client decided not to carry these over (2026-08-04)"
+Accountant,employment,6,drop,drop,"no schema field, only 6 populated"
+Date of Birth,personal,50,migrate_to_existing,migrate_to_existing,"Contact.date_of_birth exists — migrate. On the 11 rows where Date of Birth__2 disagrees, first column wins and a migration note records the conflict (decided 2026-08-04)"
+Home Address,personal,509,migrate_to_existing,migrate_to_existing,Contact.home_address_line1/2 exist — migrate

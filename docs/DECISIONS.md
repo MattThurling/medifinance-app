@@ -1,0 +1,163 @@
+# Decisions, environment state and gotchas
+
+A dated log of things that are not derivable from the code: why a choice was
+made, what state each environment is in, and operational traps. Newest
+information wins within a section. Add to it in the same commit as the change
+it describes.
+
+Consolidated 2026-11-04 from notes that previously lived only on the lead
+developer's machine.
+
+---
+
+## Environments (as of 2026-11-04)
+
+| | dev | prod |
+|---|---|---|
+| URL | `app-dev.medifinance.co.uk` | `app.medifinance.co.uk` |
+| Deploys from | `develop` | `main` |
+| Cloud Run service | `medifinance-dev` | `medifinance-prod` |
+| Database | Cloud SQL `medifinance_dev` | Cloud SQL `medifinance_prod` |
+| Documents bucket | `medifinance-medifinance-docs` (`GS_BUCKET_NAME`) | `medifinance-medifinance-docs-prod` (`GS_BUCKET_NAME_PROD`) |
+| Data | HubSpot-migrated demo data (~2.1k deals) | Empty apart from bootstrap rows |
+| Email | Mailtrap sandbox over SMTP | Mailgun HTTP API from `send.medifinance.co.uk`, From `info@medifinance.co.uk`, EU region |
+| DocuSeal | On (`sign.medifinance.co.uk` → `docuseal-dev`) | Off (`DOCUSEAL_ENABLED_PROD` unset; no prod DocuSeal instance yet) |
+| Forced 2FA | Per `TWO_FACTOR_REQUIRED_ROLES` repo var | Nobody forced (owner's choice) |
+| Xero | Connected via the app | Not connected |
+| Partner API keys | ACME demo key (real, non-sandbox) | None issued |
+
+**Prod reset 2026-10-26.** `medifinance_prod` was dropped and recreated (prod
+data was disposable; no go-live yet), `main` fast-forwarded to `develop`
+(`648bb2d`) and deployed (revision 00005). Bootstrap: superuser for the owner,
+Site row → `app.medifinance.co.uk`, Organisation "BNP" (pk 1) + 21 rate bands
+via `load_bnp_rates`. Mailgun verified end-to-end with a password-reset send
+the same day. The old `email-host-password` secret was deleted.
+
+**Rules for prod from here on:** treat it as empty-but-real. Back up before
+destructive ops. **Never run `import_hubspot` on prod** — go-live starts from
+a clean database; dev is the migrated/demo environment.
+
+**DB-reset recipe** is DEPLOYMENT.md §9. Dropping a database needs idle
+backends terminated first: `gcloud sql databases delete` refuses while the
+warm Cloud Run instance holds a connection (`conn_max_age=600`); connecting
+through cloud-sql-proxy with psycopg and terminating backends worked.
+
+**gcloud `--args` splits on commas.** For `manage.py shell -c` Cloud Run jobs
+use the `^@^` delimiter form.
+
+---
+
+## Custom domains and the load balancer
+
+Custom domains go through a global external Application Load Balancer
+(europe-west2 has no Cloud Run domain mappings). Static IP **34.54.188.97**.
+DNS A records live at an **external registrar and are managed by hand by the
+owner**. Architecture and commands: DEPLOYMENT.md step 10.
+
+Live since 2026-08-19:
+
+- `app.medifinance.co.uk` → `medifinance-prod` (cert `medifinance-app-cert-2`)
+- `app-dev.medifinance.co.uk` → `medifinance-dev` (cert `medifinance-app-dev-cert-2`)
+- `sign.medifinance.co.uk` → **`docuseal-dev`** (cert `medifinance-sign-cert`; NEG `docuseal-dev-neg`, backend `docuseal-dev-backend` — these are not in DEPLOYMENT step 10). Repoint to `docuseal-prod` once that is provisioned.
+
+Gotchas:
+
+- The original app certs sat `FAILED_NOT_VISIBLE` for ~2 weeks before DNS existed and stayed stuck in retry backoff even after DNS was correct. **Recreating the certs fixed it in minutes** (hence the `-2` names).
+- After a cert goes `ACTIVE` the edge still needs a few minutes; `curl` returning `SSL_ERROR_SYSCALL` right after a proxy cert swap is propagation, not breakage.
+- When updating the HTTPS proxy's cert list, pass the **full** list — listing only the new cert drops the others.
+- 2026-10-26: `deploy.yml` hard-codes ingress `internal-and-cloud-load-balancing` for every service and sets `ALLOWED_HOSTS`/CSRF to exactly the per-env domain. All four `*.run.app` hosts verified 404; the three custom domains serve. Invoker stays `allUsers` on all services — required by the LB's serverless NEG; ingress is the access control.
+- `DOCUSEAL_URL_DEV` GitHub variable is `https://sign.medifinance.co.uk`. The workflow's fallback if the variable is removed is `sign-dev.medifinance.co.uk`, which has no DNS.
+
+---
+
+## E-signature: self-hosted DocuSeal
+
+**Decided 2026-08-10:** custom-document e-signing uses **self-hosted DocuSeal**
+(free/open-source tier, official Docker image), not a SaaS API.
+
+- Free tier covers the templates/submissions API and webhooks. **Pro (~$240/yr)** would be needed for embedded signing or HTML/PDF/DOCX template APIs — deliberately not used. Documents are DocuSeal templates built in its UI with stable field names; Django prefills per-deal `values` via `POST /submissions`. Signers get an email link to the DocuSeal-hosted page.
+- Infra: `docuseal-{dev,prod}` Cloud Run services, databases on the existing Cloud SQL instance, dedicated GCS bucket via `GCS_CREDENTIALS` SA-key JSON, `sign.medifinance.co.uk` on the existing LB. `--max-instances=1` is required (in-process background jobs). Other deployment gotchas (HOST env, `--no-cpu-throttling` for in-process email jobs, Rails DB-URL form, `{{submitter.link}}` in custom messages) are in DEPLOYMENT.md §11 — read it before touching prod.
+- Django side: `SignatureRequest` is FK'd **directly to `Deal`** (re-keyed 2026-08-20; originally hung off `Document`). The signed PDF lives on `SignatureRequest.signed_file`; the deal page has a dedicated Signatures card. Wrapper `crm/docuseal.py` mirrors `crm/xero.py`. Webhook at `/webhooks/docuseal/` authenticated by the `X-Docuseal-Secret` header. The feature is dark when `DOCUSEAL_URL` is unset.
+- **Prefill field names** (renamed 2026-08-20): templates must use `Client Name` / `Client Address` plus `Customer Email`, `Organisation`, `Deal Name`, `Amount`, `Date`. Templates built before then used "Customer Name" and must be renamed by hand in the DocuSeal UI on each instance.
+- Status: dev live end-to-end since 2026-08-10 (send → sign → signed PDF + audit log in GCS, verified on deal 2109). Outstanding: the webhook in the DocuSeal console was never configured (the test completion was hand-delivered); **prod DocuSeal is not provisioned**.
+
+---
+
+## HubSpot migration
+
+Tooling lives in `hubspot-migration/` (moved into the repo 2026-11-04; it was
+previously an untracked sibling folder). See its README for what is tracked
+and what must be obtained from the owner. `field_map.md` there is the
+authoritative field-level status document.
+
+Decisions and state:
+
+- **Phase 2 client decisions (2A–2K) all resolved by 2026-08-04**, including the sensitive-fields policy (2K): drop every sensitive field with no schema counterpart (sort codes, account numbers, income, CCJs, "Upload Accounts" refs…); migrate DOB and home address. DOB conflicts with the duplicate export column keep the primary value and record a migration note. Enforced by `check_sensitive_policy()` in the build script.
+- **Ownership migrated 2026-08-05:** `Contact.owner` / `Organisation.owner` (crm migration 0025). The build resolves all three HubSpot owner columns and dedupes by email ("Darren Renton PF" is an alias row sharing an email → one account). Expected rebuild numbers: 664 owned contacts, 501 owned orgs, 19 users, zero owner warnings.
+- **`Deal.type`** (migration 0027) has `asset_finance` and `commercial_finance`. The HubSpot pipeline→type mapping in the build script is **postponed** at the owner's request. Agreed so far: "MF Commercial Finance" → Commercial Finance; "Medifinance Ltd Business Loans" → Business Loans (not yet a model choice). Undecided for Asset Finance ×955, Structured Finance ×191, KMC Associates ×31, Short term Finance ×2.
+- **`term_end_date`** (migration 0028) is populated by the build: HubSpot "End date" wins (655 deals), else Close Date + parsed Term (433), else NULL (1,020).
+- **Schema template** is `db-old.sqlite3` in the app root (git-ignored). Apply new app migrations to it via `DATABASE_URL` before a rebuild or the INSERT crashes.
+- **Deploying `preview.sqlite3` over `db.sqlite3`** wipes the owner's own login (user id 20; migrated users are ids 1–19) — copy that row back from the pre-deploy backup. The ACME demo API key survives via the template.
+- **Migrated users have unusable passwords** (`'!'`). They sign in through password reset or magic links.
+- Historical `created_at` and Stage events are backdated (2017→) by the migration, so time series are meaningful, but most historical deals jump `application` → outcome; intermediate `proposal_*` stages exist on only ~100 deals.
+- Still open: 5 active users carry `@tobeconfirmed.email` placeholders in `user_mapping_decisions.csv` pending real addresses from the client; 2 org-merge warnings for cluster 33 are skipped actions worth an eyeball.
+
+---
+
+## Reporting and stats
+
+Added 2026-09-01: `crm/stats.py` (`StatsParams` + `DealStats`), `/reports/`,
+dashboard headline tiles, vendored Chart.js in `static/vendor/`, templates
+`_stat_tile.html` / `_chart.html` / `_stats_filter_bar.html`.
+
+- `Deal.earnings` is **never populated** in the real data (0 of ~2.1k deals); `Deal.commission` is (~400). **Commission is the money metric.**
+- Anchor money to the first `deal_live` Stage event and counts to `created_at`.
+- Keep the `owner` / `type` / `source` param vocabulary identical to `DealListView` so report rows can deep-link.
+- DaisyUI v5 theme colours are `oklch(...)`, which Chart.js can't parse — `static/js/charts.js` round-trips them through a canvas `fillStyle` to get hex.
+
+---
+
+## ACME demo site and the partner API
+
+The ACME demo store (a sibling repo, `acme-ltd`, deployed on Vercel at
+`https://acme-amber-beta.vercel.app`) is a fake dental-equipment supplier that
+posts to the partner API on **dev** with a real (non-sandbox) key. Vercel is
+Git-connected: pushing `main` deploys. The static site lives in `public/`
+because Vercel needs that once `buildCommand` is set.
+
+**2026-10-13 rework** (briefs in `docs/briefs/`): additive partner-API changes
+(`channel` / `company_type` / `product_id` / `asset_category` / `agent_client`
+fields, `Idempotency-Key` replay, structured `errors[]`, 422 amount bounds,
+per-email 429, `ApiKey.is_sandbox`, `PartnerApiRequest` audit log,
+`GET /api/applications/<ref>/status/`, partner-flavoured magic-link email).
+Contract: `docs/partner-api.md`. ACME side: guest flow, MCP server at
+`/api/mcp` (Streamable HTTP), MCP Apps card, server card at
+`/.well-known/mcp/server-card.json`.
+
+**Audience decision 2026-10-13:** the demo is for suppliers/partners. Lead
+with a browser agent on the site, then the staff-in-Claude connector, then
+customer-in-chat as the closer. A consumer connector is not the pitch.
+
+Open: confirm the MCP Apps card renders in a real host (only automated tests
+have exercised it). Flagged, not planned: an embedded "Ask Acme" chat; a
+Medifinance-owned MCP server for suppliers' staff.
+
+---
+
+## Email
+
+- Prod: Mailgun HTTP API via django-anymail, `send.medifinance.co.uk`, EU region, From `Medifinance <info@medifinance.co.uk>`. Needs the `mailgun-api-key` secret and `EMAIL_ENABLED=true` repo variable.
+- Dev: Mailtrap sandbox over SMTP (STARTTLS on 2525).
+- Local: Mailpit on localhost (no auth; `EMAIL_HOST_USER` empty skips SMTP AUTH, `EMAIL_HOST_PASSWORD` non-empty only to select the SMTP backend).
+- With no credentials at all the console backend logs the email.
+
+---
+
+## Open items (2026-11-04)
+
+- Prod DocuSeal instance, then repoint `sign.medifinance.co.uk` and set `DOCUSEAL_ENABLED_PROD`.
+- DocuSeal console webhook on dev was never configured.
+- Pipeline → `Deal.type` mapping in the migration build.
+- Five migrated staff users still have placeholder emails.
+- Deal overview amount card still shows a hardcoded "£2,500.00 commission" placeholder (HANDOVER.md).
+- `pg_trgm` index for search when row counts grow.

@@ -1,0 +1,814 @@
+org_id,org_name,tier,sector,evidence
+2,Dentafly,deals,dental,dental×1
+3,Reform Chiropractic Kenilworth,deals,physio_chiro,physio_chiro×1
+18,Iconic Dental,deals,dental,dental×1
+22,Ollie & Florrie Vets,deals,veterinary,veterinary×1
+23,- Dental Practice,industry,dental,Industry=Dental
+24,03 Dental Studio,deals,physio_chiro,physio_chiro×1
+26,17 Dental,industry,dental,Industry=Dental
+27,18rlc.co.uk,deals,non_healthcare,non_healthcare×1
+29,1a The Dental Practice,industry,dental,Industry=Dental
+30,210 Dental Clinic,deals,dental,dental×11
+33,40 Harley Street,contacts,dental,unanimous contact sector
+37,A1 dental Surgery,deals,dental,dental×1
+38,Abbey Mead Dental Practice,industry,dental,Industry=Dental
+39,ABC Dental Surgery,industry,dental,Industry=Dental
+40,Aberdeen Orthodontics,deals,dental,dental×1
+41,ABLE DENTURE CLINIC,contacts,dental,unanimous contact sector
+42,Absolute Dental,deals,dental,dental×1
+45,Accenta Healthcare Ltd,deals,dental,dental×1
+48,Acorn Dental Practice,deals,dental,dental×1
+51,Adrian Mullish Dental Care,industry,dental,Industry=Dental
+52,Adult Orthodontics,industry,dental,Industry=Dental
+55,Aesthetica Dental Clinque,deals,dental,dental×1
+56,aestheticsacademia.co.uk,deals,cosmetic,cosmetic×1
+57,Aesthetika Dental Studio,deals,dental,dental×1
+58,Affinity Dental Care & Implant Centre,deals,dental,dental×2
+59,AG-RO Fitness,contacts,physio_chiro,unanimous contact sector
+61,Ai Dental Engineering,industry,dental,Industry=Dental
+62,Airdrie Dental Care,deals,dental,dental×1
+65,Albany Dental Center,industry,dental,Industry=Dental
+66,Alderley Lighthouse Labs,deals,other,other×1
+68,Ali Dargahi,deals,dental,dental×1
+70,Alive For Life,deals,physio_chiro,physio_chiro×1
+74,Alma Dental,industry,dental,Industry=Dental
+75,Aloe Vera Dental Studio,deals,dental,dental×1
+76,Alpha Dental Group,industry,dental,Industry=Dental
+78,Andrew House Dental,deals,dental,dental×1
+79,Andrew Lee Dental Practice,industry,dental,Industry=Dental
+80,Angel Dental Implant Centre,industry,dental,Industry=Dental
+81,Angel Smile Dental Care,industry,dental,Industry=Dental
+85,Antonia Salzl Ltd t/a The Dental Wave,deals,dental,dental×4
+89,Apollo Dental Health Clinic,industry,dental,Industry=Dental
+90,Apollonia Dental & Cosmetic Centre,deals,dental,dental×1
+91,appletree-ds.co.uk,contacts,dental,unanimous contact sector
+94,Ardmory Vet Clinic,deals,veterinary,veterinary×1
+95,Aromaden,deals,dental,dental×2
+97,Aspire Dental,industry,dental,Industry=Dental
+99,Atkinson Dental Practice,industry,dental,Industry=Dental
+100,atrium-dental.co.uk,industry,dental,Industry=Dental
+101,Atthi Consultancy Ltd t/a Guildford Dental Partnership,deals,dental,dental×1
+102,Aura Dental London,industry,dental,Industry=Dental
+103,Aura Dental LTd,deals,dental,dental×2
+104,Aurora Dental Ltd,deals,dental,dental×1
+106,Avenue Dental Practice,deals,dental,dental×2
+108,Aviva Dentistry,deals,dental,dental×1
+109,Avondale Dental Practice,deals,dental,dental×1
+110,Avosdent Ltd,deals,dental,dental×1
+111,B & M Dental Care Ltd,industry,dental,Industry=Dental
+112,BacksToBasicsOSTEO,contacts,physio_chiro,unanimous contact sector
+116,Balaji Gallery Dental Practice Ltd,deals,dental,dental×1
+118,Bancroft Dentistry,deals,dental,dental×2
+120,Bank Dental,industry,dental,Industry=Dental
+121,Bank View Smile Studios,industry,dental,Industry=Dental
+123,Banning Dental Group,industry,dental,Industry=Dental
+125,BARE DENTAL CLINIC LIMITED,industry,dental,Industry=Dental
+126,Barkhill Dental Clinic,deals,dental,dental×8
+127,Barrington Dental Care,deals,dental,dental×1
+128,Barrowford Dental Practice,industry,dental,Industry=Dental
+132,Beau Monde Dental Care,industry,dental,Industry=Dental
+135,Beech Dental Practice,deals,dental,dental×1
+136,Behrens Dental,industry,dental,Industry=Dental
+139,Bellevue Dental,deals,dental,dental×1
+140,Bembridgedental,deals,dental,dental×1
+141,Benhill Dental Practice,industry,dental,Industry=Dental
+143,Bergin Davis Sidelsky Practice Ltd,deals,dental,dental×1
+146,bewbushdental.co.uk,deals,dental,dental×1
+147,Biggleswade Dental,industry,dental,Industry=Dental
+150,Birdgate Dental,industry,dental,Industry=Dental
+151,Blackdown Dental Services Ltd,industry,dental,Industry=Dental
+152,BlackSwan Dental Spa,deals,dental,dental×2
+153,Bliss Dental,deals,dental,dental×1
+156,Blue Light Dental,industry,dental,Industry=Dental
+164,Borehamwood Dental,industry,dental,Industry=Dental
+168,Bow Lane Dental Group,industry,dental,Industry=Dental
+170,Braintree Dental,deals,dental,dental×1
+172,Bramcote Dental Practice,industry,dental,Industry=Dental
+175,Bremadent Dental Laboratory,deals,dental,dental×2
+177,Brentwood Orthodontic & Implant Centre,industry,dental,Industry=Dental
+180,Briars Dental Centre,deals,dental,dental×4
+181,Brickstables Dental Practice,industry,dental,Industry=Dental
+182,Bridgeton Cross Dental Practice,industry,dental,Industry=Dental
+185,Broadfield Dental Centre,industry,dental,Industry=Dental
+186,broadway life smiles,deals,dental,dental×6
+187,Bromborough Dental Practice,deals,dental,dental×2
+189,Broxbourne Dental Pr,industry,dental,Industry=Dental
+190,Brucegate Dental Practice,deals,dental,dental×1
+192,Brunswick Square Dental Practice,industry,dental,Industry=Dental
+194,Brynllywarch Hall School & Brynbach Campus,deals,other,other×1
+198,Burgess Road Dental,industry,dental,Industry=Dental
+200,Burnside Dental Surgery,industry,dental,Industry=Dental
+201,Burwell Dental,deals,dental,dental×1
+202,Bury Dental Centre,deals,dental,dental×1
+203,Bush Dental Care,industry,dental,Industry=Dental
+204,Business Help for Healthcare,contacts,dental,unanimous contact sector
+206,Bute Dental Surgery,deals,dental,dental×9
+207,Butterfly Dental,deals,dental,dental×1
+208,Byres Road Dental Practice,industry,dental,Industry=Dental
+209,Cairn Brae Dental Practice,deals,dental,dental×1
+210,"Callendar Pharmacy, Falkirk",contacts,pharmacy,unanimous contact sector
+212,Canning Town Dental Practice,industry,dental,Industry=Dental
+213,Cannock Dental Practice,deals,dental,dental×1
+214,Capital Dental,industry,dental,Industry=Dental
+215,Care Medical Ltd,deals,dental,dental×1
+216,Carisbrook Dental,industry,dental,Industry=Dental
+217,Castle Dental Practice,industry,dental,Industry=Dental
+218,Castle Lane Dental Care,industry,dental,Industry=Dental
+219,Castle Lane Dental Practice,deals,dental,dental×1
+220,CastleView Dental,industry,dental,Industry=Dental
+221,Cathedral Dental,deals,dental,dental×2
+227,Central Park Dentist,industry,dental,Industry=Dental
+228,Centre Point Dental,industry,dental,Industry=Dental
+230,Chantry House Dental Practice,industry,dental,Industry=Dental
+233,Charlton Road Dental,industry,dental,Industry=Dental
+236,Chelsea Green Dental,industry,dental,Industry=Dental
+237,Cheltenham Orthodontics L:td,deals,dental,dental×1
+238,Chequers Endodontic Practice,deals,dental,dental×1
+239,Cherry Tree Dental Care,industry,dental,Industry=Dental
+240,Chiswick Dental,deals,dental,dental×1
+241,Chris Dakin Dentistry Ltd t/a Pensby Dental Practice,deals,dental,dental×1
+243,Chris Parte,deals,dental,dental×1
+244,City Bridge Dental,industry,dental,Industry=Dental
+245,City Dental Clinic,industry,dental,Industry=Dental
+247,Clacton Dental Care,industry,dental,Industry=Dental
+249,Clarence House Dental Practice,industry,dental,Industry=Dental
+250,Clarendon Dental Spa,industry,dental,Industry=Dental
+251,CLARK DENTAL ESL,industry,dental,Industry=Dental
+252,Clark Dental Sales,industry,dental,Industry=Dental
+261,Cliffgar Dental Practice,deals,dental,dental×1
+262,Clinic 95,deals,dental,dental×3
+267,Clover Dental Practice,deals,dental,dental×2
+268,Coach House Dental Practice,industry,dental,Industry=Dental
+270,Colchester Orthodontic Centre,deals,dental,dental×1
+271,Coleman Starkey,deals,dental,dental×1
+272,COLINTON DENTAL,industry,dental,Industry=Dental
+274,Com.com,contacts,dental,unanimous contact sector
+275,Companion Care Vets,industry,veterinary,Industry=Veterinary
+276,Complete Dental Care,industry,dental,Industry=Dental
+277,Confident Orthodontics,deals,dental,dental×2
+278,Confident-Dental-Care,industry,dental,Industry=Dental
+284,Coppice View Dental Care,industry,dental,Industry=Dental
+287,Corinium Dental Practice,industry,dental,Industry=Dental
+288,Cornhill Dental Ltd,industry,dental,Industry=Dental
+290,corry dentalcare,deals,dental,dental×1
+295,COSMETIC CERAMICS,deals,dental,dental×2
+296,Cosmetic Dentist Sheffield,industry,dental,Industry=Dental
+298,Court Dental Ltd,deals,dental,dental×3
+299,Courtney House Dental Practice,industry,dental,Industry=Dental
+300,Courtyard Dental Practice,industry,dental,Industry=Dental
+301,Covent Garden Dental Spa,deals,dental,dental×2
+303,Cox's Dental,industry,dental,Industry=Dental
+306,Crescent Dental Clinic,industry,dental,Industry=Dental
+307,Cricklewood Dental Practice,deals,dental,dental×6
+308,Croft Dental Centre,deals,dental,dental×1
+309,cross deep dental Susan Fenton,industry,dental,Industry=Dental
+310,Crouch Hall Dental Care,deals,dental,dental×1
+314,CRP Clinic,deals,other,other×1
+318,Dalehead Vet Group,deals,veterinary,veterinary×1
+319,Damira Dental Studios,industry,dental,Industry=Dental
+320,danatec.co.uk,contacts,pharmacy,unanimous contact sector
+321,Danny the Dentist,deals,dental,dental×3
+323,davidoff.org.uk,contacts,dental,unanimous contact sector
+325,DB Lion House Ltd,deals,dental,dental×1
+326,De Lloyd Dentist,industry,dental,Industry=Dental
+327,Dears Pharmacy,contacts,pharmacy,unanimous contact sector
+331,Define Clinic,contacts,dental,unanimous contact sector
+332,Den Dental,industry,dental,Industry=Dental
+333,Denbigh House Dental Clinic,industry,dental,Industry=Dental
+334,Denchic Dental Spa,deals,dental,dental×3
+335,Denmead Dental,deals,dental,dental×1
+338,Dental Business Coach,industry,dental,Industry=Dental
+339,Dental Care 62,deals,dental,dental×1
+341,Dental Implants Yorkshire,deals,dental,dental×1
+342,Dental Kids,industry,dental,Industry=Dental
+343,Dental Practice Mag,industry,dental,Industry=Dental
+344,Dental Practice Systems,industry,dental,Industry=Dental
+345,Dental Saver,industry,dental,Industry=Dental
+346,Dental Scotland,industry,dental,Industry=Dental
+347,Dental Studio,industry,dental,Industry=Dental
+348,Dental-Concepts,deals,dental,dental×2
+349,Dental-Engineers,industry,dental,Industry=Dental
+352,Dentalessence,deals,dental,dental×1
+354,dentalfa.co.uk,deals,other,other×1
+356,Dentality @ Hoddesdon,deals,dental,dental×1
+357,DentalNova,contacts,dental,unanimous contact sector
+362,Dentaquest Ltd,deals,dental,dental×4
+364,Dentis Ltd t/a Littlemoor Dental Surgery,deals,dental,dental×1
+365,Dentist Dublin I Dental Clinic Dublin,industry,dental,Industry=Dental
+366,Dentist Harlow,industry,dental,Industry=Dental
+367,Dentist W2,industry,dental,Industry=Dental
+368,Dentistry @ 53 Wimpole Street,industry,dental,Industry=Dental
+369,Dentistry @ Oceana Boulevard,deals,dental,dental×1
+370,Dentistry On The Square,industry,dental,Industry=Dental
+371,Dentistryandmore,contacts,dental,unanimous contact sector
+374,Derriford Therapies,deals,dental,dental×1
+377,Devonshire House Dental Practice,deals,dental,dental×1
+380,dickonadams-dental.co.uk,industry,dental,Industry=Dental
+381,dintechs.com,deals,hearing,hearing×1
+383,Dogwood Vets,industry,veterinary,Industry=Veterinary
+388,Dovecote Dental,industry,dental,Industry=Dental
+389,DoverPrioryDental,deals,dental,dental×1
+390,Dovetail Bespoke Dental Solutions,industry,dental,Industry=Dental
+392,Dr Anthony Hammond,contacts,dental,unanimous contact sector
+395,Dr PJ,deals,dental,dental×1
+396,Dr Sheila,deals,dental,dental×1
+397,Dr Tom Jenkins,deals,physio_chiro,physio_chiro×1
+399,Dr Xavier G. Medi-Spa Clinic,deals,other,"other×1, dental×1"
+400,DR ZOL - Excellence in Dentistry,industry,dental,Industry=Dental
+401,Dr. Mali Dental Clinic Ltd,deals,dental,dental×1
+405,dunamispharm limited,deals,pharmacy,pharmacy×1
+406,Dutch Barton Dental Practice,industry,dental,Industry=Dental
+408,Dynamic-Dental,deals,dental,dental×1
+409,E14 Dental Centre,deals,dental,dental×1
+411,Earl Estates,deals,dental,dental×1
+413,East Grinstead Dental Practice,deals,dental,dental×1
+414,East Midlands Orthodontics,industry,dental,Industry=Dental
+415,East Park Dental,industry,dental,Industry=Dental
+416,Eastgate Dental Clinic,industry,dental,Industry=Dental
+417,Eastleigh Dental Practice,industry,dental,Industry=Dental
+418,EBS Dental Ltd t/a HW Dental Care,deals,dental,dental×1
+420,Eedent Ltd t/a Smile Club,deals,dental,dental×1
+423,EK Dental,industry,dental,Industry=Dental
+429,Elite Dental Pratice,deals,dental,dental×1
+434,Elstead Dental Surgery,industry,dental,Industry=Dental
+437,emicare,contacts,dental,unanimous contact sector
+438,Endo Elements,deals,dental,dental×1
+440,Endoclinic,deals,dental,dental×1
+441,Enhance Dental Spa,deals,dental,dental×4
+443,Enhance Orthodontics,industry,dental,Industry=Dental
+444,Enhance Orthodontics,industry,dental,Industry=Dental
+445,enhancedentalcrawley.co.uk,contacts,dental,unanimous contact sector
+446,Enhancedentalely,deals,dental,dental×1
+448,Envisage Dental UK Ltd,deals,dental,dental×4
+449,Essex Podiatry,deals,physio_chiro,physio_chiro×4
+452,Evolve-Dentistry,industry,dental,Industry=Dental
+454,Eye Smile,deals,optical,optical×2
+458,FACEmed Cosmetic Medical & Dental Centre,industry,dental,Industry=Dental
+460,Family Dental Care,industry,dental,Industry=Dental
+461,Family Dental Clinic,deals,dental,dental×1
+463,Fartown Dental,deals,dental,dental×1
+466,Feet in Focus,deals,other,other×1
+468,Feltham Dental Care,industry,dental,Industry=Dental
+469,Fen House Dental,deals,dental,dental×1
+470,Ferndale Dental Clinic Ltd,industry,dental,Industry=Dental
+472,Fiji Skin Clinic,deals,cosmetic,cosmetic×1
+473,Fine Art Dental Studio,industry,dental,Industry=Dental
+474,First Medical Training,deals,other,other×1
+475,Fit2Go Clinic,deals,physio_chiro,physio_chiro×1
+476,Fleet Dental Centre,industry,dental,Industry=Dental
+477,Fleet Orthodontic Practice,industry,dental,Industry=Dental
+479,FMC - Connecting Dentistry,industry,dental,Industry=Dental
+480,Forever Smile,deals,dental,dental×1
+482,Fortis Health & Wellbeing,deals,physio_chiro,physio_chiro×1
+483,Fortune Green Dental Surgery,industry,dental,Industry=Dental
+484,Forward Dental Care,deals,dental,dental×5
+487,Frederick Street Dental,industry,dental,Industry=Dental
+490,Fullbright Dental,industry,dental,Industry=Dental
+495,Gamil Design,contacts,dental,unanimous contact sector
+496,Garden-View Dental Care,industry,dental,Industry=Dental
+497,Gardens Dental Centre,deals,dental,dental×1
+498,garethroberts.com,deals,dental,dental×1
+500,GENERAL MEDICAL,deals,dental,dental×1
+501,Genesis Dental Care,industry,dental,Industry=Dental
+502,Gentle Dental,industry,dental,Industry=Dental
+503,Gentle Dental Care,industry,dental,Industry=Dental
+509,Glow Dental,deals,dental,dental×1
+510,Glumangate Dental Practice,industry,dental,Industry=Dental
+519,Grand Smile Design Ltd,deals,dental,dental×1
+521,Grange Farm Dental Practice,industry,dental,Industry=Dental
+522,Green Light Pharmacy,deals,pharmacy,pharmacy×3
+524,Greenlane Dental Practice,deals,dental,dental×1
+525,Greenlight Information Services,contacts,pharmacy,unanimous contact sector
+526,Greyholme Dental,deals,dental,dental×7
+528,gumhealth.co.uk,contacts,dental,unanimous contact sector
+532,Hacton Dental Care,industry,dental,Industry=Dental
+533,Hadley Green Dental Practice,deals,dental,dental×1
+537,Hamilton Dental Care,deals,dental,dental×3
+538,Hampden Clinics Ltd,deals,dental,dental×2
+539,hampdendentist.co.uk,contacts,dental,unanimous contact sector
+543,Hamworthy Dental,industry,dental,Industry=Dental
+546,Handsworth-Dental-Care-Sheffield,industry,dental,Industry=Dental
+549,Harborne Dental,deals,dental,dental×2
+552,Harley Street Dental Group,industry,dental,Industry=Dental
+553,Harley Street Dental Studio,industry,dental,Industry=Dental
+554,Harley Street Implant centre,deals,dental,dental×5
+558,HATS Group Ltd,deals,other,"other×26, non_healthcare×3"
+559,Haven Orthodontic Lab,industry,dental,Industry=Dental
+560,HAWTHORN DENTAL PRACTICE LIMITED,industry,dental,Industry=Dental
+567,Heartwood Veterinary Services Ltd t/a Heartwood Vets,deals,veterinary,veterinary×1
+568,Heathwood Dental Practice,deals,dental,dental×1
+570,Helens Bay Dental,industry,dental,Industry=Dental
+573,Hey Baby 4D,deals,other,other×2
+574,Highcliffe Dental,industry,dental,Industry=Dental
+575,Highcliffe Dental Care,industry,dental,Industry=Dental
+576,Highgate Dental Practice,industry,dental,Industry=Dental
+577,Highgate House Dental Practice,deals,dental,dental×2
+578,Highlandview,contacts,dental,unanimous contact sector
+580,Hilton Dental Clinic,deals,dental,dental×1
+581,Hockerill Dental,industry,dental,Industry=Dental
+582,Holbeach and Fleet Small Animal Clinic Ltd,deals,veterinary,veterinary×1
+584,Homewood Chiropractic (Fareham) Ltd,deals,physio_chiro,physio_chiro×2
+585,honeycombdentalclinic.com,deals,dental,dental×1
+586,Honley Dental Practice,industry,dental,Industry=Dental
+588,Hove Dental Clinic,industry,dental,Industry=Dental
+593,Hurst Dental Practice,deals,dental,dental×2
+606,Identity Individual Dental Care,industry,dental,Industry=Dental
+607,IGDP Limited,deals,dental,dental×2
+608,IKON Dental Specialists,industry,dental,Industry=Dental
+609,Image Developments,deals,non_healthcare,non_healthcare×1
+612,Imogen Dental,deals,dental,dental×7
+614,Imperial College London,deals,other,other×1
+618,Improve Your Smile,industry,dental,Industry=Dental
+622,Incydental,deals,dental,dental×2
+624,Indigo Little,deals,dental,dental×4
+625,Infinidrip,deals,dental,dental×1
+628,Ingoldby Rhodes Ltd t/a It's the VETS,deals,veterinary,veterinary×1
+629,Innovate Dental Studio,deals,dental,dental×1
+630,Inspire Dental Centre,industry,dental,Industry=Dental
+631,Inspired Dentistry,industry,dental,Industry=Dental
+634,IQ Dental & Implant Centre,deals,dental,dental×1
+635,Irby Dental Surgery,deals,dental,dental×3
+636,irbydentalpractice.co.uk,deals,dental,dental×1
+641,Ivory Dental Practice,deals,dental,dental×1
+644,j-ward.co.uk,deals,dental,dental×1
+646,JD DENTAL,industry,dental,Industry=Dental
+647,Jenkins Dental,deals,dental,dental×1
+650,jkdentaldesign.com,deals,dental_lab,dental_lab×1
+661,Just Smile,industry,dental,Industry=Dental
+662,K2 Dental,deals,dental,dental×1
+667,KAREDENT,contacts,dental,unanimous contact sector
+668,Karma Dental Care,industry,dental,Industry=Dental
+670,katericlinic.co.uk,contacts,dental,unanimous contact sector
+671,kclinic Dental Practice,industry,dental,Industry=Dental
+672,KDHC Ltd,deals,dental,dental×4
+674,Keith Burns Associates,deals,dental,dental×1
+675,Kennedy James Griffiths,deals,other,other×1
+676,Kent Smile Studio,industry,dental,Industry=Dental
+677,Keppel Advanced Dentistry,deals,dental,dental×3
+678,Kew Suite Ltd t/a Kew Dental Suite,industry,dental,Industry=Dental
+680,kingsmills Dental Practice,industry,dental,Industry=Dental
+682,Kingswater Dental Practice,industry,dental,Industry=Dental
+684,Kirkshaws Dental Practice,industry,dental,Industry=Dental
+686,Knibbs Dental,industry,dental,Industry=Dental
+687,Knightsbridge Dentist,industry,dental,Industry=Dental
+691,Lake Road Dental Practice,industry,dental,Industry=Dental
+692,Lakeside Dental Practice,deals,dental,dental×2
+693,Lander Dental Group,industry,dental,Industry=Dental
+695,Lantern Dental,industry,dental,Industry=Dental
+697,Lawmed,deals,other,other×2
+702,Leathersellers' Federation,deals,education,education×1
+704,Leeming Dental Clinic,deals,dental,dental×1
+705,Leigh Dental Centre,industry,dental,Industry=Dental
+707,Life Dental & Wellbeing,deals,dental,dental×2
+708,lifeandwellbeing.co.uk,deals,dental,dental×1
+709,Lifestyle Dental,deals,dental,dental×2
+710,Lighthouse Dental Practice,industry,dental,Industry=Dental
+713,Linden Dental Surgery Ltd,industry,dental,Industry=Dental
+717,Little Dental Co,industry,dental,Industry=Dental
+718,Little Way Periodontics,deals,dental,dental×1
+719,Liverpool Smile Studio,deals,dental,dental×3
+720,Llandeilo Dental Practice,deals,dental,dental×1
+724,Lodwig Villa Dental Surgery,industry,dental,Industry=Dental
+727,London Smile Care,industry,dental,Industry=Dental
+728,London Smile Clinic,industry,dental,Industry=Dental
+731,Longview Care Home Cornwall Ltd,deals,other,other×1
+732,Lotus Clinic,deals,dental,dental×1
+733,Loughridge Dental,deals,dental,dental×1
+734,Love-Teeth Dental Practice,deals,dental,dental×1
+736,Madeira Dental Care,industry,dental,Industry=Dental
+737,Madeley Dental,industry,dental,Industry=Dental
+738,Malmesbury Dental Ltd,deals,dental,dental×5
+739,Manchester Dental,industry,dental,Industry=Dental
+740,Maple Dental Care,industry,dental,Industry=Dental
+741,Marios Antoniou Ltd,deals,dental,dental×1
+742,Market Place Dentistry Ltd,deals,dental,dental×1
+743,Marlow Dental Centre,deals,dental,dental×2
+745,May House Dental,industry,dental,Industry=Dental
+761,MediMatch Dental Laboratory Ltd,industry,dental,Industry=Dental
+765,Meneage Dental,deals,dental,dental×1
+766,Menston Dental Practice,industry,dental,Industry=Dental
+767,mermaid-dental.com,industry,dental,Industry=Dental
+768,Merrifield Dental Practice,industry,dental,Industry=Dental
+769,mervynbrown.com,contacts,other,unanimous contact sector
+775,Milad Shadrooch,deals,dental,dental×1
+778,MK Dental Spa,industry,dental,Industry=Dental
+779,money4dentists,contacts,dental,unanimous contact sector
+781,Monmouth Dental Practice,deals,dental,dental×1
+783,Moonlight Dental Surgery,industry,dental,Industry=Dental
+784,mooredental.com,contacts,dental,unanimous contact sector
+786,Mossleydental,deals,dental,dental×1
+788,Mr A G Wilding,deals,dental,dental×2
+789,Museum Dental Suites,deals,dental,dental×1
+795,mydentist (UK) Exchange Square Dental,industry,dental,Industry=Dental
+798,National Health Service,deals,dental,dental×2
+801,Neel Dentistry,deals,dental,dental×1
+802,Neem Tree Dental,deals,dental,dental×4
+803,Nelson Dental Clinic,industry,dental,Industry=Dental
+806,New Road Dental Practice LTD,industry,dental,Industry=Dental
+807,New Street Dental Care,industry,dental,Industry=Dental
+810,Newport Dental & Oral Health Studio,industry,dental,Industry=Dental
+811,Newport Road Dental Practice,industry,dental,Industry=Dental
+812,nextwavedental.co.uk,deals,dental,dental×1
+815,Nightingale cottage dental practice,industry,dental,Industry=Dental
+818,Noah's Ark Dental,industry,dental,Industry=Dental
+820,North House Dental Practice,industry,dental,Industry=Dental
+822,Northiam Dental,deals,dental,dental×1
+823,northwoodchemists.co.uk,deals,pharmacy,pharmacy×1
+824,Nothing But The Tooth,deals,dental,dental×5
+825,Notley Dental Care,deals,dental,dental×2
+826,Novel Dental Group,deals,dental,dental×2
+829,Nyewood Dental Practice,industry,dental,Industry=Dental
+830,Oak House Dental Practice,industry,dental,Industry=Dental
+832,Octagon Dental Centre,industry,dental,Industry=Dental
+833,octagon orthodontics,deals,dental,dental×2
+835,Old Coach Dental Ltd,deals,dental,dental×1
+836,Olsen's Dental,industry,dental,Industry=Dental
+837,OMID SOBHANI LIMITED,deals,dental,dental×1
+838,Omnipark Dental Centre,industry,dental,Industry=Dental
+842,onedegree.me.uk,contacts,dental,unanimous contact sector
+844,OpticRealm Limited,contacts,other,unanimous contact sector
+845,Optident Dental Clinic,industry,dental,Industry=Dental
+846,Oracare Dental,deals,dental,dental×1
+847,Oracle Ear Care,deals,hearing,hearing×1
+848,Oradent Kent Limited,deals,dental,dental×9
+850,Orchard House Dental Practice,deals,dental,dental×2
+851,Orchard House Dental Practice,deals,dental,dental×1
+852,Orchard Orthodontics,industry,dental,Industry=Dental
+853,originvetsclinic.co.uk,deals,veterinary,veterinary×1
+854,Orthodontics for you,deals,dental,dental×1
+855,orthodontist.co.uk,deals,dental,dental×4
+857,Osborne Family Dentists,industry,dental,Industry=Dental
+859,P Mcmenemy,contacts,dental,unanimous contact sector
+860,pain free dentistry chorley,industry,dental,Industry=Dental
+862,Park House Dental Health,industry,dental,Industry=Dental
+863,Park Roaddentist,deals,dental,dental×1
+864,Park Royal Dental Practice,deals,dental,dental×2
+865,Parkfield Dental,deals,dental,dental×6
+866,Parkfield Dental Centres,industry,dental,Industry=Dental
+867,Parkview Dental Centre,deals,dental,dental×1
+868,Partnership Care London,deals,other,other×1
+869,Pasadena Dental Practice,deals,dental,dental×1
+871,Paulanton,deals,other,other×1
+872,pctransport.co.uk,contacts,other,unanimous contact sector
+874,Pennington Dental,industry,dental,Industry=Dental
+879,PGF McCauley Limited,deals,dental,dental×5
+880,PH CDT Services Ltd,deals,dental,dental×1
+881,philipsommereux.co.uk,contacts,dental,unanimous contact sector
+882,Phillips & Co Cosmetic Dentistry,industry,dental,Industry=Dental
+883,Phoenix Medical Clinic,deals,dental,dental×1
+887,Pont Steffan Dental,deals,dental,dental×1
+888,Portland Square Dental Ltd,deals,dental,dental×1
+890,Portner Pittack Dental Practice,industry,dental,Industry=Dental
+891,Portslade Dental Care,deals,dental,dental×5
+893,PowisVets,deals,veterinary,veterinary×2
+894,Poynters Dental Practice,industry,dental,Industry=Dental
+899,Premier Orthodontics,industry,dental,Industry=Dental
+900,prestburyroaddental.co.uk,deals,dental,dental×1
+903,Prettygate Dental,industry,dental,Industry=Dental
+904,Princes Street Dental,deals,dental,dental×1
+907,Prospect Street Dental Practice,industry,dental,Industry=Dental
+908,prosthodontics.co.uk,deals,dental,dental×1
+912,Pure Dental Centre,industry,dental,Industry=Dental
+913,Pure Dentistry,industry,dental,Industry=Dental
+914,Pure Orthodontics,industry,dental,Industry=Dental
+916,Pure Periodontics,deals,dental,dental×2
+917,Pure Smiles,contacts,dental,unanimous contact sector
+919,QualiDent,industry,dental,Industry=Dental
+920,Quality ceramics,contacts,dental,unanimous contact sector
+924,Queensway Dental,deals,dental,dental×1
+925,QUEX DENTAL CARE,deals,dental,dental×4
+927,Radtik House Dental Practice,industry,dental,Industry=Dental
+931,Redcliffe Dental Rooms,industry,dental,Industry=Dental
+932,Redland Dental Clinic,industry,dental,Industry=Dental
+933,Refresh Dental,industry,dental,Industry=Dental
+934,Reg O'Neill Dental,industry,dental,Industry=Dental
+935,regency-dental,deals,dental,dental×1
+942,Restore 32 Ltd,deals,dental,dental×1
+945,Revere Skin,deals,cosmetic,cosmetic×1
+946,Revital Dental Care,deals,dental,dental×1
+947,Revitalise Dental Centre,deals,dental,dental×1
+949,RG Family Dental,deals,dental,dental×1
+950,RGL Clinic Ltd,deals,dental,dental×2
+954,Richmond Dental Suite,industry,dental,Industry=Dental
+955,Richmond Pharmacology,deals,other,other×1
+956,Ringway Dental,industry,dental,Industry=Dental
+957,riseupcare.co.uk,contacts,other,unanimous contact sector
+958,Riverside Dental Practice,deals,dental,dental×3
+959,Riverside Dental Spa,industry,dental,Industry=Dental
+960,Robin Smith Dental,deals,dental,dental×1
+961,robotdental.com,contacts,dental,unanimous contact sector
+963,Rochester Lodge,deals,dental,dental×2
+965,ROMSEY DENTAL CARE LIMITED,industry,dental,Industry=Dental
+966,Rookswood,contacts,dental,unanimous contact sector
+969,Rossendale Dental Health Centre,industry,dental,Industry=Dental
+971,Roy Morris Dental Excellence,deals,dental,dental×1
+972,Royal Mews Dental Practice Limited,deals,dental,dental×5
+975,Rycote House Dental Practice Ltd,industry,dental,Industry=Dental
+977,Ryde Dental Studio,industry,dental,Industry=Dental
+979,S2S Pyshiotherapy,deals,physio_chiro,physio_chiro×1
+981,Salcombe Dental Practice Ltd,industry,dental,Industry=Dental
+984,Salisbury Dentist,deals,dental,dental×5
+986,Sankey Street Dental Practice,industry,dental,Industry=Dental
+988,saroma.co,contacts,dental,unanimous contact sector
+992,Senova Dental Studios,deals,dental,dental×1
+993,Sensura Dental Ltd,deals,dental,dental×1
+994,Serenitydental,deals,dental,dental×2
+996,Seyf Dental,deals,dental,dental×2
+999,shelley manor dental,deals,dental,dental×2
+1000,Sherborne Dental Centre,industry,dental,Industry=Dental
+1001,Sherwood Park Dental Practice,industry,dental,Industry=Dental
+1003,Shiraz Endodontics,contacts,dental,unanimous contact sector
+1004,SHO Dental Group Ltd t/a Eastgate Dental,deals,dental,dental×4
+1005,Shoreham - The Dental Practice,industry,dental,Industry=Dental
+1006,Sidcup Dental Surgery,industry,dental,Industry=Dental
+1007,Siddle Veterinary Service,deals,veterinary,veterinary×1
+1009,Silverfern Dental Practice,industry,dental,Industry=Dental
+1010,Simcast Dental Laboratories Limited,industry,dental,Industry=Dental
+1012,Simply Smiledental,deals,dental,dental×2
+1015,Six Gables Dental Practice,industry,dental,Industry=Dental
+1018,Smart Dental Care,industry,dental,Industry=Dental
+1020,smfltd.com,deals,other,other×1
+1021,SMILE CLINIC,industry,dental,Industry=Dental
+1022,Smile Cliniq Ltd,industry,dental,Industry=Dental
+1023,Smile Design By Ash,industry,dental,Industry=Dental
+1024,Smile Hub,deals,dental,dental×4
+1025,Smile Link Dental Ltd t/a Burnett Dental Group,deals,dental,dental×1
+1026,Smile Matters,industry,dental,Industry=Dental
+1027,Smile NW,deals,dental,dental×1
+1028,Smile Spa,deals,dental,dental×3
+1029,Smile with Pride DC,deals,dental,dental×1
+1032,Smilecare Dental Centre,industry,dental,Industry=Dental
+1036,Smileone Dental UK,deals,dental,dental×1
+1037,Smiles 4 Ever Ltd,deals,dental,dental×1
+1038,Smiles By Hillside,contacts,dental,unanimous contact sector
+1040,Smilesandmore,contacts,dental,unanimous contact sector
+1042,smilestories.co.uk,contacts,dental,unanimous contact sector
+1043,SmileUp Dental,industry,dental,Industry=Dental
+1047,solution60.co.uk,contacts,other,unanimous contact sector
+1050,South Ealing Dental Practice,industry,dental,Industry=Dental
+1051,Southam Dental,industry,dental,Industry=Dental
+1054,Southfields Dental Centre,deals,dental,dental×1
+1055,Southgate Dental Clinic,industry,dental,Industry=Dental
+1056,Southside Dental Care,deals,dental,dental×1
+1057,SpaDental South West Ltd,deals,dental,dental×1
+1058,Specialist Endodontics Ltd t/a Stoke Lane Dentistry,deals,dental,dental×1
+1059,SperrinSmile,deals,dental,dental×1
+1060,Spire Dental,industry,dental,Industry=Dental
+1062,Spring Grove Clinic,deals,dental,dental×2
+1063,SPS Dental,industry,dental,Industry=Dental
+1064,Square Mile Dental Centre,industry,dental,Industry=Dental
+1065,St Andrews Dental,deals,dental,dental×2
+1066,St Andrews Orthodontics,industry,dental,Industry=Dental
+1067,St Georges,industry,dental,Industry=Dental
+1068,St Margarets Dental,industry,dental,Industry=Dental
+1069,St Mary's House Dental Care,industry,dental,Industry=Dental
+1072,Stanstead Dental Centre,industry,dental,Industry=Dental
+1073,Staple Hill Dental Practice,deals,dental,dental×2
+1076,Stephen House Dental Practice Ltd t/a Copper Beach Clinic,deals,dental,dental×3
+1079,Stoke Road Dental Practice,industry,dental,Industry=Dental
+1080,Stone Cottage Dental,deals,dental,dental×1
+1082,StoneRock Dental Care,industry,dental,Industry=Dental
+1083,Stoneydelph Dental,industry,dental,Industry=Dental
+1088,STRAIGHT ROAD DENTAL PRACTICE LIMITED,deals,dental,dental×1
+1091,Sturminster Dental Care,industry,dental,Industry=Dental
+1094,Superfly Animalphysio,contacts,veterinary,unanimous contact sector
+1095,surbitondentaloffice.co.uk,contacts,dental,unanimous contact sector
+1096,Surrenden Dental Practice,deals,dental,dental×9
+1099,Sussex Dental Group,deals,dental,dental×6
+1103,Swallow Dental Clinic,industry,dental,Industry=Dental
+1104,Swan Dental,industry,dental,Industry=Dental
+1105,Swedish Smile Clinic Marylebone,industry,dental,Industry=Dental
+1111,Tangmere Dental Care,deals,dental,dental×1
+1112,Tariq & Tariq Company Ltd t/a Attention to Dental,deals,dental,dental×1
+1113,Taunton Dental & Implant Centre,deals,dental,dental×2
+1116,Taylor Roberts,deals,non_healthcare,non_healthcare×1
+1119,teddingtondental.co.uk,contacts,dental,unanimous contact sector
+1120,Teeth On The Heath,deals,dental,dental×2
+1123,Ten Dental Facial,industry,dental,Industry=Dental
+1124,Tender Dental Care,industry,dental,Industry=Dental
+1125,Terrace Dental Centre,industry,dental,Industry=Dental
+1126,TGDP Ltd t/a The Gallery Dental Practice,deals,dental,dental×4
+1127,Thame Dental Care Ltd Oldham,industry,dental,Industry=Dental
+1129,Thaxted Dental Centre,industry,dental,Industry=Dental
+1130,The Art of Dentistry,deals,dental,dental×1
+1131,The Barn Dental Clinic,industry,dental,Industry=Dental
+1132,The Berkshire Medical Practice,deals,doctors,doctors×1
+1133,The Bespoke Dentist,deals,dental,dental×1
+1134,The Blackheath Clinic Ltd,deals,doctors,doctors×1
+1136,The Chertsey Dental Practice,deals,dental,dental×2
+1137,The Chiro Clinic,deals,physio_chiro,physio_chiro×1
+1138,The Clock Dental Practice,deals,dental,dental×1
+1140,The Cosmetic Dental Clinic,deals,dental,dental×1
+1141,The Craig Vets,deals,veterinary,veterinary×2
+1142,The Crewkerne Dental Centre,deals,dental,dental×1
+1144,The Dental Clinic Radlett,industry,dental,Industry=Dental
+1145,The Dental Directory,industry,dental,Industry=Dental
+1148,The Endodontic Centre Ltd,deals,dental,dental×1
+1150,The Grove Skin Clinic,deals,cosmetic,cosmetic×1
+1152,The Happy Smile Company,industry,dental,Industry=Dental
+1154,The Hive Laboratory,deals,dental,dental×2
+1157,The Limes Dental Practice,industry,dental,Industry=Dental
+1159,The Mayhill Dental and Specialist Centre,industry,dental,Industry=Dental
+1160,The Mead Dental Practice,industry,dental,Industry=Dental
+1163,The O lab,deals,dental,dental×2
+1164,The Old Surgery Dental Practice Crewe,deals,dental,dental×1
+1165,The Ongar Dental Practice,deals,dental,dental×1
+1166,The Podiatry Centre,deals,other,other×1
+1167,The Pregnancy Clinic,deals,doctors,doctors×1
+1171,The Schaller Hand & Wrist Clinic,deals,physio_chiro,physio_chiro×1
+1172,The Small Pet Vet,deals,veterinary,veterinary×1
+1173,The Smile Gallery,industry,dental,Industry=Dental
+1174,The Smile Practice,industry,dental,Industry=Dental
+1175,The Smile Studio,industry,dental,Industry=Dental
+1177,The Specialist Orthodontic Practice,industry,dental,Industry=Dental
+1178,The Square Advanced Dental Care,deals,dental,dental×2
+1179,The Treatment Centre,deals,dental,dental×1
+1180,The Vet,deals,veterinary,veterinary×1
+1182,The White House Dental Surgery,deals,dental,dental×2
+1183,The Windmill Dental Practice,deals,dental,dental×2
+1188,thehivelaboratories.com,contacts,dental,unanimous contact sector
+1189,Thekingfisherfamily,deals,other,other×1
+1191,Thenorthstreetclinic,contacts,dental,unanimous contact sector
+1193,thepearldental.com,contacts,dental,unanimous contact sector
+1197,Theydon Dental Surgery,deals,dental,dental×1
+1201,Thorley Practice Ltd,deals,dental,dental×1
+1202,Thurlow Dental,industry,dental,Industry=Dental
+1203,Tickhill Dental & Implant Centre,deals,dental,dental×1
+1204,time4teeth.co.uk,deals,dental,dental×4
+1206,Tivoli Chiropractic,deals,physio_chiro,physio_chiro×1
+1207,Toebridge Dental,industry,dental,Industry=Dental
+1208,Tonbridge dental,industry,dental,Industry=Dental
+1209,Tooth Club,deals,dental,dental×1
+1211,toothfairys.co.uk,deals,dental,dental×2
+1212,toothi,contacts,dental,unanimous contact sector
+1215,Townhouse Dental,industry,dental,Industry=Dental
+1219,Transforming Mind Solutions,contacts,other,unanimous contact sector
+1221,Transport Resource Services Ltd,contacts,other,unanimous contact sector
+1224,Trinity College,contacts,dental,unanimous contact sector
+1225,Trinity Dental,industry,dental,Industry=Dental
+1228,TSa Dental Care,industry,dental,Industry=Dental
+1229,Tuckton Dental Practice,industry,dental,Industry=Dental
+1231,Twenty 2 Dental,industry,dental,Industry=Dental
+1232,Twyford Dental Care,industry,dental,Industry=Dental
+1234,Ukco,contacts,dental,unanimous contact sector
+1235,UltraSmile* Dentistry,deals,dental,dental×2
+1236,UltraSmile.com,deals,dental,dental×2
+1241,Upton Park Dentalcare,contacts,dental,unanimous contact sector
+1242,Urban Medi Spa,deals,dental,dental×1
+1244,Valley Dental Care,industry,dental,Industry=Dental
+1245,vanheerden.bz,contacts,dental,unanimous contact sector
+1252,Vicarage Farm Dental,industry,dental,Industry=Dental
+1254,Victoria Road Dental Clinic,industry,dental,Industry=Dental
+1255,VidaDent,deals,dental,dental×1
+1256,Village Dental,industry,dental,Industry=Dental
+1257,Village Dental Surgery,industry,dental,Industry=Dental
+1262,Vogue Dental,deals,dental,dental×1
+1264,W1Teeth,deals,dental,dental×4
+1265,Warrendale Dental,industry,dental,Industry=Dental
+1266,Waterden Dental Practice,industry,dental,Industry=Dental
+1267,Waterer Dental Care,deals,dental,dental×7
+1269,Watling Street Dental Care,industry,dental,Industry=Dental
+1271,Wembley High Street Dental Practice,deals,dental,dental×1
+1273,Wessex Dental Laboratory,deals,dental,"dental×2, dental_lab×1"
+1274,West Byfleet Dental & Implant Centre,industry,dental,Industry=Dental
+1275,West Dulwich Dental,deals,dental,dental×1
+1276,West Street Dental Practice,industry,dental,Industry=Dental
+1277,Westleigh Dental Care,industry,dental,Industry=Dental
+1278,westleighdentalcare.co.uk,deals,dental,dental×1
+1280,westwooddentalstudios.co.uk,contacts,dental,unanimous contact sector
+1281,Weybridge Dental,industry,dental,Industry=Dental
+1282,Whitchurch Smiles Ltd,contacts,dental,unanimous contact sector
+1283,White Align Dental,industry,dental,Industry=Dental
+1284,White Cross Vets,industry,veterinary,Industry=Veterinary
+1285,White Hart Dental,industry,dental,Industry=Dental
+1287,White Peak Dental Ltd,deals,dental,dental×1
+1289,WHW,deals,dental,dental×1
+1291,WIGHT DENTAL CARE LIMITED,industry,dental,Industry=Dental
+1293,wiltondentalpractice.co.uk,deals,dental,dental×1
+1294,wimbourn-dental.co.uk,industry,dental,Industry=Dental
+1295,Wimpole Street Dental Clinic,deals,dental,dental×1
+1296,Winchester Smiles,deals,dental,dental×2
+1297,Windsor Centre for Advanced Dentistry,industry,dental,Industry=Dental
+1298,wintertondental.co.uk,contacts,dental,unanimous contact sector
+1299,Wisteriadp,deals,dental,dental×1
+1302,Woodberry Down Dental Practice,deals,dental,dental×4
+1303,Woodborough House Dental Practice,deals,dental,dental×1
+1304,Woodthorpe Dental Care,deals,dental,dental×1
+1310,Www.lucavet.co.uk,contacts,veterinary,unanimous contact sector
+1312,Wycombe Dental Centre,deals,dental,dental×2
+1316,Yorkshire Dental Practice Ltd,industry,dental,Industry=Dental
+1318,yvonnewood.dental,industry,dental,Industry=Dental
+1319,Zebon Copse Dental,deals,dental,dental×2
+1320,Zestige,deals,other,other×2
+1321,クローバーデンタル,contacts,dental,unanimous contact sector
+1323,PPU Enterprises Ltd  t/a First Sight,contacts,other,unanimous contact sector
+1325,NP-Chiropractic,contacts,physio_chiro,unanimous contact sector
+1327,JMCB AOD Ltd,contacts,dental,unanimous contact sector
+1328,JL & HK Murphy Ltd t/a Clarendon Road Dental & Orthodontic Practice,contacts,dental,unanimous contact sector
+1329,Vista Dent / Stamatios Kioufis,contacts,dental,unanimous contact sector
+1330,Aurora Dental Clinic Chippenham Ltd,contacts,dental,unanimous contact sector
+1331,TwentyTwenty Dental CareLtd,contacts,dental,unanimous contact sector
+1332,Denise cakes Ltd,contacts,other,unanimous contact sector
+1333,Island Chiropody & Podiatry,contacts,physio_chiro,unanimous contact sector
+1334,SRK Colden Limited,contacts,dental,unanimous contact sector
+1335,Cranleigh Practice Ltd,contacts,dental,unanimous contact sector
+1336,Pritchard and Associates,contacts,dental,unanimous contact sector
+1337,Ego Cosmetics Ltd,contacts,dental,unanimous contact sector
+1338,PetCare Vets,contacts,veterinary,unanimous contact sector
+1340,The Straight Tooth Company,contacts,dental,unanimous contact sector
+1341,G & L Askins Limited,contacts,dental,unanimous contact sector
+1342,Dr Richard Pollock,contacts,dental,unanimous contact sector
+1343,Andrew Horne Ltd t/a City Bridge Dental care,contacts,dental,unanimous contact sector
+1344,Nigel Stribling,contacts,dental,unanimous contact sector
+1345,Schofield and Pickup Dental Practice,contacts,dental,unanimous contact sector
+1346,manor surgery,contacts,dental,unanimous contact sector
+1347,CHINGFORD MOUNT DENTAL PRACTICE,contacts,dental,unanimous contact sector
+1348,First Alba Healthcare,contacts,dental,unanimous contact sector
+1350,Andrew Armstrong,contacts,dental,unanimous contact sector
+1351,digmoor dent limted,contacts,dental,unanimous contact sector
+1352,Dr J M Smith,contacts,dental,unanimous contact sector
+1353,McAleer Holdings,contacts,dental,unanimous contact sector
+1354,done by hand ltd,contacts,physio_chiro,unanimous contact sector
+1356,Lets Smile Ltd,contacts,dental,unanimous contact sector
+1357,Face Teeth Smile Ltd,contacts,dental,unanimous contact sector
+1358,Clive Stockwell,contacts,dental,unanimous contact sector
+1360,Siudney Urdang,contacts,dental,unanimous contact sector
+1361,Guisborough dental lab,contacts,dental_lab,unanimous contact sector
+1363,Bahram LTD T/A Wellington dental oractice,contacts,dental,unanimous contact sector
+1365,ULTRASOUND IMAGE STUDIO LTD,contacts,other,unanimous contact sector
+1369,Sutherland Associates Ltd,contacts,dental,unanimous contact sector
+1372,Dalkeith House,contacts,dental,unanimous contact sector
+1376,Premkumar Ambrose,contacts,dental,unanimous contact sector
+1379,Lakes Implants and Orthodontics,contacts,dental,unanimous contact sector
+1380,Jason Bedford Ltd,contacts,dental,unanimous contact sector
+1381,Heatherstone (Romsey) Ltd,contacts,dental,unanimous contact sector
+1382,Simply Teeth Ilford Ltd,deals,dental,dental×1
+1383,Neha Khade - Riverside Dental Spa LLp,contacts,dental,unanimous contact sector
+1384,Shrikant Kulkarni,contacts,dental,unanimous contact sector
+1385,ANAY Investments Ltd  t/a Dental & Skin Wellness,contacts,dental,unanimous contact sector
+1386,Masoud Karimi,contacts,dental,unanimous contact sector
+1393,Euro Smile Ltd t/a Dental Care Falmer,contacts,dental,unanimous contact sector
+1395,Eden House Day Nursery,contacts,other,unanimous contact sector
+1396,KKB Smiles Ltd,contacts,dental,unanimous contact sector
+1397,The Perio Team Ltd -  Cristina Romao,contacts,other,unanimous contact sector
+1398,Tyntesfield Medical Group,contacts,other,unanimous contact sector
+1399,Beech Cottage Ltd,contacts,dental,unanimous contact sector
+1400,Samadi Ltd,contacts,dental,unanimous contact sector
+1401,Broad Smiles Ltd  t/a Boston Orthodontics,contacts,dental,unanimous contact sector
+1402,Sophie Nelson,contacts,other,unanimous contact sector
+1403,A & H HealrthcareLtd,contacts,dental,unanimous contact sector
+1404,Tim Paver,contacts,physio_chiro,unanimous contact sector
+1405,Westbourne Dental Surgery - ESY8 Ltd,contacts,dental,unanimous contact sector
+1406,Sharada Hulagur,contacts,dental,unanimous contact sector
+1407,Forestside Veterinary Clinic,contacts,veterinary,unanimous contact sector
+1408,Analog Implant Laboratory Ltd,contacts,dental,unanimous contact sector
+1409,Teeth n Gums Ltd,contacts,dental,unanimous contact sector
+1410,Fiona Wellington & James Arthurell,contacts,dental,unanimous contact sector
+1412,George Brown t/aKnightshill Dental Practice,contacts,dental,unanimous contact sector
+1413,Salus Chiropractic Sports Clinic Ltd,contacts,physio_chiro,unanimous contact sector
+1414,Decker Hie Ltd,contacts,dental,unanimous contact sector
+1415,New Castle Healthcare Ltd,contacts,pharmacy,unanimous contact sector
+1416,Panaglotis Angelopoulos,contacts,dental,unanimous contact sector
+1417,Dedo Ltd,contacts,dental,unanimous contact sector
+1418,Alsager Smiles Ltd - Matthew Gilks,contacts,dental,unanimous contact sector
+1419,Michalitsa Argyriadou,contacts,dental,unanimous contact sector
+1420,Venus Dental,contacts,dental,unanimous contact sector
+1421,Witterings Dental Practice Ltd - Farid Rafatnia,contacts,dental,unanimous contact sector
+1422,Back to Wellness Chiropractic Ltd,contacts,physio_chiro,unanimous contact sector
+1423,SAAB PROF Ltd,contacts,dental,unanimous contact sector
+1424,Broadfield Holdings Ltd,contacts,dental,unanimous contact sector
+1426,Todorova Ltd,contacts,dental,unanimous contact sector
+1427,Birmingham Chiropractic Clinic,contacts,physio_chiro,unanimous contact sector
+1428,Carl Roberts Ltd,contacts,dental,unanimous contact sector
+1429,W5 Dental Care Lld,contacts,dental,unanimous contact sector
+1430,ERHL Ltd,contacts,dental,unanimous contact sector
+1431,Cannock Dental Care,contacts,dental,unanimous contact sector
+1432,P S Pillay Ltd,contacts,dental,unanimous contact sector
+1433,Longwood House Dental Care,contacts,dental,unanimous contact sector
+1434,Jaya Oswal,contacts,dental,unanimous contact sector
+1435,Premier Smile Dental Excellence,contacts,dental,unanimous contact sector
+1436,Dale of Harley St Ltd,contacts,dental,unanimous contact sector
+1437,Yagan Ltd,contacts,dental,unanimous contact sector
+1438,Drayton Dental Norwich Ltd,contacts,dental,unanimous contact sector
+1439,2M Practices Ltd,contacts,dental,unanimous contact sector
+1440,Lowen Dental Spa,contacts,dental,unanimous contact sector
+1441,Laser-Dent Ltd,contacts,dental,unanimous contact sector
+1442,Watford Medical Ltd,contacts,dental,unanimous contact sector
+1443,Fortune Dental Services Ltd,contacts,dental,unanimous contact sector
+1445,A Davies (Warrenpoint) Ltd t/a Abercorn Dental Care,contacts,dental,unanimous contact sector
+1446,Pristine Health Ltd,contacts,other,unanimous contact sector
+1447,Eanesh kara,contacts,dental,unanimous contact sector
+1448,Meadow Hall Veterinary Practice Ltd,contacts,veterinary,unanimous contact sector
+1449,Leigh Eyecare Ltd trading as Templeman optician,contacts,optical,unanimous contact sector
+1450,O'Brien Siddle Dental Care Limited,contacts,dental,unanimous contact sector
+1451,Princes Street Garage Ltd,contacts,other,unanimous contact sector
+1453,Caizen Ltd,contacts,dental,unanimous contact sector
+1454,Glafcos Tombolis,contacts,dental,unanimous contact sector
+1455,The Neighbourhood Dentist,contacts,dental,unanimous contact sector
+1456,Complete care dental clinic,contacts,dental,unanimous contact sector
+1457,Smiles4U,contacts,dental,unanimous contact sector
+1458,C+C Conner Ltd t/a Stockwell Dental,contacts,dental,unanimous contact sector
+1459,Evedent Ltd t/a 123 Dental,contacts,dental,unanimous contact sector
+1460,Central England Specialist Implant Centre Ltd,contacts,dental,unanimous contact sector
+1783,Hague Dental Supplies Ltd,industry,dental,Industry=Dental
+1796,DB Dental Equipment LTD,industry,dental,Industry=Dental

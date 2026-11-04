@@ -1,0 +1,23 @@
+# Everything in this folder that carries HubSpot customer data stays local.
+# Scripts, docs and the business-level decision files are tracked; CSVs are
+# ignored by default and only the personal-data-free ones are whitelisted.
+
+# Raw exports and SQLite builds (full customer PII)
+hubspot exports/
+*.db
+*.db.*
+*.sqlite3
+*.sqlite3.*
+__pycache__/
+
+# CSVs: ignore all, then allow the ones that hold no personal data
+*.csv
+!automated_deal_funder_matches.csv
+!first_conversion_counts.csv
+!first_conversion_counts_exclusions.csv
+!nameless_org_names.csv
+!recent_unworked_orgs.csv
+!sector_derivation_audit.csv
+!sensitive_fields.csv
+!stage_derivation_audit.csv
+!stage_map.csv

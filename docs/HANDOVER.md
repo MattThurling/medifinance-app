@@ -86,7 +86,10 @@ crm/        models, views, forms, urls, admin, signals,
 medifinance/ settings, urls, wsgi
 templates/  base, _app_layout (sidebar; staff + customer), _portal_layout (plain; supplier invoice pages only), dashboard (staff), email/, portal/
 static/     src/input.css → dist/output.css (Tailwind), vendor/htmx, vendor/chart.umd.min (Chart.js), js/combobox, js/charts
-docs/       DEPLOYMENT, HUBSPOT_IMPORT, HUBSPOT_EXPORT_QUERIES, HANDOVER
+docs/       HANDOVER, DECISIONS (dated state + gotchas), DEPLOYMENT, ACCESS (accounts + secrets),
+            HUBSPOT_IMPORT, HUBSPOT_EXPORT_QUERIES, partner-api, QUOTE_API, briefs/
+hubspot-migration/  out-of-app HubSpot build scripts + decision files (PII files git-ignored)
+CLAUDE.md   orientation for Claude Code / new developers — start here
 ```
 
 ## Conventions & gotchas

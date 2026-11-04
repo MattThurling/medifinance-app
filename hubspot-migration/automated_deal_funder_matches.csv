@@ -1,0 +1,41 @@
+raw_value,deal_count,action,matched_org_name,matched_org_id,match_score,created_new_org_name
+Barclays,29,auto_matched,Barclays PLC,1124256101,1.000,
+Close Brothers,10,auto_matched,Close Brothers Limited,2969311923,1.000,
+Funding Circle,8,auto_matched,Funding Circle,509444163,1.000,
+Santander,2,auto_matched,Santander,1123779576,1.000,
+loans.co.uk,1,auto_matched,Loans.co.uk Limited,2374027106,1.000,
+BNP,338,created_new_org,,,,BNP
+BPCE,326,created_new_org,,,,BPCE
+Lloyds,260,created_new_org,,,,Lloyds
+Conister,66,created_new_org,,,,Conister
+NatWest,53,created_new_org,,,,NatWest
+HTB,45,created_new_org,,,,HTB
+Braemar,44,created_new_org,,,,Braemar
+IAF,27,created_new_org,,,,IAF
+Aldermore,27,created_new_org,,,,Aldermore
+Renaissance,25,created_new_org,,,,Renaissance
+LDF,18,created_new_org,,,,LDF
+Metro,14,created_new_org,,,,Metro
+ABC,14,created_new_org,,,,ABC
+CRAML,10,created_new_org,,,,CRAML
+Novuna,8,created_new_org,,,,Novuna
+Siemens,7,created_new_org,,,,Siemens
+Shawbrook Asset Finance,7,created_new_org,,,,Shawbrook Asset Finance
+Lloyds Asset,7,created_new_org,,,,Lloyds Asset
+Hitachi,6,created_new_org,,,,Hitachi
+Wesleyan,4,created_new_org,,,,Wesleyan
+IWOCA,4,created_new_org,,,,IWOCA
+Shawbrook,3,created_new_org,,,,Shawbrook
+Premium Credit,3,created_new_org,,,,Premium Credit
+JustCashflow,3,created_new_org,,,,JustCashflow
+Woodford Tradebridge,2,created_new_org,,,,Woodford Tradebridge
+Paragon Business Finance,2,created_new_org,,,,Paragon Business Finance
+Accredo,2,created_new_org,,,,Accredo
+Unity Bank,1,created_new_org,,,,Unity Bank
+Tower Leasing,1,created_new_org,,,,Tower Leasing
+Sterling Finance,1,created_new_org,,,,Sterling Finance
+Paragon Motor Finance,1,created_new_org,,,,Paragon Motor Finance
+Little Business Loans,1,created_new_org,,,,Little Business Loans
+Kingsway Finance,1,created_new_org,,,,Kingsway Finance
+Haydock,1,created_new_org,,,,Haydock
+Funding Options,1,created_new_org,,,,Funding Options

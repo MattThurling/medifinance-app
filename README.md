@@ -2,6 +2,8 @@
 
 Django CRM, ported from HubSpot. SQLite for dev, Tailwind v4 + DaisyUI v5 for UI.
 
+**New here?** Read `CLAUDE.md` (orientation), then `docs/HANDOVER.md` and `docs/DECISIONS.md`.
+
 ## Stack
 - Django 5.2 (custom email-based User model)
 - django-guardian for object-level permissions
