@@ -285,9 +285,6 @@ layout (main content left, amount + timeline right).
               <th class="hidden md:table-cell">Deposit</th>
               <th class="hidden md:table-cell">Balloon</th>
               <th class="hidden md:table-cell">Commission %</th>
-              <th class="hidden lg:table-cell">Doc fee</th>
-              <th class="hidden lg:table-cell">Doc fee split</th>
-              <th class="hidden lg:table-cell">OTP fee</th>
               <th class="hidden md:table-cell">APR</th>
               <th class="hidden md:table-cell">Flat</th>
               <th>Monthly</th>
@@ -302,9 +299,6 @@ layout (main content left, amount + timeline right).
                 <td class="opacity-70 hidden md:table-cell">{% if q.deposit %}£{{ q.deposit|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.balloon %}£{{ q.balloon|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden lg:table-cell">{% if q.document_fee is not None %}£{{ q.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden lg:table-cell">{% if q.document_fee_split is not None %}£{{ q.document_fee_split|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
-                <td class="opacity-70 hidden lg:table-cell">{% if q.option_to_purchase_fee is not None %}£{{ q.option_to_purchase_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="opacity-70 hidden md:table-cell">{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</td>
                 <td class="font-medium">{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
@@ -324,7 +318,7 @@ layout (main content left, amount + timeline right).
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="12" class="opacity-60">No quotes yet.</td></tr>
+              <tr><td colspan="9" class="opacity-60">No quotes yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
