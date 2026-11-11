@@ -161,6 +161,19 @@ def make_commercial_quote(deal: Deal, *, lender: Organisation | None = None,
     )
 
 
+def select_quote(deal: Deal, *, commission_percent: Decimal | str | None = None,
+                 **extra) -> Quote:
+    """Give the deal a selected quote — commission and fees live on the quote,
+    so this is how a test sets a deal's commission. The deal's commission £ is
+    `commission_percent` of its finance amount (it needs a participation)."""
+    if commission_percent is not None:
+        extra["commission_percent"] = Decimal(commission_percent)
+    quote = make_commercial_quote(deal, **extra)
+    deal.selected_quote = quote
+    deal.save(update_fields=["selected_quote"])
+    return quote
+
+
 def make_proposal(deal: Deal, *, lender: Organisation | None = None,
                   **extra) -> Proposal:
     lender = lender or make_organisation(name=f"Lender {_next()}")

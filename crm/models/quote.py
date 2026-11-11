@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import models
 
@@ -111,6 +111,10 @@ class Quote(TimestampedModel):
         help_text="Free-text repayment profile (e.g. monthly, quarterly, balloon). "
                   "May be structured later.",
     )
+    # Fees, in £. Asset Finance only — the Terms form never offers them.
+    document_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    document_fee_split = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    option_to_purchase_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     class Meta:
         ordering = ["deal", "term", "pk"]
@@ -157,6 +161,16 @@ class Quote(TimestampedModel):
         if funded is None:
             return None
         return funded - (self.deposit or Decimal("0")) - (self.balloon or Decimal("0"))
+
+    @property
+    def commission_amount(self) -> "Decimal | None":
+        """Commission in £: `commission_percent` of this quote's finance
+        amount, to the penny. None while either input is missing."""
+        principal = self.finance_amount
+        if principal is None or self.commission_percent is None:
+            return None
+        amount = principal * self.commission_percent / Decimal("100")
+        return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     def __str__(self) -> str:
         if self.rate_id:

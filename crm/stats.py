@@ -24,8 +24,9 @@ Design notes
 Date anchors (documented on the Reports page):
 * Pipeline — current stage; a snapshot, the period does not apply.
 * New deals / conversion / by-owner & by-source deal counts — ``created_at``.
-* Funded £ and commission — the deal's first ``deal_live`` event ("recognised
-  in the month the deal goes live").
+* Funded £ and commission (the selected quote's commission % of its finance
+  amount — :func:`commission_amount_expr`) — the deal's first ``deal_live``
+  event ("recognised in the month the deal goes live").
 * Velocity — deals whose first ``deal_live`` / ``lost`` falls in the period.
 """
 
@@ -38,7 +39,8 @@ from decimal import Decimal
 from statistics import mean, median
 
 from django.contrib.auth import get_user_model
-from django.db.models import OuterRef, Q, Subquery, Sum
+from django.db.models import DecimalField, ExpressionWrapper, F, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce, Round
 from django.utils import timezone
 
 from accounts.models import Role
@@ -204,6 +206,29 @@ def _funded_total():
     )
 
 
+def commission_amount_expr():
+    """Commission £ for a Deal queryset: the selected quote's commission % of
+    its finance amount (funded − deposit − balloon). NULL when no quote is
+    selected, it has no commission %, or the deal has no participations.
+    The SQL twin of ``Deal.commission_amount`` — keep the two in step."""
+    money = DecimalField(max_digits=14, decimal_places=2)
+    zero = Value(Decimal("0"), output_field=money)
+    return Round(
+        ExpressionWrapper(
+            (
+                _funded_total()
+                - Coalesce(F("selected_quote__deposit"), zero)
+                - Coalesce(F("selected_quote__balloon"), zero)
+            )
+            * F("selected_quote__commission_percent")
+            / Value(Decimal("100"), output_field=money),
+            output_field=money,
+        ),
+        2,
+        output_field=money,
+    )
+
+
 def _between(field_name: str, start: datetime | None, end: datetime) -> Q:
     q = Q(**{f"{field_name}__lte": end})
     if start is not None:
@@ -328,7 +353,11 @@ class DealStats:
             start, end = window
             qs = (
                 self.p.base_queryset()
-                .annotate(live_at=_first_stage_at(Stage.Name.DEAL_LIVE), funded=_funded_total())
+                .annotate(
+                    live_at=_first_stage_at(Stage.Name.DEAL_LIVE),
+                    funded=_funded_total(),
+                    commission=commission_amount_expr(),
+                )
                 .filter(live_at__isnull=False)
                 .filter(_between("live_at", start, end))
                 .values_list("pk", "owner_id", "source", "live_at", "funded", "commission")

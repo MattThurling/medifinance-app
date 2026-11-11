@@ -15,7 +15,7 @@ from crm import stats
 from crm.models import Deal, Stage
 from crm.stats import DealStats, StatsParams
 
-from .factories import make_admin, make_associate, make_deal, make_participation
+from .factories import make_admin, make_associate, make_deal, make_participation, select_quote
 
 # A fixed "now" mid-month, so ±N-day offsets never straddle a month boundary
 # in ways that make the series assertions fiddly.
@@ -45,11 +45,14 @@ def created(deal, days_ago: float) -> Deal:
     return deal
 
 
-def live_deal(*, owner=None, days_ago: float, funded="1000", commission=None, created_days_ago=None, **extra):
-    """A deal that went live `days_ago` days ago with one participation."""
-    d = make_deal(owner=owner, commission=commission and Decimal(commission), **extra)
+def live_deal(*, owner=None, days_ago: float, funded="1000", commission_percent=None, created_days_ago=None, **extra):
+    """A deal that went live `days_ago` days ago with one participation and,
+    when `commission_percent` is given, a selected quote carrying it."""
+    d = make_deal(owner=owner, **extra)
     created(d, created_days_ago if created_days_ago is not None else days_ago + 10)
     make_participation(d, amount=funded)
+    if commission_percent is not None:
+        select_quote(d, commission_percent=commission_percent)
     stage(d, Stage.Name.DEAL_LIVE, days_ago)
     return d
 
@@ -202,7 +205,7 @@ class PipelineTests(TestCase):
 
 class SeriesTests(TestCase):
     def test_buckets_by_first_live_month(self):
-        live_deal(days_ago=40, funded="5000", commission="500")   # May 2026
+        live_deal(days_ago=40, funded="5000", commission_percent="10")   # May 2026
         live_deal(days_ago=3, funded="2000")                      # Jun 2026
         live_deal(days_ago=100, funded="7000")                    # Mar 2026 — previous period for 90d
         never = make_deal()
@@ -247,8 +250,8 @@ class HeadlineTests(TestCase):
         created(make_deal(owner=owner), 10)
         created(make_deal(owner=owner), 45)
         # Live in window vs previous window.
-        live_deal(owner=owner, days_ago=2, funded="3000", commission="300", created_days_ago=200)
-        live_deal(owner=owner, days_ago=40, funded="1000", commission="100", created_days_ago=200)
+        live_deal(owner=owner, days_ago=2, funded="3000", commission_percent="10", created_days_ago=200)
+        live_deal(owner=owner, days_ago=40, funded="1000", commission_percent="10", created_days_ago=200)
         h = DealStats(params(period="30d")).headline()
         self.assertEqual(h["new_deals"]["value"], 2)   # 5 and 10 days ago
         self.assertEqual(h["new_deals"]["previous"], 1)  # 45 days ago
@@ -341,7 +344,7 @@ class OwnerBreakdownTests(TestCase):
         idle = make_associate(first_name="Ida", last_name="I")
         created(make_deal(owner=a), 5)
         created(make_deal(owner=a), 6)
-        live_deal(owner=a, days_ago=3, funded="4000", commission="400", created_days_ago=8)
+        live_deal(owner=a, days_ago=3, funded="4000", commission_percent="10", created_days_ago=8)
         live_deal(owner=b, days_ago=3, funded="9000", created_days_ago=8)
         unowned = created(make_deal(owner=None), 5)
         unowned.owner = None
@@ -410,7 +413,7 @@ class FacadeTests(TestCase):
             json.dumps(data["charts"])  # must already be JSON-safe
 
     def test_chart_payloads(self):
-        live_deal(days_ago=3, funded="1234.50", commission="12", source=Deal.Source.REFERRAL)
+        live_deal(days_ago=3, funded="1234.50", commission_percent="1", source=Deal.Source.REFERRAL)
         data = stats.report_stats(params(period="30d"))
         pipeline = data["charts"]["pipeline"]
         self.assertEqual(pipeline["labels"], [label for _c, label in Stage.Name.choices])
@@ -431,7 +434,7 @@ class FacadeTests(TestCase):
     def test_query_count_is_flat(self):
         owners = [make_associate() for _ in range(3)]
         for i in range(30):
-            live_deal(owner=owners[i % 3], days_ago=i + 1, funded="100", commission="5",
+            live_deal(owner=owners[i % 3], days_ago=i + 1, funded="100", commission_percent="5",
                       source=Deal.Source.INTRODUCER)
         with CaptureQueriesContext(connection) as ctx:
             stats.report_stats(params(period="90d", user_id=owners[0].pk))

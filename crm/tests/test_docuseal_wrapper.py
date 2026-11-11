@@ -143,13 +143,15 @@ class PrefillValuesTests(TestCase):
         deal = factories.make_deal(
             initial_fee=Decimal("1250.50"),
             final_fee=Decimal("300"),
-            commission=Decimal("12345.678"),
             non_completion_fee=Decimal("2.5"),
         )
+        # Commission is the selected quote's % of the amount financed.
+        factories.make_participation(deal, amount="100000.00")
+        factories.select_quote(deal, commission_percent="12.35")
         values = docuseal.build_prefill_values(deal)
         self.assertEqual(values["Initial Fee"], "1,250.50")
         self.assertEqual(values["Final Fee"], "300.00")
-        self.assertEqual(values["Commission"], "12,345.68")
+        self.assertEqual(values["Commission"], "12,350.00")
         self.assertEqual(values["Non-completion Fee"], "2.50%")
 
     def test_prefill_omits_null_fees(self):

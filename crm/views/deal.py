@@ -50,6 +50,7 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         "name": Lower("name"),
         "type": F("type"),
         "funded": F("funded_total"),
+        "commission": F("commission_value"),
         "owner": Lower(Coalesce("owner__first_name", Value(""))),
         "created": F("created_at"),
         "activity": F("last_activity_at"),
@@ -59,6 +60,7 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         qs = _deal_summaries(
             super().get_queryset().select_related("owner", "customer", "organisation")
         )
+        qs = qs.annotate(commission_value=stats.commission_amount_expr())
         qs = self._apply_filters(qs)
         return self.apply_sort(qs)
 
@@ -170,8 +172,14 @@ class DealDetailView(StaffRequiredMixin, DetailView):
             ctx["amount_pounds"] = f"{pounds:,}"
             ctx["amount_pence"] = f"{pence:02d}"
 
-        if deal.commission is not None:
-            ctx["commission_display"] = f"£{deal.commission:,.2f}"
+        # Commission and fees live on the quote; the deal shows the selected
+        # quote's commission in £ and its document fee split, when it has one.
+        commission = deal.commission_amount
+        if commission is not None:
+            ctx["commission_display"] = f"£{commission:,.2f}"
+        quote = deal.selected_quote
+        if quote is not None and quote.document_fee_split is not None:
+            ctx["document_fee_split"] = quote.document_fee_split
 
         # Computed once here — the property walks selected_quote + participations.
         if deal.first_payment_date:
@@ -315,9 +323,8 @@ class RequestDealCommissionInvoiceView(StaffRequiredMixin, View):
 
         finance = deal.finance_amount
         finance_display = f"£{finance:,.2f}" if finance is not None else "—"
-        commission_display = (
-            f"£{deal.commission:,.2f}" if deal.commission is not None else "—"
-        )
+        commission = deal.commission_amount
+        commission_display = f"£{commission:,.2f}" if commission is not None else "—"
 
         from accounts.emails import send_commission_invoice_request_email
         send_commission_invoice_request_email(
@@ -355,7 +362,7 @@ class DealRaiseInvoiceView(FinanceRequiredMixin, View):
             "contact_name": terms.lender.name,
             "reference": reference,
             "description": f"Commission for {deal.name}",
-            "amount": deal.commission or 0,
+            "amount": deal.commission_amount or 0,
             "account_code": "200",
             "tax_type": "NONE",
             "due_days": 30,

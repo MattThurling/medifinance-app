@@ -754,20 +754,21 @@ def load_deals_and_children(src: sqlite3.Connection, out: sqlite3.Connection) ->
         pipeline = (r.get("Pipeline") or "").strip()
 
         cur = out.execute("""INSERT INTO crm_deal
-            (created_at, updated_at, name, type, source, owner_id, customer_id,
+            (created_at, updated_at, name, type, source, source_identifier,
+             owner_id, customer_id,
              organisation_id, introducer_id,
-             commission, document_fee,
              first_payment_date, term_end_date, mf_invoice_number,
              selected_quote_id, selected_proposal_id, hubspot_id,
              created_via_api_key_id)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""", (
+            VALUES (?,?,?,?,?,'',?,?,?,?,?,?,?,?,?,?,NULL)""", (
             norm_dt(r.get("Create Date")), norm_dt(r.get("Last Modified Date")),
             (r.get("Deal Name") or f"Deal {did}")[:255],
             PIPELINE_TYPE.get(pipeline), source,
             owner_django_id, customer_django_id,
             organisation_django_id, introducer_django_id,
-            as_decimal(r.get("Salesman Commission")),
-            as_decimal(r.get("Doc Fee")),
+            # "Salesman Commission" and "Doc Fee" are NOT carried: commission
+            # and document fee live on Quote now (see field_map.md) — port
+            # them to a quote per deal when the migration is redone.
             None,
             term_end.isoformat() if term_end else None,
             (r.get("Invoice No") or "").strip()[:32],

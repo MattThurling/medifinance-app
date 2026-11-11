@@ -20,6 +20,7 @@ from .factories import (
     make_participation,
     make_proposal,
     make_quote,
+    select_quote,
 )
 
 
@@ -125,6 +126,14 @@ class SortTests(DealListTestCase):
         self.assertEqual(_names(self.get(sort="funded")), ["Beta", "Alpha"])
         self.assertEqual(_names(self.get(sort="-funded")), ["Beta", "Alpha"])
 
+    def test_sort_by_commission_puts_none_last_both_directions(self):
+        # Beta: 2% of £5,000. Alpha has no selected quote, so no commission.
+        select_quote(self.beta, commission_percent="2")
+        response = self.get(sort="commission")
+        self.assertEqual(_names(response), ["Beta", "Alpha"])
+        self.assertContains(response, "£100.00")
+        self.assertEqual(_names(self.get(sort="-commission")), ["Beta", "Alpha"])
+
     def test_sort_by_activity(self):
         Note.objects.create(
             deal=self.alpha,
@@ -222,7 +231,7 @@ class TypeFilterTests(DealListTestCase):
 
 
 class ColumnTests(DealListTestCase):
-    HEADERS = ["ID", "Organisation", "Customer", "Deal name", "Amount", "Type", "Owner", "Last activity"]
+    HEADERS = ["ID", "Organisation", "Customer", "Deal name", "Amount", "Commission", "Type", "Owner", "Last activity"]
 
     def header_labels(self, response):
         html = response.content.decode()
@@ -248,7 +257,7 @@ class ColumnTests(DealListTestCase):
         self.assertNotContains(response, "sort=owner")
         # Empty-state row still spans the table.
         empty = self.get(q="nothing-matches")
-        self.assertContains(empty, 'colspan="8"')
+        self.assertContains(empty, 'colspan="9"')
 
     def test_deactivated_colleague_does_not_count(self):
         make_associate(is_active=False)

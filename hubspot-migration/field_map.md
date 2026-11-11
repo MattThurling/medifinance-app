@@ -98,8 +98,9 @@ Rows counts are as-of the current `hubspot.db` build.
 | `source` | `raw_deals."Source"` | 12-value `Deal.Source` enum (migration 0034), HubSpot pick-list labels mapped 1:1 via `SOURCE_CODES` (86% populated on in-scope deals). Blanks are inferred to `introducer` when the deal's Introducer resolved to a real external org — not MediFinance's own org (HubSpot 3212912855) and not junk like "N/A" — 24 deals, listed in `source_inference_audit.csv`; the remaining 276 stay NULL. Added 2026-09-01 |
 | `earnings` | *(derived)* | Not a HubSpot field; leave blank on migration or compute from commission fields — client to confirm formula |
 | `flat_fee` | *(none)* | Blank |
-| `commission` | `raw_deals."Salesman Commission"` | Direct |
-| `document_fee` | `raw_deals."Doc Fee"` | Direct |
+| `source_identifier` | *(none)* | Free-text detail about the source (e.g. a particular exhibition). Blank on migration. Added 2026-11-11 |
+| ~~`commission`~~ | `raw_deals."Salesman Commission"` (£) | **Not migrated since 2026-11-11.** `Deal.commission` was removed: commission is `Quote.commission_percent`, and the deal's £ figure is calculated from the selected quote. **To do in the migration redo:** create a quote per deal and port this value to quote level (HubSpot also has `"Sales Comm (%)"`) |
+| ~~`document_fee`~~ | `raw_deals."Doc Fee"` (£) | **Not migrated since 2026-11-11.** Moved to `Quote.document_fee`. **To do in the migration redo:** port onto the deal's quote |
 | `mf_invoice_number` | `raw_deals."Invoice No"` | Direct; `MF####` refs on 1,057 deals. This is **Medifinance's own commission invoice**, not the supplier's. Presence drives the `mf_invoiced` stage |
 | `first_payment_date` | *(none)* | Not tracked in HubSpot; blank on migration, staff to populate |
 | `term_end_date` | `raw_deals."End date"`, else `"Close Date" + "Term"` | Projected end of the finance term — drives the Maturing deals view. Explicit End date (~27% of deals) wins; else Close Date + parsed Term months (same arithmetic as the settlement stage check); else NULL |

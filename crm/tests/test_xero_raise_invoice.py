@@ -10,8 +10,10 @@ from .factories import (
     make_associate,
     make_deal,
     make_organisation,
+    make_participation,
     make_proposal,
     make_xero_connection,
+    select_quote,
 )
 
 
@@ -33,7 +35,10 @@ class RaiseInvoicePrefillTests(TestCase):
         return deal
 
     def test_prefills_lender_not_client(self):
-        deal = self._deal_with_lender(commission=Decimal("1500.00"))
+        # Commission £ is the selected quote's 3% of the £50,000 financed.
+        deal = self._deal_with_lender()
+        make_participation(deal, amount="50000.00")
+        select_quote(deal, commission_percent="3")
         response = self.client.get(reverse("crm:deal_raise_invoice", args=[deal.pk]))
         self.assertEqual(response.status_code, 200)
         form = response.context["form"]

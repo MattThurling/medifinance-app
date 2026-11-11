@@ -201,12 +201,13 @@ class CommissionInvoiceFromTermsTests(TestCase):
     def setUp(self):
         self.client.force_login(self.finance)
 
-    def _deal_with_terms(self, **extra):
+    def _deal_with_terms(self, commission_percent=None, **extra):
         deal = _commercial_deal(self.finance, amount="50000.00", **extra)
         lender = make_organisation(name="Big Lender Ltd")
         terms = make_commercial_quote(
             deal, lender=lender, term=120, interest_rate="7.50",
             status="approved", lender_reference="BL-4242",
+            commission_percent=commission_percent,
         )
         deal.selected_quote = terms
         deal.save(update_fields=["selected_quote"])
@@ -220,7 +221,7 @@ class CommissionInvoiceFromTermsTests(TestCase):
         self.assertIsNone(make_deal(owner=self.finance).accepted_lender_terms)
 
     def test_request_commission_invoice_names_lender_and_reference(self):
-        deal = self._deal_with_terms(commission=Decimal("1200.00"))
+        deal = self._deal_with_terms(commission_percent=Decimal("2.4"))
         with self.settings(ACCOUNTS_EMAILS=["accounts@example.com"]):
             response = self.client.post(
                 reverse("crm:deal_request_commission_invoice", args=[deal.pk]),
@@ -230,6 +231,8 @@ class CommissionInvoiceFromTermsTests(TestCase):
         body = mail.outbox[0].body
         self.assertIn("Big Lender Ltd", body)
         self.assertIn("BL-4242", body)
+        # 2.4% of the £50,000 financed.
+        self.assertIn("£1,200.00", body)
 
     def test_request_commission_invoice_needs_selected_terms(self):
         deal = _commercial_deal(self.finance)
@@ -241,12 +244,13 @@ class CommissionInvoiceFromTermsTests(TestCase):
 
     def test_raise_invoice_prefills_from_terms(self):
         make_xero_connection()
-        deal = self._deal_with_terms(commission=Decimal("1200.00"))
+        deal = self._deal_with_terms(commission_percent=Decimal("2.4"))
         response = self.client.get(reverse("crm:deal_raise_invoice", args=[deal.pk]))
         self.assertEqual(response.status_code, 200)
         form = response.context["form"]
         self.assertEqual(form.initial["contact_name"], "Big Lender Ltd")
         self.assertEqual(form.initial["reference"], f"{deal.name} · BL-4242")
+        self.assertEqual(form.initial["amount"], Decimal("1200.00"))
 
     def test_raise_invoice_needs_selected_terms(self):
         make_xero_connection()

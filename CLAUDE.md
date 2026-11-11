@@ -45,7 +45,7 @@ Local email goes to Mailpit (`brew services start mailpit`, inbox at http://loca
 - **CSS**: edit templates, then rebuild with Tailwind. DaisyUI theme `corporate`; theme colours are `oklch()` (Chart.js can't parse them — `static/js/charts.js` converts).
 - **Templates**: `{% extends %}` first; multi-line comments use `{% comment %}`; icons via `{% icon "name" %}` (lucide-static).
 - **Feature flags by env var**: DocuSeal, Xero, Mailgun and forced 2FA are all dark until their env vars are set. Don't assume a feature is on in a given environment — check `docs/DECISIONS.md`.
-- **Money metric is `Deal.commission`**, not `Deal.earnings` (never populated in real data).
+- **Money metric is `Deal.commission_amount`**: the selected quote's `commission_percent` of its finance amount (`crm.stats.commission_amount_expr` is the SQL twin). Commission and fees are entered on the Quote only; the Deal has no commission or document-fee column.
 
 ## When you learn something non-obvious
 

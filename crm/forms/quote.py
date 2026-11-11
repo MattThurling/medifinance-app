@@ -23,7 +23,15 @@ class QuoteForm(DaisyUIFormMixin, forms.ModelForm):
 
     class Meta:
         model = Quote
-        fields = ["term", "rate", "deposit", "balloon", "commission_percent", "repayment_profile"]
+        fields = [
+            "term", "rate", "deposit", "balloon", "commission_percent", "repayment_profile",
+            "document_fee", "document_fee_split", "option_to_purchase_fee",
+        ]
+        labels = {
+            "document_fee": "Document fee",
+            "document_fee_split": "Document fee split",
+            "option_to_purchase_fee": "Option to purchase fee",
+        }
         help_texts = {
             "deposit": "Subtracted from the funded amount.",
             "balloon": "Subtracted from the funded amount.",

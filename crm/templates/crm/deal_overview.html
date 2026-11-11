@@ -26,6 +26,7 @@ than being hidden, so the structure stays predictable.
       <dt class="opacity-60">Name</dt>                <dd>{{ deal.name }}</dd>
       <dt class="opacity-60">Type</dt>                <dd>{{ deal.get_type_display|default:"—" }}</dd>
       <dt class="opacity-60">Source</dt>              <dd>{{ deal.get_source_display|default:"—" }}</dd>
+      <dt class="opacity-60">Identifier</dt>          <dd>{{ deal.source_identifier|default:"—" }}</dd>
       <dt class="opacity-60">Owner</dt>               <dd>{{ deal.owner.full_name|default:"—" }}</dd>
       <dt class="opacity-60">Lead</dt>                <dd>{{ deal.customer|default:"—" }}</dd>
       <dt class="opacity-60">Organisation</dt>        <dd>{% if deal.organisation %}{{ deal.organisation.name }}{% else %}—{% endif %}</dd>
@@ -87,10 +88,12 @@ than being hidden, so the structure stays predictable.
     <dl class="text-sm grid grid-cols-[11rem_1fr] gap-x-4 gap-y-1.5">
       <dt class="opacity-60">Funded amount</dt>       <dd>{% if deal.funded_amount is not None %}£{{ deal.funded_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Asset finance</dt>       <dd>{% if deal.finance_amount is not None %}£{{ deal.finance_amount|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
-      <dt class="opacity-60">Commission</dt>          <dd>{% if deal.commission is not None %}£{{ deal.commission|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      <dt class="opacity-60">Commission</dt>          <dd>{% if deal.commission_amount is not None %}£{{ deal.commission_amount|floatformat:2|intcomma }}{% if deal.selected_quote.commission_percent is not None %} <span class="opacity-60">({{ deal.selected_quote.commission_percent }}%)</span>{% endif %}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Initial fee</dt>         <dd>{% if deal.initial_fee is not None %}£{{ deal.initial_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Final fee</dt>           <dd>{% if deal.final_fee is not None %}£{{ deal.final_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
-      <dt class="opacity-60">Document fee</dt>        <dd>{% if deal.document_fee is not None %}£{{ deal.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+      {% if deal.selected_quote.document_fee_split is not None %}
+      <dt class="opacity-60">Document fee split</dt>  <dd>£{{ deal.selected_quote.document_fee_split|floatformat:2|intcomma }}</dd>
+      {% endif %}
       <dt class="opacity-60">Non-completion fee</dt>  <dd>{% if deal.non_completion_fee is not None %}{{ deal.non_completion_fee|floatformat:2 }}%{% else %}—{% endif %}</dd>
       <dt class="opacity-60">First payment date</dt>  <dd>{% if deal.first_payment_date %}{{ deal.first_payment_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
       <dt class="opacity-60">Term ends</dt>           <dd>{% if deal.maturity_date %}{{ deal.maturity_date|date:"j M Y" }}{% else %}—{% endif %}</dd>
@@ -128,6 +131,9 @@ than being hidden, so the structure stays predictable.
           <dt class="opacity-60">Yield</dt>             <dd>{% if q.yield_percent is not None %}{{ q.yield_percent }}%{% else %}—{% endif %}</dd>
           {% endif %}
           <dt class="opacity-60">Commission %</dt>      <dd>{% if q.commission_percent is not None %}{{ q.commission_percent }}%{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Document fee</dt> <dd>{% if q.document_fee is not None %}£{{ q.document_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Document fee split</dt> <dd>{% if q.document_fee_split is not None %}£{{ q.document_fee_split|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
+          <dt class="opacity-60">Option to purchase fee</dt> <dd>{% if q.option_to_purchase_fee is not None %}£{{ q.option_to_purchase_fee|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>
           <dt class="opacity-60">APR</dt>               <dd>{% if q.apr is not None %}{{ q.apr|floatformat:2 }}%{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Flat rate</dt>         <dd>{% if q.flat_rate is not None %}{{ q.flat_rate|floatformat:2 }}%{% else %}—{% endif %}</dd>
           <dt class="opacity-60">Monthly payment</dt>   <dd>{% if q.monthly_payment is not None %}£{{ q.monthly_payment|floatformat:2|intcomma }}{% else %}—{% endif %}</dd>

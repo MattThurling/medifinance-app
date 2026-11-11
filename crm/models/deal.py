@@ -74,6 +74,12 @@ class Deal(TimestampedModel):
         blank=True,
         help_text="How this deal came to MediFinance. Optional.",
     )
+    source_identifier = models.CharField(
+        "Identifier",
+        max_length=100,
+        blank=True,
+        help_text="Extra detail about the source, e.g. a particular exhibition.",
+    )
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -152,8 +158,6 @@ class Deal(TimestampedModel):
     # this deal's Participations — see the property below.
     initial_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     final_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    commission = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    document_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     non_completion_fee = models.DecimalField(
         "Non-completion fee %",
         max_digits=5,
@@ -247,6 +251,15 @@ class Deal(TimestampedModel):
         if not ps:
             return None
         return sum((p.amount for p in ps), Decimal("0"))
+
+    @property
+    def commission_amount(self) -> "Decimal | None":
+        """Medifinance's commission in £: the selected quote's (or Terms row's)
+        commission % of its finance amount. None until a quote with a
+        commission % is selected. Commission and fees are entered on the
+        quote only — `crm.stats.commission_amount_expr` is the same sum in SQL."""
+        quote = self.selected_quote
+        return quote.commission_amount if quote is not None else None
 
     @property
     def finance_amount(self) -> "Decimal | None":

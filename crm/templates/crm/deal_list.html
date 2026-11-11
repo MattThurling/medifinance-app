@@ -64,6 +64,7 @@
           <th>Customer</th>
           {% include "_th_sort.html" with key="name" label="Deal name" %}
           {% include "_th_sort.html" with key="funded" label="Amount" %}
+          {% include "_th_sort.html" with key="commission" label="Commission" %}
           {% include "_th_sort.html" with key="type" label="Type" %}
           {% if show_owner_column %}{% include "_th_sort.html" with key="owner" label="Owner" %}{% endif %}
           {% include "_th_sort.html" with key="activity" label="Last activity" %}
@@ -88,6 +89,9 @@
             <td class="whitespace-nowrap">
               {% if d.funded_total is not None %}£{{ d.funded_total|floatformat:2|intcomma }}{% else %}<span class="opacity-60">—</span>{% endif %}
             </td>
+            <td class="whitespace-nowrap">
+              {% if d.commission_value is not None %}£{{ d.commission_value|floatformat:2|intcomma }}{% else %}<span class="opacity-60">—</span>{% endif %}
+            </td>
             <td class="opacity-80">{{ d.get_type_display|default:"—" }}</td>
             {% if show_owner_column %}<td class="opacity-80">{{ d.owner.full_name }}</td>{% endif %}
             <td class="whitespace-nowrap text-xs">
@@ -101,7 +105,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="{% if show_owner_column %}9{% else %}8{% endif %}" class="text-center opacity-60 py-8">
+            <td colspan="{% if show_owner_column %}10{% else %}9{% endif %}" class="text-center opacity-60 py-8">
               {% if q or stage_filter or type_filter or owner_filter %}No deals match the current filters.{% else %}No deals yet.{% endif %}
             </td>
           </tr>

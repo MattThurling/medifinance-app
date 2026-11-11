@@ -168,7 +168,7 @@ def build_prefill_values(deal, signer=None) -> dict:
         ("Amount", deal.finance_amount),
         ("Initial Fee", deal.initial_fee),
         ("Final Fee", deal.final_fee),
-        ("Commission", deal.commission),
+        ("Commission", deal.commission_amount),
     ):
         if amount is not None:
             values[key] = f"{amount:,.2f}"

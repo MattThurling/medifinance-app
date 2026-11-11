@@ -110,7 +110,7 @@ Added 2026-09-01: `crm/stats.py` (`StatsParams` + `DealStats`), `/reports/`,
 dashboard headline tiles, vendored Chart.js in `static/vendor/`, templates
 `_stat_tile.html` / `_chart.html` / `_stats_filter_bar.html`.
 
-- `Deal.earnings` is **never populated** in the real data (0 of ~2.1k deals); `Deal.commission` is (~400). **Commission is the money metric.**
+- **Commission is the money metric.** Since 2026-11-11 it is calculated, not stored: see "Commission and fees live on the quote" below. (`Deal.earnings` was never populated and was dropped in migration 0039.)
 - Anchor money to the first `deal_live` Stage event and counts to `created_at`.
 - Keep the `owner` / `type` / `source` param vocabulary identical to `DealListView` so report rows can deep-link.
 - DaisyUI v5 theme colours are `oklch(...)`, which Chart.js can't parse — `static/js/charts.js` round-trips them through a canvas `fillStyle` to get hex.
@@ -144,6 +144,39 @@ Medifinance-owned MCP server for suppliers' staff.
 
 ---
 
+## Commission and fees live on the quote (2026-11-11)
+
+Migration `0050_move_fees_to_quote_add_source_identifier`.
+
+- `Deal.commission` and `Deal.document_fee` (both £) were **removed**. Commission
+  is entered only as `Quote.commission_percent` (a Terms row on commercial deals
+  is the same model). `Quote` gained `document_fee`, `document_fee_split` and
+  `option_to_purchase_fee` (all £).
+- The three fee fields are **Asset Finance only**: they are on `QuoteForm` and
+  not on `TermsForm`. "Asset Finance" here means `not deal.is_commercial_finance`,
+  so untyped deals count.
+- **Commission £ is calculated**: selected quote's `commission_percent` ×
+  its `finance_amount` (funded − deposit − balloon), rounded half-up to the
+  penny. `Deal.commission_amount` / `Quote.commission_amount` in Python and
+  `crm.stats.commission_amount_expr()` in SQL (deal list column, reports,
+  dashboard) must stay in step; `crm/tests/test_quote_fees.py` checks they agree.
+  The commission-invoice email, Xero prefill and DocuSeal "Commission" prefill
+  all read `Deal.commission_amount`. No selected quote, no percentage or no
+  participations means no commission.
+- **The existing deal-level values were dropped on purpose** (owner's decision:
+  the site is not live and the HubSpot migration will be redone). The migration
+  has no data step, and `hubspot-migration/build_preview_db.py` no longer writes
+  "Salesman Commission" / "Doc Fee". **Follow-up for the migration redo:** port
+  them to quote level (`hubspot-migration/field_map.md` has the note). Until
+  then the ~400 migrated deals with a HubSpot commission show "—" and report /
+  dashboard commission totals for historic months are zero.
+- Same migration adds `Deal.source_identifier` ("Identifier"): optional free
+  text about the source, e.g. a particular exhibition. Source and Identifier
+  are both on the deal create/edit form (Source was on the form class before
+  but the template never rendered it).
+
+---
+
 ## Email
 
 - Prod: Mailgun HTTP API via django-anymail, `send.medifinance.co.uk`, EU region, From `Medifinance <info@medifinance.co.uk>`. Needs the `mailgun-api-key` secret and `EMAIL_ENABLED=true` repo variable.
@@ -159,5 +192,5 @@ Medifinance-owned MCP server for suppliers' staff.
 - DocuSeal console webhook on dev was never configured.
 - Pipeline → `Deal.type` mapping in the migration build.
 - Five migrated staff users still have placeholder emails.
-- Deal overview amount card still shows a hardcoded "£2,500.00 commission" placeholder (HANDOVER.md).
+- **HubSpot migration redo:** port "Salesman Commission" and "Doc Fee" onto a quote per deal (see "Commission and fees live on the quote"). Until then migrated deals show no commission and report commission totals are zero.
 - `pg_trgm` index for search when row counts grow.

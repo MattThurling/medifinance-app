@@ -59,7 +59,7 @@ class QuoteInline(admin.TabularInline):
     model = Quote
     extra = 0
     readonly_fields = ("monthly_payment", "created_at", "updated_at")
-    fields = ("rate", "lender", "status", "lender_reference", "term", "interest_rate_percent", "deposit", "balloon", "repayment_profile", "commission_percent", "monthly_payment", "created_at", "updated_at")
+    fields = ("rate", "lender", "status", "lender_reference", "term", "interest_rate_percent", "deposit", "balloon", "repayment_profile", "commission_percent", "document_fee", "document_fee_split", "option_to_purchase_fee", "monthly_payment", "created_at", "updated_at")
     autocomplete_fields = ("rate", "lender")
 
 
@@ -113,7 +113,7 @@ class DealAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
     inlines = [ParticipationInline, ProposalInline, StageInline, QuoteInline, DocumentInline]
     fieldsets = (
-        (None, {"fields": ("name", "owner", "customer", "organisation")}),
+        (None, {"fields": ("name", "type", "source", "source_identifier", "owner", "customer", "organisation")}),
         ("Associations", {"fields": ("introducer",)}),
         (
             "Partner API",
@@ -130,8 +130,6 @@ class DealAdmin(admin.ModelAdmin):
                 "fields": (
                     "initial_fee",
                     "final_fee",
-                    "commission",
-                    "document_fee",
                     "non_completion_fee",
                     "first_payment_date",
                 ),
