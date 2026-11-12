@@ -7,8 +7,17 @@
   {# Conflict check: the record's updated_at as it was when this form rendered (crm.forms.OptimisticLockFormMixin). #}
   <input type="hidden" name="{{ form.expected_updated_at.html_name }}" value="{{ org.updated_at.isoformat }}">
   <div class="card-body">
-    <h2 class="card-title text-base">{% icon "building" class="h-5 w-5 opacity-70" %} {{ org.name }}</h2>
+    <h2 class="card-title text-base">{% icon "building" class="h-5 w-5 opacity-70" %} Company details</h2>
     {{ form.non_field_errors }}
+
+    {% include "_field.html" with field=form.name %}
+    {% include "_field.html" with field=form.trading_name %}
+    <div class="max-w-xs">
+      {% include "_field.html" with field=form.companies_house_number %}
+    </div>
+    {% if not review.edits_freely %}
+      <p class="text-xs opacity-60 -mt-2 mb-4">Changes to the name, trading name or Companies House number are checked by our team before they take effect. Everything else is saved straight away.</p>
+    {% endif %}
 
     {% include "_field.html" with field=form.address_line1 %}
     {% include "_field.html" with field=form.address_line2 %}

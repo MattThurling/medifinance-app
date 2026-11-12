@@ -10,6 +10,8 @@ from .shared import (
     SortableListMixin,
 )
 from .organisation import (
+    OrganisationChangeApproveView,
+    OrganisationChangeRejectView,
     OrganisationCreateView,
     OrganisationDeleteView,
     OrganisationDetailView,
@@ -17,6 +19,8 @@ from .organisation import (
     OrganisationQuickCreateView,
     OrganisationSearchView,
     OrganisationUpdateView,
+    OrganisationUseExistingView,
+    OrganisationVerifyView,
 )
 from .contact import (
     ContactCreateView,
@@ -95,6 +99,7 @@ from .customer import (
     MyCompanyEditView,
     MyDealApplicantAddView,
     MyDealApplicantRemoveView,
+    MyDealCompanyCreateView,
     MyDealDetailView,
     MyDealListView,
     MyDealOutstandingView,
@@ -111,6 +116,8 @@ __all__ = [
     "SearchableListView",
     "SectorFilterMixin",
     "SortableListMixin",
+    "OrganisationChangeApproveView",
+    "OrganisationChangeRejectView",
     "OrganisationCreateView",
     "OrganisationDeleteView",
     "OrganisationDetailView",
@@ -118,6 +125,8 @@ __all__ = [
     "OrganisationQuickCreateView",
     "OrganisationSearchView",
     "OrganisationUpdateView",
+    "OrganisationUseExistingView",
+    "OrganisationVerifyView",
     "ContactCreateView",
     "ContactDeleteView",
     "ContactDetailView",
@@ -181,6 +190,7 @@ __all__ = [
     "MyCompanyEditView",
     "MyDealApplicantAddView",
     "MyDealApplicantRemoveView",
+    "MyDealCompanyCreateView",
     "MyDealDetailView",
     "MyDealListView",
     "MyDealOutstandingView",

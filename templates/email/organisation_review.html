@@ -1,0 +1,20 @@
+{% extends "email/_base.html" %}
+
+{% block content %}
+              <p style="margin:0 0 16px;">{% if is_new %}A customer has added their company from the portal. It is linked to their application but unverified: please check the details and verify it. Signature requests on the deal are blocked until then.{% else %}A customer has asked to change their company's details from the portal. The change is not saved until someone approves it.{% endif %}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px; font-size:14px;">
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Organisation</td><td style="padding:4px 0;"><strong>{{ organisation_name }}</strong></td></tr>
+                <tr><td style="padding:4px 16px 4px 0; color:#6b7280;">{% if is_new %}Added by{% else %}Requested by{% endif %}</td><td style="padding:4px 0;">{{ submitted_by_name }}</td></tr>
+                {% if deal_name %}<tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Deal</td><td style="padding:4px 0;">{{ deal_name }}</td></tr>{% endif %}
+                {% if field_labels %}<tr><td style="padding:4px 16px 4px 0; color:#6b7280;">Fields</td><td style="padding:4px 0;">{{ field_labels|join:", " }}</td></tr>{% endif %}
+              </table>
+              <p style="margin:0 0 24px;">
+                <a href="{{ review_url }}"
+                   style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600;">
+                  Review the organisation
+                </a>
+              </p>
+              <p style="margin:0; font-size:13px; word-break:break-all;">
+                <a href="{{ review_url }}" style="color:#2563eb;">{{ review_url }}</a>
+              </p>
+{% endblock %}

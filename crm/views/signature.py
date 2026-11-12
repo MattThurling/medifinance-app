@@ -28,6 +28,23 @@ from .shared import ParentDealMixin
 logger = logging.getLogger(__name__)
 
 
+UNVERIFIED_ORGANISATION_MESSAGE = (
+    "This deal's organisation was entered by the customer and hasn't been "
+    "verified yet. Verify it before raising a signature request."
+)
+
+
+def organisation_blocks_signing(deal) -> bool:
+    """A customer-typed company name must not reach an agreement unchecked:
+    the organisation's name is prefilled into the DocuSeal template
+    (``docuseal.build_prefill_values``). So no new submission is created —
+    fresh or re-sent — while the deal's organisation is unverified. Sending
+    the email for an existing pending request is not blocked: its values
+    were locked in when it was created."""
+    organisation = deal.organisation
+    return organisation is not None and organisation.is_unverified
+
+
 def _can_access_signature(user, sr: SignatureRequest) -> bool:
     """Anyone who can see the request's deal — admins, the owning associate,
     or any applicant on the deal with a portal login (they are all parties
@@ -157,6 +174,14 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
         messages.error(self.request, "DocuSeal isn't configured on this environment yet.")
         return redirect(self.deal.get_absolute_url())
 
+    def _unverified_organisation(self):
+        """Redirect back to the deal while its organisation is unverified,
+        else None. See ``organisation_blocks_signing``."""
+        if not organisation_blocks_signing(self.deal):
+            return None
+        messages.error(self.request, UNVERIFIED_ORGANISATION_MESSAGE)
+        return redirect(self.deal.get_absolute_url() + "#organisation-review")
+
     def _signers(self):
         pks = [c.pk for c in (self.deal.customer, *self.deal.co_applicants.all()) if c]
         return Contact.objects.filter(pk__in=pks)
@@ -178,6 +203,8 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
         return SignatureRequestForm(data, initial=initial, templates=templates, signers=self._signers())
 
     def get(self, request, **kwargs):
+        if (resp := self._unverified_organisation()) is not None:
+            return resp
         if (resp := self._unconfigured()) is not None:
             return resp
         form = self._form()
@@ -186,6 +213,8 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
         return render(request, self.template_name, {"form": form, "parent_deal": self.deal})
 
     def post(self, request, **kwargs):
+        if (resp := self._unverified_organisation()) is not None:
+            return resp
         if (resp := self._unconfigured()) is not None:
             return resp
         form = self._form(request.POST)
@@ -300,6 +329,10 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
         if old.is_pending:
             messages.error(request, "That request hasn't been sent yet — use Send instead.")
             return redirect(deal.get_absolute_url())
+        if organisation_blocks_signing(deal):
+            # A re-send builds a fresh submission from today's values.
+            messages.error(request, UNVERIFIED_ORGANISATION_MESSAGE)
+            return redirect(deal.get_absolute_url() + "#organisation-review")
         try:
             if old.is_active:
                 docuseal.archive_submission(old.submission_id)

@@ -1,0 +1,44 @@
+{% load icons %}
+{% comment %}
+The lead applicant adds their company to a deal that has none. Posts to
+MyDealCompanyCreateView: errors come back as this partial; success refreshes
+the whole page (the checklist and the add-applicant section depend on it).
+`id` is the deal page anchor the checklist links to.
+{% endcomment %}
+<form class="card bg-base-100 shadow w-full" id="company" method="post"
+      action="{% url 'crm:my_deal_company_add' deal.pk %}"
+      hx-post="{% url 'crm:my_deal_company_add' deal.pk %}"
+      hx-target="this" hx-swap="outerHTML">
+  {% csrf_token %}
+  <div class="card-body">
+    <h2 class="card-title text-base">{% icon "building" class="h-5 w-5 opacity-70" %} Your company</h2>
+    <p class="text-sm opacity-70">Tell us about the business this application is for. We'll check the details before any agreement is prepared.</p>
+    {{ company_form.non_field_errors }}
+
+    {% include "_field.html" with field=company_form.name %}
+    {% if company_form.trading_name %}{% include "_field.html" with field=company_form.trading_name %}{% endif %}
+    {% if company_form.companies_house_number %}
+      <div class="max-w-xs">
+        {% include "_field.html" with field=company_form.companies_house_number %}
+      </div>
+    {% endif %}
+    {% include "_field.html" with field=company_form.address_line1 %}
+    {% include "_field.html" with field=company_form.address_line2 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=company_form.address_city %}
+      {% include "_field.html" with field=company_form.address_county %}
+    </div>
+    <div class="max-w-xs">
+      {% include "_field.html" with field=company_form.address_postcode %}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+      {% include "_field.html" with field=company_form.phone %}
+      {% include "_field.html" with field=company_form.email %}
+    </div>
+    {% include "_field.html" with field=company_form.url %}
+
+    <div class="card-actions justify-end mt-2">
+      <button type="submit" class="btn btn-primary btn-sm">Add company</button>
+    </div>
+  </div>
+</form>

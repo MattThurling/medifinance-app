@@ -6,7 +6,7 @@ from .base import (
     OptimisticLockFormMixin,
     OwnerInitialFormMixin,
 )
-from .organisation import CustomerCompanyForm, OrganisationForm, QuickOrganisationForm
+from .organisation import CustomerCompanyCreateForm, CustomerCompanyForm, OrganisationForm, QuickOrganisationForm
 from .contact import ContactForm, CustomerApplicantForm, CustomerInfoForm, QuickContactForm
 from .deal import DealForm
 from .participation import ParticipationForm, SupplierInvoiceForm
@@ -24,6 +24,7 @@ __all__ = [
     "DaisyUIFormMixin",
     "OptimisticLockFormMixin",
     "OwnerInitialFormMixin",
+    "CustomerCompanyCreateForm",
     "CustomerCompanyForm",
     "OrganisationForm",
     "QuickOrganisationForm",

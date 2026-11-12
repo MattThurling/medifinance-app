@@ -1,13 +1,18 @@
+from django.contrib import messages
 from django.db.models import F, Value
 from django.db.models.functions import Coalesce, Lower
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from accounts.permissions import StaffRequiredMixin
 
+from .. import org_review
 from ..access import visible_contacts, visible_deals, visible_organisations
 from ..forms import OrganisationForm, QuickOrganisationForm
-from ..models import Organisation
+from ..models import Organisation, OrganisationChange
 from .shared import (
     OwnerFilterMixin,
     ProtectedDeleteMixin,
@@ -48,7 +53,19 @@ class OrganisationListView(
         qs = super().get_queryset().select_related("owner")
         qs = self.apply_owner_filter(qs)
         qs = self.apply_sector_filter(qs)
+        if self.review_filter:
+            # The dashboard's "awaiting review" queue (crm.org_review).
+            qs = qs.filter(pk__in=org_review.needs_review(self.request.user).values("pk"))
         return self.apply_sort(qs)
+
+    @property
+    def review_filter(self) -> bool:
+        return self.request.GET.get("review") == "1"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["review_filter"] = self.review_filter
+        return ctx
 
 
 class OrganisationDetailView(StaffRequiredMixin, DetailView):
@@ -66,6 +83,7 @@ class OrganisationDetailView(StaffRequiredMixin, DetailView):
             .select_related("owner", "customer")
         )
         ctx["notes"] = self.object.notes.select_related("author")
+        ctx["review"] = org_review.review_context(self.object, self.request.user)
         return ctx
 
 
@@ -105,6 +123,100 @@ class OrganisationDeleteView(
     @property
     def protected_redirect_url(self):
         return self.object.get_absolute_url()
+
+
+class _OrganisationReviewAction(StaffRequiredMixin, View):
+    """Base for the review panel's POST-only actions
+    (``crm/_organisation_review.html``). Any staff member may act on an
+    organisation they can see; everything else 404s. Redirects back to the
+    page the panel was on (``next``), else the organisation."""
+
+    def get_organisation(self, pk):
+        return get_object_or_404(visible_organisations(self.request.user), pk=pk)
+
+    def back(self, fallback):
+        target = self.request.POST.get("next", "")
+        if target and url_has_allowed_host_and_scheme(
+            target, allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return redirect(target)
+        return redirect(fallback)
+
+
+class OrganisationVerifyView(_OrganisationReviewAction):
+    """Mark a customer-created organisation as checked."""
+
+    def post(self, request, pk):
+        organisation = self.get_organisation(pk)
+        if org_review.verify(organisation, by=request.user):
+            messages.success(request, f"{organisation.name} is now verified.")
+        else:
+            messages.info(request, f"{organisation.name} wasn't waiting to be verified.")
+        return self.back(organisation.get_absolute_url())
+
+
+class OrganisationUseExistingView(_OrganisationReviewAction):
+    """Replace a customer-created duplicate with the existing organisation
+    it matches. The target comes from the POST but is only accepted if
+    ``org_review.likely_duplicates`` offers it (checked in the service)."""
+
+    def post(self, request, pk):
+        organisation = self.get_organisation(pk)
+        target = Organisation.objects.filter(pk=request.POST.get("target") or 0).first()
+        if target is None:
+            messages.error(request, "Choose the organisation to use instead.")
+            return self.back(organisation.get_absolute_url())
+        own_url = organisation.get_absolute_url()
+        name = organisation.name
+        try:
+            org_review.swap_to_existing(organisation, target, by=request.user)
+        except org_review.SwapNotAllowed as exc:
+            messages.error(request, str(exc))
+            return self.back(own_url)
+        messages.success(
+            request,
+            f"“{name}” was replaced by {target.name}. Any contact details the "
+            "customer entered that differ are waiting for review here.",
+        )
+        # The duplicate's own page is gone — never send staff back to it.
+        if request.POST.get("next") == own_url:
+            return redirect(target.get_absolute_url())
+        return self.back(target.get_absolute_url())
+
+
+class _OrganisationChangeAction(_OrganisationReviewAction):
+    done_word = ""
+
+    def act(self, change, by) -> bool:  # pragma: no cover - abstract
+        raise NotImplementedError
+
+    def post(self, request, pk):
+        change = get_object_or_404(
+            OrganisationChange.objects.select_related("organisation").filter(
+                organisation__in=visible_organisations(request.user),
+            ),
+            pk=pk,
+        )
+        if self.act(change, request.user):
+            messages.success(request, f"Change {self.done_word}.")
+        else:
+            messages.info(request, "That change had already been reviewed.")
+        return self.back(change.organisation.get_absolute_url())
+
+
+class OrganisationChangeApproveView(_OrganisationChangeAction):
+    done_word = "approved"
+
+    def act(self, change, by):
+        return org_review.approve(change, by=by)
+
+
+class OrganisationChangeRejectView(_OrganisationChangeAction):
+    done_word = "rejected"
+
+    def act(self, change, by):
+        return org_review.reject(change, by=by)
 
 
 class OrganisationSearchView(_SearchView):

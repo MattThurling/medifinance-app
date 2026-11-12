@@ -5,7 +5,7 @@ the parent .combobox-results (empty:hidden) collapses.
 {% for obj in results %}
   <li>
     <button type="button" class="combobox-option" data-id="{{ obj.pk }}" data-label="{{ obj }}">
-      {{ obj }}
+      {{ obj }}{% if obj.is_unverified %} <span class="badge badge-warning badge-outline badge-xs">unverified</span>{% endif %}
     </button>
   </li>
 {% endfor %}

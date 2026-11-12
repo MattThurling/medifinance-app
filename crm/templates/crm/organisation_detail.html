@@ -7,7 +7,7 @@
 <div class="flex items-start justify-between mb-6">
   <div>
     <p class="text-sm opacity-60"><a href="{% url 'crm:organisation_list' %}" class="link link-hover">Organisations</a></p>
-    <h1 class="text-2xl font-semibold mt-1">{{ organisation.name }}</h1>
+    <h1 class="text-2xl font-semibold mt-1">{{ organisation.name }} {% include "crm/_org_unverified_badge.html" with org=organisation %}</h1>
     {% if organisation.trading_name %}
       <p class="text-sm mt-1"><span class="opacity-60">t/a</span> {{ organisation.trading_name }}</p>
     {% endif %}
@@ -50,6 +50,10 @@
     <a href="{% url 'crm:organisation_delete' organisation.pk %}" class="btn btn-sm btn-error btn-outline">Delete</a>
   </div>
 </div>
+
+{% if review %}
+  <div class="mb-6">{% include "crm/_organisation_review.html" with next_url=request.path %}</div>
+{% endif %}
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
   <div class="card bg-base-100 shadow">

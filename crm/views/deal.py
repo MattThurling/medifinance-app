@@ -15,7 +15,7 @@ from django.views.generic import (
 
 from accounts.permissions import FinanceRequiredMixin, StaffRequiredMixin
 
-from .. import docuseal, stats
+from .. import docuseal, org_review, stats
 from ..access import get_visible_deal_or_404, visible_contacts, visible_deals
 from ..applicants import removal_blocker, remove_applicant
 from ..forms import DealForm, XeroInvoiceForm
@@ -187,6 +187,8 @@ class DealDetailView(StaffRequiredMixin, DetailView):
 
         ctx["notes"] = deal.notes.select_related("author")
         ctx["docuseal_configured"] = docuseal.is_configured()
+        # Customer-entered organisation details waiting on staff (None = none).
+        ctx["review"] = org_review.review_context(deal.organisation, self.request.user)
         return ctx
 
 

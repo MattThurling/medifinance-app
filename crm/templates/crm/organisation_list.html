@@ -7,6 +7,7 @@
 <div class="flex items-center justify-between gap-4 mb-4">
   <form method="get" class="flex flex-wrap items-center gap-2 flex-1">
     <input type="hidden" name="sort" value="{{ sort }}" />
+    {% if review_filter %}<input type="hidden" name="review" value="1" />{% endif %}
     <div class="join w-full max-w-md">
       <input
         type="search"
@@ -41,6 +42,14 @@
   </a>
 </div>
 
+{% if review_filter %}
+  <div class="alert alert-warning mb-4 py-2 text-sm">
+    {% icon "circle-alert" class="h-4 w-4" %}
+    <span>Showing organisations with customer-entered details awaiting review.</span>
+    <a href="{% url 'crm:organisation_list' %}" class="btn btn-xs btn-ghost">Show all</a>
+  </div>
+{% endif %}
+
 <div class="card bg-base-100 shadow">
   <div class="overflow-x-auto">
     <table class="table table-xs">
@@ -59,6 +68,7 @@
           <tr>
             <td>
               <a href="{{ org.get_absolute_url }}" class="link link-hover font-medium">{{ org.name }}</a>
+              {% include "crm/_org_unverified_badge.html" %}
             </td>
             <td class="opacity-80">{{ org.get_sector_display|default:"—" }}</td>
             <td>{{ org.contacts.count }}</td>

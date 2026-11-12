@@ -13,6 +13,11 @@ urlpatterns = [
     path("organisations/<int:pk>/", views.OrganisationDetailView.as_view(), name="organisation_detail"),
     path("organisations/<int:pk>/edit/", views.OrganisationUpdateView.as_view(), name="organisation_update"),
     path("organisations/<int:pk>/delete/", views.OrganisationDeleteView.as_view(), name="organisation_delete"),
+    # Staff review of organisation details a customer entered in the portal
+    path("organisations/<int:pk>/verify/", views.OrganisationVerifyView.as_view(), name="organisation_verify"),
+    path("organisations/<int:pk>/use-existing/", views.OrganisationUseExistingView.as_view(), name="organisation_use_existing"),
+    path("organisation-changes/<int:pk>/approve/", views.OrganisationChangeApproveView.as_view(), name="organisation_change_approve"),
+    path("organisation-changes/<int:pk>/reject/", views.OrganisationChangeRejectView.as_view(), name="organisation_change_reject"),
 
     # Contacts
     path("contacts/", views.ContactListView.as_view(), name="contact_list"),
@@ -116,6 +121,7 @@ urlpatterns = [
     path("my/deals/<int:pk>/quotes/", views.MyDealQuoteSelectView.as_view(), name="my_deal_quote_select"),
     path("my/deals/<int:deal_pk>/sign/<int:sr_pk>/", views.MyDealSignView.as_view(), name="my_deal_sign"),
     # The primary applicant adds / removes people from their company.
+    path("my/deals/<int:pk>/company/add/", views.MyDealCompanyCreateView.as_view(), name="my_deal_company_add"),
     path("my/deals/<int:pk>/applicants/add/", views.MyDealApplicantAddView.as_view(), name="my_deal_applicant_add"),
     path("my/deals/<int:pk>/applicants/<int:contact_pk>/remove/", views.MyDealApplicantRemoveView.as_view(), name="my_deal_applicant_remove"),
 

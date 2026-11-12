@@ -32,6 +32,7 @@ layout (main content left, amount + timeline right).
       {% icon "building" class="h-5 w-5 opacity-70" %}
       {% if deal.organisation %}
         <a href="{{ deal.organisation.get_absolute_url }}" class="link link-hover">{{ deal.organisation.name }}</a>
+        {% include "crm/_org_unverified_badge.html" with org=deal.organisation %}
       {% else %}
         <span class="opacity-60 italic">Organisation not set</span>
       {% endif %}
@@ -111,6 +112,9 @@ layout (main content left, amount + timeline right).
 
   {# ---- Applicants / Suppliers or Funded amounts / Quotes / Documents / Signatures / Proposals or Terms ---- #}
   <div class="lg:col-start-1 lg:col-span-2 lg:row-start-2 space-y-4">
+    {# Customer-entered organisation details awaiting review (crm.org_review) #}
+    {% include "crm/_organisation_review.html" with next_url=request.path %}
+
     {# Applicants #}
     <div class="card bg-base-100 shadow w-full">
       <div class="card-body">
@@ -437,7 +441,11 @@ layout (main content left, amount + timeline right).
             {% endfor %}
           </tbody>
         </table>
-        {% if docuseal_configured %}
+        {% if deal.organisation.is_unverified %}
+          <p class="text-xs opacity-70 mt-3">
+            New signature requests are blocked until <a href="#organisation-review" class="link">the organisation is verified</a>.
+          </p>
+        {% elif docuseal_configured %}
           <a href="{% url 'crm:deal_sign' deal.pk %}"
              class="btn btn-circle btn-xs btn-outline mt-3" title="New signature request" aria-label="New signature request">
             {% icon "plus" class="h-3.5 w-3.5" %}

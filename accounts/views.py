@@ -44,6 +44,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ctx["organisations_count"] = visible_organisations(self.request.user).count()
         ctx["deals_count"] = visible_deals(self.request.user).count()
         ctx["api_enabled"] = SiteSettings.get().api_enabled
+        # Organisations with customer-entered details waiting on staff.
+        from crm.org_review import needs_review
+        ctx["organisations_to_review"] = needs_review(self.request.user).count()
         # Headline deal stats at the default window; the Reports page has
         # the filters and the full breakdowns.
         ctx["stats"] = stats.dashboard_stats(stats.StatsParams.from_request(self.request))

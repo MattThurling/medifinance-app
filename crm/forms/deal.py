@@ -2,7 +2,7 @@ from django import forms
 from django.db.models import Q
 
 from ..access import visible_contacts
-from ..models import Contact, Deal
+from ..models import Contact, Deal, Organisation
 from .base import DaisyUIFormMixin, OwnerInitialFormMixin
 
 
@@ -65,6 +65,21 @@ class DealForm(OwnerInitialFormMixin, DaisyUIFormMixin, forms.ModelForm):
             ("Asset Finance", asset),
             ("Commercial Finance", commercial),
         ]
+
+    def clean_organisation(self):
+        """Don't let a stale form blank an organisation it never showed.
+
+        A portal customer can create the deal's organisation while a staff
+        member has this form open (rendered with none). Saving that form
+        would otherwise set it back to NULL and orphan the new record."""
+        organisation = self.cleaned_data.get("organisation")
+        if organisation is None and self.instance.pk and self.initial.get("organisation") is None:
+            current = Deal.objects.filter(pk=self.instance.pk).values_list(
+                "organisation", flat=True,
+            ).first()
+            if current is not None:
+                return Organisation.objects.get(pk=current)
+        return organisation
 
     def clean_type(self):
         # Normalise the cleared select to NULL so "unset" is one state, not two.

@@ -69,7 +69,7 @@
           </div>
         </details>
       {% else %}
-        <p class="text-xs opacity-50">To add someone applying with you, contact your Medifinance representative.</p>
+        <p class="text-xs opacity-50">{% if company_form %}Add your company below, then you can add someone applying with you.{% else %}To add someone applying with you, contact your Medifinance representative.{% endif %}</p>
       {% endif %}
     {% endif %}
   </div>
@@ -77,6 +77,8 @@
   {# ---- Company details (inline edit) ---- #}
   {% if org %}
     {% include "crm/_my_company_card.html" %}
+  {% elif company_form %}
+    {% include "crm/_my_company_create.html" %}
   {% endif %}
 
   {# ---- Summary ---- #}

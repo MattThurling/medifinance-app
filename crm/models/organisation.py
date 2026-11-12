@@ -72,6 +72,26 @@ class Organisation(TimestampedModel):
 
     hubspot_id = models.CharField(max_length=64, blank=True, null=True, unique=True, db_index=True)
 
+    # Review state for organisations a customer created from the portal (see
+    # crm.org_review). Staff-created and imported rows have no submitter and
+    # so count as verified without a backfill.
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="submitted_organisations",
+        null=True,
+        blank=True,
+        help_text="The portal customer who created this organisation, if one did",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         ordering = ["name"]
 
@@ -84,6 +104,11 @@ class Organisation(TimestampedModel):
     @property
     def hubspot_url(self) -> str | None:
         return _hubspot_url("0-2", self.hubspot_id)
+
+    @property
+    def is_unverified(self) -> bool:
+        """Created by a customer and not yet checked by staff."""
+        return self.submitted_by_id is not None and self.verified_at is None
 
     @property
     def formal_name(self) -> str:
@@ -118,3 +143,63 @@ class Organisation(TimestampedModel):
             + self.companies_house_number.strip().upper()
         )
 
+
+
+class OrganisationChange(TimestampedModel):
+    """Organisation details a portal customer changed, awaiting staff review.
+
+    Two kinds, told apart by ``applied``:
+
+    * ``applied=True`` — contact details (address, phone, email, website)
+      that were saved to the organisation straight away. Approving
+      acknowledges them; rejecting puts the old values back.
+    * ``applied=False`` — a proposal that has NOT been saved: identity fields
+      (name, trading name, Companies House number) on a verified
+      organisation, or the details carried over when staff swap a duplicate
+      for an existing record. Approving applies it; rejecting discards it.
+
+    ``changes`` maps field name to ``{"old": …, "new": …}``. ``crm.org_review``
+    is the only writer and keeps at most one pending row per
+    (organisation, submitted_by, applied).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    organisation = models.ForeignKey(
+        Organisation, on_delete=models.CASCADE, related_name="changes",
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    changes = models.JSONField(default=dict)
+    applied = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["status", "organisation"])]
+
+    def __str__(self) -> str:
+        kind = "change" if self.applied else "proposal"
+        return f"{self.get_status_display()} {kind} for {self.organisation}"
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == self.Status.PENDING

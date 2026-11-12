@@ -1,0 +1,12 @@
+{% if is_new %}A customer has added their company from the portal. It is linked to their application but unverified: please check the details and verify it. Signature requests on the deal are blocked until then.{% else %}A customer has asked to change their company's details from the portal. The change is not saved until someone approves it.{% endif %}
+
+Organisation: {{ organisation_name }}
+{% if is_new %}Added by:     {% else %}Requested by: {% endif %}{{ submitted_by_name }}{% if deal_name %}
+Deal:         {{ deal_name }}{% endif %}{% if field_labels %}
+Fields:       {{ field_labels|join:", " }}{% endif %}
+
+Review it in the CRM:
+
+{{ review_url }}
+
+Medifinance

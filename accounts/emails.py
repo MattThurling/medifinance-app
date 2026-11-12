@@ -185,6 +185,38 @@ def send_applicant_added_email(
     _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.NOTIFY_EMAILS))
 
 
+def send_organisation_review_email(
+    *,
+    kind: str,
+    organisation_name: str,
+    review_url: str,
+    submitted_by_name: str,
+    deal_name: str = "",
+    field_labels: list[str] | None = None,
+) -> None:
+    """Tell the NOTIFY_EMAILS staff list that a customer's organisation
+    details need review (see ``crm.org_review``). ``kind`` is ``"new"`` (they
+    created the organisation — it is live but unverified) or ``"change"``
+    (they asked to change the name, trading name or Companies House number —
+    held until approved). Names the fields, never their values."""
+    context = {
+        "is_new": kind == "new",
+        "organisation_name": organisation_name,
+        "review_url": review_url,
+        "submitted_by_name": submitted_by_name,
+        "deal_name": deal_name,
+        "field_labels": field_labels or [],
+    }
+    if kind == "new":
+        subject = f"Organisation added by customer: {organisation_name}"
+    else:
+        subject = f"Organisation change requested by customer: {organisation_name}"
+    text_body = render_to_string("email/organisation_review.txt", context)
+    html_body = render_to_string("email/organisation_review.html", context)
+
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.NOTIFY_EMAILS))
+
+
 def send_commission_invoice_request_email(
     *,
     deal_name: str,

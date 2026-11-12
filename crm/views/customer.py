@@ -29,6 +29,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -38,11 +39,13 @@ from .. import applicants, docuseal
 from ..access import PRIMARY, deal_role, may_sign, portal_deals
 from ..forms import (
     CustomerApplicantForm,
+    CustomerCompanyCreateForm,
     CustomerCompanyForm,
     CustomerInfoForm,
     QuoteSelectionForm,
 )
 from ..models import Contact, Note, Organisation
+from .. import org_review
 from ..portal_checklist import deal_people, outstanding_items
 from .shared import PORTAL_CHANGED, CustomerRequiredMixin
 
@@ -66,6 +69,24 @@ def _log_customer_update(user, section: str, form, *, contact=None, organisation
         contact=contact,
         organisation=organisation,
     )
+
+
+def _notify_team_of_organisation_review(request, organisation, *, kind, field_labels=(), deal=None):
+    """Email the team that a customer's organisation details need review.
+    Never raises: the customer's change is already saved, and the dashboard
+    queue shows it regardless."""
+    try:
+        from accounts.emails import send_organisation_review_email
+        send_organisation_review_email(
+            kind=kind,
+            organisation_name=organisation.name,
+            review_url=request.build_absolute_uri(organisation.get_absolute_url()),
+            submitted_by_name=request.user.full_name,
+            deal_name=deal.name if deal else "",
+            field_labels=list(field_labels),
+        )
+    except Exception:
+        logger.exception("Organisation review notification failed for organisation %s", organisation.pk)
 
 
 def customer_organisations(user):
@@ -147,7 +168,20 @@ class _CustomerCardView(CustomerRequiredMixin, View):
         return render(request, self.card_template, {self.object_name: obj, **self.card_context(obj)})
 
     def render_form(self, request, obj, form):
-        return render(request, self.form_template, {self.object_name: obj, "form": form})
+        return render(
+            request, self.form_template,
+            {self.object_name: obj, "form": form, **self.card_context(obj)},
+        )
+
+    def form_initial(self, obj) -> dict:
+        """Values to show in the edit form in place of the saved ones."""
+        return {}
+
+    def perform_save(self, request, obj, form):
+        """Persist a valid edit and log it; returns the object to render."""
+        form.save()
+        _log_customer_update(request.user, self.section, form, **self.note_kwargs(obj))
+        return obj
 
     def note_kwargs(self, obj) -> dict:  # pragma: no cover - abstract
         raise NotImplementedError
@@ -170,15 +204,16 @@ class _EditPartialView(_CustomerCardView):
         obj = self.get_object(pk)
         if not self.is_htmx(request):
             return redirect(self.page_url)
-        form = self.form_class(instance=obj, prefix=self.prefix(obj))
+        form = self.form_class(
+            instance=obj, prefix=self.prefix(obj), initial=self.form_initial(obj),
+        )
         return self.render_form(request, obj, form)
 
     def post(self, request, pk):
         obj = self.get_object(pk)
         form = self.form_class(request.POST, instance=obj, prefix=self.prefix(obj))
         if form.is_valid():
-            form.save()
-            _log_customer_update(request.user, self.section, form, **self.note_kwargs(obj))
+            obj = self.perform_save(request, obj, form)
             if not self.is_htmx(request):
                 messages.success(request, f"{self.section.capitalize()} saved.")
                 return redirect(self.page_url)
@@ -205,7 +240,10 @@ class _CompanyMixin:
         return customer_organisations(self.request.user)
 
     def card_context(self, obj):
-        return {"can_edit_company": True}
+        return {
+            "can_edit_company": True,
+            "review": org_review.portal_state(obj, self.request.user),
+        }
 
     def note_kwargs(self, obj):
         return {"organisation": obj}
@@ -216,7 +254,25 @@ class MyCompanyCardView(_CompanyMixin, _CardPartialView):
 
 
 class MyCompanyEditView(_CompanyMixin, _EditPartialView):
-    pass
+    """Edit the company. Saving goes through ``crm.org_review``, which
+    decides per field whether the value is applied now or held for staff
+    approval — so this never calls ``form.save()``."""
+
+    def form_initial(self, obj):
+        # Show the customer's own pending request, not the live value, so
+        # saving the form again doesn't silently withdraw it.
+        return org_review.portal_state(obj, self.request.user)["proposal_values"]
+
+    def perform_save(self, request, obj, form):
+        result = org_review.record_customer_edit(
+            obj.pk, form.cleaned_data, by_user=request.user,
+        )
+        if result.held:
+            _notify_team_of_organisation_review(
+                request, result.organisation, kind="change",
+                field_labels=[org_review.field_label(name) for name in result.held],
+            )
+        return result.organisation
 
 
 # --- People ----------------------------------------------------------------
@@ -310,6 +366,16 @@ class MyDealDetailView(CustomerRequiredMixin, View):
                 "outstanding": outstanding_items(deal, user=request.user),
                 "people": people,
                 "org": deal.organisation,
+                "review": (
+                    org_review.portal_state(deal.organisation, request.user)
+                    if deal.organisation else None
+                ),
+                # No company yet (partner-API applications start that way):
+                # the lead applicant adds it here.
+                "company_form": (
+                    CustomerCompanyCreateForm(deal=deal, prefix=COMPANY_CREATE_PREFIX)
+                    if is_primary and deal.organisation_id is None else None
+                ),
                 "amount_display": f"£{amount:,.2f}" if amount is not None else None,
                 "documents": deal.documents.all(),
                 "quotes": deal.customer_quotes,
@@ -395,6 +461,56 @@ class MyDealQuoteSelectView(_PrimaryDealView):
         return redirect("crm:my_deal_detail", pk=deal.pk)
 
 
+COMPANY_CREATE_PREFIX = "company"
+
+
+class MyDealCompanyCreateView(_PrimaryDealView):
+    """The primary applicant adds their company to a deal that has none.
+
+    The organisation is created and linked at once, flagged unverified, and
+    the team is emailed to check it (see ``crm.org_review``). HTMX posts get
+    the form back with errors, or a full page refresh on success — the
+    checklist and the add-applicant section both depend on the company
+    existing, so a card swap isn't enough. Non-HTMX degrades to a redirect."""
+
+    def post(self, request, pk):
+        deal = self.get_primary_deal(request, pk)
+        is_htmx = request.headers.get("HX-Request") == "true"
+        page = reverse("crm:my_deal_detail", args=[deal.pk]) + "#company"
+
+        def done():
+            if is_htmx:
+                return HttpResponse(status=204, headers={"HX-Refresh": "true"})
+            return redirect(page)
+
+        if deal.organisation_id is not None:
+            messages.info(request, "Your company has already been added.")
+            return done()
+        form = CustomerCompanyCreateForm(request.POST, deal=deal, prefix=COMPANY_CREATE_PREFIX)
+        if not form.is_valid():
+            if is_htmx:
+                return render(
+                    request, "crm/_my_company_create.html",
+                    {"deal": deal, "company_form": form},
+                )
+            messages.error(request, "Couldn't add your company — please check the details and try again.")
+            return redirect(page)
+        try:
+            organisation = org_review.create_customer_organisation(
+                deal, form.cleaned_data, by_user=request.user,
+            )
+        except org_review.AlreadyHasOrganisation:
+            messages.info(request, "Your company has already been added.")
+            return done()
+        _notify_team_of_organisation_review(request, organisation, kind="new", deal=deal)
+        messages.success(
+            request,
+            "Thank you — your company has been added. We'll check the details "
+            "and be in touch if anything needs changing.",
+        )
+        return done()
+
+
 class MyDealApplicantAddView(_PrimaryDealView):
     """The primary applicant adds someone from their company to the
     application. A plain POST + redirect (the page's flash messages carry the
@@ -413,8 +529,8 @@ class MyDealApplicantAddView(_PrimaryDealView):
         if deal.organisation_id is None:
             messages.error(
                 request,
-                "We need to set up your company before anyone can be added — "
-                "please contact your Medifinance representative.",
+                "Please add your company details first — then you can add "
+                "someone applying with you.",
             )
             return redirect(page)
         form = CustomerApplicantForm(request.POST, deal=deal)

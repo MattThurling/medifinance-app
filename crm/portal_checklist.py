@@ -82,10 +82,15 @@ def outstanding_items(deal: Deal, *, user=None) -> list[Item]:
             who = "Your details" if is_me else (person.full_name or person.email or "Co-applicant")
             items.append(Item(f"{who}: {', '.join(missing)}", person_anchor(person)))
 
-    if deal.organisation_id and not own_only:
-        missing = organisation_missing_fields(deal.organisation)
-        if missing:
-            items.append(Item(f"Company details: {', '.join(missing)}", "company"))
+    if not own_only:
+        if deal.organisation_id is None:
+            # Partner-API applications start with no company; the lead
+            # applicant adds it from the page's company card.
+            items.append(Item("Tell us about your company", "company"))
+        else:
+            missing = organisation_missing_fields(deal.organisation)
+            if missing:
+                items.append(Item(f"Company details: {', '.join(missing)}", "company"))
 
     # customer_quotes honours a prefetch; on commercial deals it is only the
     # approved Terms rows — the customer never chooses between unapproved ones.

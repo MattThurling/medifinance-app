@@ -62,6 +62,20 @@ def make_organisation(**extra) -> Organisation:
     return Organisation.objects.create(**extra)
 
 
+def make_unverified_organisation(deal: Deal, *, by_user=None, **extra) -> Organisation:
+    """An organisation the deal's customer created from the portal: linked
+    to ``deal``, submitted by them, not yet verified. Goes through the real
+    service so tests see exactly what the portal produces."""
+    from crm import org_review
+
+    Deal.objects.filter(pk=deal.pk).update(organisation=None)
+    deal.organisation = None
+    extra.setdefault("name", f"Customer Org {_next()}")
+    return org_review.create_customer_organisation(
+        deal, extra, by_user=by_user or deal.customer.user,
+    )
+
+
 def make_contact(*, user=None, organisation: Organisation | None = None,
                  **extra) -> Contact:
     n = _next()

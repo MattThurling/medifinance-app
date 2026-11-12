@@ -4,7 +4,7 @@ Import order follows the FK dependency graph (base -> organisation ->
 contact -> deal -> children) — do not alphabetize.
 """
 from .base import LenderStatus, TimestampedModel, _hubspot_url
-from .organisation import Organisation
+from .organisation import Organisation, OrganisationChange
 from .contact import Contact
 from .deal import Deal, DealCoApplicant
 from .participation import (
@@ -31,6 +31,7 @@ __all__ = [
     "TimestampedModel",
     "_hubspot_url",
     "Organisation",
+    "OrganisationChange",
     "Contact",
     "Deal",
     "DealCoApplicant",

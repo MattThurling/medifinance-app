@@ -216,6 +216,87 @@ Migration `0050_move_fees_to_quote_add_source_identifier`.
 
 ---
 
+## Customer-provided organisation details and staff review (2026-11-12)
+
+Partner-API deals are created with no organisation, and until now the portal
+gave the customer no way to supply one (and so no way to add co-applicants).
+The lead applicant can now create their company and edit all of its
+customer-facing details; staff review what they enter. Everything goes
+through `crm/org_review.py`.
+
+Decisions (agreed with Matt):
+
+- **Hybrid application.** A customer-created organisation is live and linked
+  to the deal immediately, but `is_unverified` until a staff member clicks
+  Verify. On any other organisation, contact details (address, phone, email,
+  website) save immediately and are queued as an *applied*
+  `OrganisationChange`; name, trading name and Companies House number are
+  held as a *proposal* and only saved on approval. Reason: holding everything
+  would leave the customer stuck (no company card, no co-applicants), while
+  letting a customer rename a shared, verified record unreviewed is unsafe —
+  a rename shows up everywhere that organisation is used.
+- **Any staff member who can see the organisation may review** (admin or
+  associate, via `visible_organisations`). No admin-only gate.
+- **Customers type, they never search** — a search would expose other
+  customers' companies. The review panel lists likely duplicates (same
+  normalised Companies House number, or name similarity >= 0.85 using the
+  HubSpot migration's normaliser) and offers "Use this instead".
+- **Signature requests are blocked while the deal's organisation is
+  unverified** (create and re-send; `organisation_blocks_signing` in
+  `crm/views/signature.py`). The organisation name is prefilled into the
+  DocuSeal template, so an unchecked customer-typed name must not reach an
+  agreement. Emailing an existing pending request is not blocked — its values
+  were fixed when it was created.
+
+Rules worth knowing before changing this:
+
+- "Free edit" is for the **submitter of an unverified organisation only**
+  (`may_edit_freely`). Staff can attach an unverified organisation to a second
+  deal (the picker is unscoped); that deal's customer takes the hybrid path
+  and cannot rename it.
+- A held proposal is shown in the portal **only to the customer who made it**.
+  One pending row per (organisation, submitter, applied); later edits merge.
+- The Companies House number is **never required** from a customer, whatever
+  the deal's company type: partnerships that aren't limited have none (Matt,
+  2026-11-12). It is only hidden for sole traders, and format-checked when
+  given. Staff confirm it when verifying.
+- `legal_name`, `sector` and `owner` are never on a customer form. Staff fill
+  in the registered name from Companies House when verifying.
+- The portal company edit **never calls `form.save()`** — a ModelForm would
+  write the held fields. The view passes `cleaned_data` to
+  `record_customer_edit`, which re-reads the row under a lock and decides the
+  mode from the database, so a verification that lands mid-edit is honoured.
+- Recording a proposal bumps the organisation's `updated_at` even though no
+  field changed, so the portal's optimistic lock catches a stale second tab.
+- Rejecting an applied contact-detail change reverts each field **only if it
+  still holds the customer's value**; a later staff edit wins. The customer is
+  not notified of a rejection (v1) — the representative follows up.
+- There is no "reject" for an unverified organisation: verify it, edit then
+  verify, or swap it for an existing record.
+- **Swap** (`swap_to_existing`): only for an unverified organisation, only
+  onto a record `likely_duplicates` offers at POST time (so a forged POST
+  can't move a deal onto an arbitrary organisation), and refused if anything
+  other than deals, notes and stage events points at the duplicate
+  (participations, proposals, quotes, rate bands, users, API keys, introduced
+  deals). Deals, notes and stages are repointed first — a plain delete would
+  cascade the audit notes — contacts join the target, the customer's
+  differing contact details become a pending proposal on the target, then the
+  duplicate is deleted. After a swap the customer can see and edit the
+  existing record's contact details in their portal; the confirm dialog says
+  so.
+- `DealForm.clean_organisation` stops a stale staff deal form (rendered with
+  no organisation) blanking one the customer created in the meantime.
+- Partner-API deals are unowned, so the organisation created from them is
+  unowned too and therefore visible to every associate, even though the deal
+  itself is admin-only until someone takes ownership. The review panel only
+  links to deals the viewer can see.
+- Migration `0051_organisation_review` has no data step. Apply it to
+  `db-old.sqlite3` too if the HubSpot preview DB is rebuilt.
+
+Not done: a Companies House API lookup (staff follow the deep link and check
+by hand), customer notification on rejection, and a general organisation
+merge tool (the swap covers only the customer-created-duplicate case).
+
 ## Email
 
 - Prod: Mailgun HTTP API via django-anymail, `send.medifinance.co.uk`, EU region, From `Medifinance <info@medifinance.co.uk>`. Needs the `mailgun-api-key` secret and `EMAIL_ENABLED=true` repo variable.

@@ -1,0 +1,138 @@
+{% load icons %}
+{% comment %}
+Staff review of organisation details a customer entered in the portal.
+`review` comes from crm.org_review.review_context (None = nothing to review,
+and this renders nothing); `next_url` is the page to return to after an
+action. Included on the organisation page and on the deal page. Plain POST
+forms + redirect, like the rest of the staff pages.
+{% endcomment %}
+{% if review %}
+{% with org=review.org %}
+<div class="card bg-base-100 shadow border border-warning w-full" id="organisation-review">
+  <div class="card-body">
+    <h2 class="card-title text-base">
+      {% icon "circle-alert" class="h-5 w-5 text-warning" %}
+      Customer-entered organisation details to review
+    </h2>
+
+    {% if review.unverified %}
+      <p class="text-sm">
+        <a href="{{ org.get_absolute_url }}" class="link link-hover font-medium">{{ org.name }}</a>
+        was added from the portal by {{ org.submitted_by.full_name|default:"a customer" }}
+        on {{ org.created_at|date:"j M Y" }} and has not been verified.
+        Signature requests on its deals are blocked until it is.
+      </p>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm mt-2">
+        <div><dt class="opacity-60 inline">Name&nbsp;</dt><dd class="inline">{{ org.name }}</dd></div>
+        <div><dt class="opacity-60 inline">Trading name&nbsp;</dt><dd class="inline">{{ org.trading_name|default:"—" }}</dd></div>
+        <div>
+          <dt class="opacity-60 inline">Companies House&nbsp;</dt>
+          <dd class="inline">
+            {% if org.companies_house_number %}
+              <a href="{{ org.companies_house_url }}" target="_blank" rel="noopener" class="link">{{ org.companies_house_number }}</a>
+            {% else %}—{% endif %}
+          </dd>
+        </div>
+        <div><dt class="opacity-60 inline">Registered name&nbsp;</dt><dd class="inline">{{ org.legal_name|default:"not filled in yet" }}</dd></div>
+        <div><dt class="opacity-60 inline">Address&nbsp;</dt><dd class="inline">{{ org.display_address|default:"—"|linebreaksbr }}</dd></div>
+        <div><dt class="opacity-60 inline">Phone&nbsp;</dt><dd class="inline">{{ org.phone|default:"—" }}</dd></div>
+        <div><dt class="opacity-60 inline">Email&nbsp;</dt><dd class="inline">{{ org.email|default:"—" }}</dd></div>
+        <div><dt class="opacity-60 inline">Website&nbsp;</dt><dd class="inline">{{ org.url|default:"—" }}</dd></div>
+      </dl>
+
+      {% if review.unlinked %}
+        <p class="text-sm text-warning mt-2">This organisation is not linked to any deal.</p>
+      {% elif review.deals %}
+        <p class="text-sm mt-2">
+          <span class="opacity-60">On:</span>
+          {% for d in review.deals %}<a href="{{ d.get_absolute_url }}" class="link link-hover">{{ d.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
+      {% endif %}
+
+      {% if review.duplicates %}
+        <div class="mt-3">
+          <p class="text-sm font-medium">Possible duplicates already in the CRM</p>
+          <ul class="divide-y divide-base-200 text-sm">
+            {% for dup in review.duplicates %}
+              <li class="py-2 flex items-center justify-between gap-3 flex-wrap">
+                <span>
+                  <a href="{{ dup.get_absolute_url }}" class="link link-hover font-medium">{{ dup.name }}</a>
+                  {% if dup.companies_house_number %}<span class="opacity-60">· {{ dup.companies_house_number }}</span>{% endif %}
+                  <span class="badge badge-ghost badge-xs ml-1">{{ dup.match_reason }}</span>
+                </span>
+                {% if not review.swap_blocker %}
+                  <form method="post" action="{% url 'crm:organisation_use_existing' org.pk %}"
+                        onsubmit="return confirm('Use {{ dup.name|escapejs }} instead? The deal and its applicants move to that record, and the customer will be able to see and edit its contact details in their portal. The record they created is deleted.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="target" value="{{ dup.pk }}">
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    <button type="submit" class="btn btn-xs btn-outline">Use this instead</button>
+                  </form>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+          {% if review.swap_blocker %}<p class="text-xs opacity-60">{{ review.swap_blocker }}</p>{% endif %}
+        </div>
+      {% endif %}
+
+      <div class="card-actions justify-end mt-2">
+        <a href="{% url 'crm:organisation_update' org.pk %}" class="btn btn-sm btn-ghost">Edit details</a>
+        <form method="post" action="{% url 'crm:organisation_verify' org.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next_url }}">
+          <button type="submit" class="btn btn-sm btn-primary">{% icon "shield-check" class="h-4 w-4" %} Verify</button>
+        </form>
+      </div>
+    {% endif %}
+
+    {% for change in review.changes %}
+      <div class="{% if review.unverified or not forloop.first %}border-t border-base-200 pt-3 mt-3{% endif %}">
+        <p class="text-sm">
+          {% if change.applied %}
+            {{ change.submitted_by.full_name|default:"A customer" }} changed these details of
+            <a href="{{ org.get_absolute_url }}" class="link link-hover font-medium">{{ org.name }}</a>
+            in the portal. They are <strong>already saved</strong>; rejecting puts the previous values back.
+          {% else %}
+            {{ change.submitted_by.full_name|default:"A customer" }} has asked to change these details of
+            <a href="{{ org.get_absolute_url }}" class="link link-hover font-medium">{{ org.name }}</a>.
+            They are <strong>not saved</strong> until approved.
+          {% endif %}
+          <span class="opacity-60">{{ change.updated_at|date:"j M Y" }}</span>
+        </p>
+        <table class="table table-xs w-full mt-1">
+          <thead>
+            <tr>
+              <th></th>
+              <th>{% if change.applied %}Previously{% else %}Current{% endif %}</th>
+              <th>{% if change.applied %}Now{% else %}Requested{% endif %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in change.rows %}
+              <tr>
+                <td class="opacity-60">{{ row.label }}</td>
+                <td>{% if change.applied %}{{ row.old|default:"—" }}{% else %}{{ row.current|default:"—" }}{% endif %}</td>
+                <td class="font-medium">{{ row.new|default:"(blank)" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="card-actions justify-end mt-2">
+          <form method="post" action="{% url 'crm:organisation_change_reject' change.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <button type="submit" class="btn btn-sm btn-ghost text-error">Reject</button>
+          </form>
+          <form method="post" action="{% url 'crm:organisation_change_approve' change.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <button type="submit" class="btn btn-sm btn-primary">Approve</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endwith %}
+{% endif %}

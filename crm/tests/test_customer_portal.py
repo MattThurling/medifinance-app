@@ -51,6 +51,9 @@ def company_form_data(org, **overrides):
     """Valid POST payload for the company edit form (prefix org<pk>)."""
     p = f"org{org.pk}"
     data = {
+        f"{p}-name": org.name,
+        f"{p}-trading_name": org.trading_name,
+        f"{p}-companies_house_number": org.companies_house_number,
         f"{p}-address_line1": org.address_line1,
         f"{p}-address_line2": org.address_line2,
         f"{p}-address_city": org.address_city,
@@ -352,7 +355,7 @@ class InlineEditTests(TestCase):
         self.assertEqual(note.organisation, self.org)
         self.assertEqual(note.author, self.customer)
         self.assertIn("company details", note.content)
-        self.assertIn("Line 1", note.content)
+        self.assertIn("Address line 1", note.content)
         self.assertIn("Phone", note.content)
 
     def test_unchanged_post_creates_no_note(self):
@@ -375,20 +378,45 @@ class InlineEditTests(TestCase):
         self.assertIn("valid email", content)
         self.assertEqual(Note.objects.filter(type=Note.Type.CUSTOMER_UPDATE).count(), 0)
 
-    def test_name_and_ch_number_locked(self):
+    def test_name_and_ch_number_changes_are_held_for_review(self):
+        """On a verified organisation the identity fields are not saved —
+        they become a proposal — while contact details apply at once. The
+        full rules are covered in test_org_review."""
         original_name = self.org.name
-        p = f"org{self.org.pk}"
-        self.client.post(
+        response = self.client.post(
             reverse("crm:my_company_edit", args=[self.org.pk]),
-            {**company_form_data(self.org, address_line1="1 Lock Test"),
-             f"{p}-name": "HIJACKED LTD",
-             f"{p}-companies_house_number": "99999999"},
+            company_form_data(
+                self.org, address_line1="1 Lock Test",
+                name="Renamed Ltd", companies_house_number="99999999",
+            ),
             **HTMX,
         )
         self.org.refresh_from_db()
         self.assertEqual(self.org.name, original_name)
         self.assertEqual(self.org.companies_house_number, "")
         self.assertEqual(self.org.address_line1, "1 Lock Test")
+        # The card shows the live name, with the request listed as pending.
+        self.assertContains(response, original_name)
+        self.assertContains(response, "Renamed Ltd")
+        self.assertContains(response, "waiting for our team to check")
+
+    def test_staff_only_fields_cannot_be_posted(self):
+        staff = make_associate()
+        p = f"org{self.org.pk}"
+        self.client.post(
+            reverse("crm:my_company_edit", args=[self.org.pk]),
+            {**company_form_data(self.org, phone="0117 000000"),
+             f"{p}-legal_name": "FORGED LEGAL NAME LTD",
+             f"{p}-sector": "dental",
+             f"{p}-owner": staff.pk,
+             f"{p}-verified_at": "2020-01-01"},
+            **HTMX,
+        )
+        self.org.refresh_from_db()
+        self.assertEqual(self.org.phone, "0117 000000")
+        self.assertEqual(self.org.legal_name, "")
+        self.assertIsNone(self.org.sector)
+        self.assertIsNone(self.org.owner)
 
     def test_person_edit_saves_with_note_on_contact(self):
         response = self.client.post(
@@ -1156,13 +1184,14 @@ class ApplicantManagementTests(TestCase):
         self.assertContains(response, "Couldn&#x27;t add that person")
         self.assertFalse(self.deal.co_applicants.exists())
 
-    def test_add_without_an_organisation_points_at_the_representative(self):
+    def test_add_without_an_organisation_asks_for_the_company_first(self):
         Deal.objects.filter(pk=self.deal.pk).update(organisation=None)
         page = self._page()
         self.assertNotContains(page, reverse("crm:my_deal_applicant_add", args=[self.deal.pk]))
-        self.assertContains(page, "To add someone applying with you, contact your Medifinance representative")
+        self.assertContains(page, "Add your company below")
+        self.assertContains(page, reverse("crm:my_deal_company_add", args=[self.deal.pk]))
         response = self._add()
-        self.assertContains(response, "contact your Medifinance representative")
+        self.assertContains(response, "Please add your company details first")
         self.assertFalse(Contact.objects.filter(email="jane@example.com").exists())
 
     def test_co_applicant_cannot_add_or_remove(self):

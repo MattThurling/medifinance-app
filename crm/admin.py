@@ -6,6 +6,7 @@ from .models import (
     Document,
     Note,
     Organisation,
+    OrganisationChange,
     Participation,
     PartnerApiRequest,
     Proposal,
@@ -42,7 +43,23 @@ class OrganisationAdmin(admin.ModelAdmin):
         "hubspot_id",
     )
     autocomplete_fields = ("owner",)
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "submitted_by", "verified_at", "verified_by")
+
+
+@admin.register(OrganisationChange)
+class OrganisationChangeAdmin(admin.ModelAdmin):
+    """Read-only audit view — review happens in the CRM (crm.org_review)."""
+
+    list_display = ("organisation", "submitted_by", "applied", "status", "reviewed_by", "created_at")
+    list_select_related = ("organisation", "submitted_by", "reviewed_by")
+    list_filter = ("status", "applied")
+    search_fields = ("organisation__name",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Contact)

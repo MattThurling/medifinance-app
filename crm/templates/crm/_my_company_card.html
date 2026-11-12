@@ -5,7 +5,15 @@
   <div class="card-body">
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h2 class="card-title text-base">{% icon "building" class="h-5 w-5 opacity-70" %} {{ org.name }}</h2>
+        <h2 class="card-title text-base flex-wrap">
+          {% icon "building" class="h-5 w-5 opacity-70" %} {{ org.name }}
+          {% if review.awaiting_review %}
+            <span class="badge badge-info badge-outline badge-sm" title="Our team is checking the company details you gave us.">Being checked</span>
+          {% endif %}
+        </h2>
+        {% if org.trading_name and org.trading_name != org.name %}
+          <p class="text-xs opacity-60 mt-1">Trading as {{ org.trading_name }}</p>
+        {% endif %}
         {% if org.companies_house_number %}
           <p class="text-xs opacity-60 mt-1">Companies House {{ org.companies_house_number }}</p>
         {% endif %}
@@ -26,6 +34,17 @@
       </p>
     {% endif %}
 
+    {% if review.proposal_rows %}
+      <div class="text-sm mt-2 rounded-box bg-base-200 px-3 py-2">
+        <p class="font-medium">Changes you've asked for — waiting for our team to check</p>
+        <ul class="mt-1 space-y-0.5">
+          {% for row in review.proposal_rows %}
+            <li><span class="opacity-60">{{ row.label }}:</span> {{ row.new|default:"(removed)" }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
     <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-3 text-sm">
       <div>
         <dt class="opacity-60">Address</dt>
@@ -38,7 +57,7 @@
       </div>
     </dl>
     <p class="text-xs opacity-50 mt-3">
-      {% if can_edit_company %}To change the company name or Companies House number, contact your Medifinance representative.{% else %}The lead applicant manages the company details.{% endif %}
+      {% if not can_edit_company %}The lead applicant manages the company details.{% elif review.edits_freely %}We'll check these details before any agreement is prepared.{% else %}Changes to the company name or Companies House number are checked by our team before they take effect.{% endif %}
     </p>
   </div>
 </div>
