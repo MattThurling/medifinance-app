@@ -39,8 +39,24 @@ from decimal import Decimal
 from statistics import mean, median
 
 from django.contrib.auth import get_user_model
-from django.db.models import DecimalField, ExpressionWrapper, F, OuterRef, Q, Subquery, Sum, Value
-from django.db.models.functions import Coalesce, Round
+from django.db.models import (
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    IntegerField,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+)
+from django.db.models.functions import (
+    Coalesce,
+    ExtractDay,
+    ExtractMonth,
+    ExtractYear,
+    Round,
+)
 from django.utils import timezone
 
 from accounts.models import Role
@@ -226,6 +242,31 @@ def commission_amount_expr():
         ),
         2,
         output_field=money,
+    )
+
+
+def maturity_sort_expr():
+    """Sort key for a Deal queryset that orders like ``Deal.maturity_date``:
+    the explicit ``term_end_date``, else the first payment date plus the
+    selected quote's priced term − 1 months. NULL when neither is available.
+
+    SQLite and Postgres disagree on month arithmetic, so this is not a date
+    but a portable integer — month ordinal × 100 + day of month. It ignores
+    the end-of-month clamp ``pricing.add_months`` applies (31 Jan + 1 month
+    keys as "31 Feb"), which can only misplace a deal by a day or three
+    within one month. Ordering only — display the property."""
+
+    def key(field, extra_months=None):
+        months = ExtractYear(field) * 12 + ExtractMonth(field)
+        if extra_months is not None:
+            months = months + extra_months
+        return ExpressionWrapper(months * 100 + ExtractDay(field), output_field=IntegerField())
+
+    priced_term = Coalesce(F("selected_quote__commitment_months"), F("selected_quote__term"))
+    return Coalesce(
+        key("term_end_date"),
+        key("first_payment_date", priced_term - 1),
+        output_field=IntegerField(),
     )
 
 

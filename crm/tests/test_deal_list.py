@@ -2,7 +2,7 @@
 stage/type/owner filters — and that they all compose with search + pagination."""
 
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.db import connection
 from django.test import TestCase
@@ -144,6 +144,28 @@ class SortTests(DealListTestCase):
         self.assertEqual(_names(self.get(sort="-activity")), ["Alpha", "Beta"])
         self.assertEqual(_names(self.get(sort="activity")), ["Beta", "Alpha"])
 
+    def test_sort_by_term_end_puts_none_last_both_directions(self):
+        # Alpha: explicit term end. Beta: derived — first payment + 60 months
+        # − 1 = 1 Dec 2030, later than Alpha. Gamma has neither.
+        Deal.objects.filter(pk=self.alpha.pk).update(term_end_date=date(2030, 6, 15))
+        Deal.objects.filter(pk=self.beta.pk).update(first_payment_date=date(2026, 1, 1))
+        select_quote(self.beta, term=60)
+        make_deal(owner=self.staff, name="Gamma")
+        response = self.get(sort="term_end")
+        self.assertEqual(_names(response), ["Alpha", "Beta", "Gamma"])
+        self.assertContains(response, "15 Jun 2030")
+        self.assertContains(response, "1 Dec 2030")
+        self.assertEqual(_names(self.get(sort="-term_end")), ["Beta", "Alpha", "Gamma"])
+
+    def test_sort_by_term_end_uses_commitment_over_full_term(self):
+        # Both first pay on 1 Jan 2026. Alpha's 300-month term is reviewed at
+        # 24 months, so it matures before Beta's plain 60 months.
+        Deal.objects.update(first_payment_date=date(2026, 1, 1))
+        select_quote(self.alpha, term=300, commitment_months=24)
+        select_quote(self.beta, term=60)
+        self.assertEqual(_names(self.get(sort="term_end")), ["Alpha", "Beta"])
+        self.assertEqual(_names(self.get(sort="-term_end")), ["Beta", "Alpha"])
+
     def test_sort_by_type_puts_untyped_last_both_directions(self):
         Deal.objects.filter(pk=self.beta.pk).update(type=Deal.Type.ASSET_FINANCE)
         self.assertEqual(_names(self.get(sort="type")), ["Beta", "Alpha"])
@@ -231,7 +253,10 @@ class TypeFilterTests(DealListTestCase):
 
 
 class ColumnTests(DealListTestCase):
-    HEADERS = ["ID", "Organisation", "Customer", "Deal name", "Amount", "Commission", "Type", "Owner", "Last activity"]
+    HEADERS = [
+        "ID", "Customer", "Deal name", "Amount", "Commission", "Type", "Owner",
+        "Term ends", "Last activity",
+    ]
 
     def header_labels(self, response):
         html = response.content.decode()
@@ -279,7 +304,10 @@ class QueryCountTests(DealListTestCase):
 
         baseline = count_queries()
         for _ in range(5):
-            deal = make_deal(owner=self.staff)
+            # A selected quote + first payment date exercises the derived
+            # Term ends value, which reads the selected quote per row.
+            deal = make_deal(owner=self.staff, first_payment_date=date(2026, 1, 1))
             make_quote(deal)
+            select_quote(deal)
             make_participation(deal)
         self.assertEqual(count_queries(), baseline)

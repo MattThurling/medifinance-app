@@ -53,14 +53,21 @@ class DealListView(SortableListMixin, OwnerFilterMixin, StaffRequiredMixin, Sear
         "commission": F("commission_value"),
         "owner": Lower(Coalesce("owner__first_name", Value(""))),
         "created": F("created_at"),
+        "term_end": F("term_end_sort"),
         "activity": F("last_activity_at"),
     }
 
     def get_queryset(self):
+        # selected_quote: the Term ends column reads Deal.maturity_date.
         qs = _deal_summaries(
-            super().get_queryset().select_related("owner", "customer", "organisation")
+            super().get_queryset().select_related(
+                "owner", "customer", "organisation", "selected_quote"
+            )
         )
-        qs = qs.annotate(commission_value=stats.commission_amount_expr())
+        qs = qs.annotate(
+            commission_value=stats.commission_amount_expr(),
+            term_end_sort=stats.maturity_sort_expr(),
+        )
         qs = self._apply_filters(qs)
         return self.apply_sort(qs)
 
