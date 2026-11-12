@@ -63,7 +63,14 @@ gcloud sql instances create "$SQL_INSTANCE" \
   --edition=ENTERPRISE \
   --tier=db-f1-micro \
   --region="$REGION" \
-  --storage-auto-increase
+  --storage-auto-increase \
+  --backup-start-time=02:00 \
+  --retained-backups-count=14 \
+  --enable-point-in-time-recovery \
+  --retained-transaction-log-days=7 \
+  --deletion-protection
+# Backups, PITR and deletion protection were added to the live instance on
+# 2026-11-12 (`gcloud sql instances patch` with the same flags). See § 9b.
 
 # URL-safe password (no characters that need escaping in a DATABASE_URL)
 export DB_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
@@ -140,7 +147,19 @@ for B in "$DOCS_BUCKET" "$DOCS_BUCKET_PROD"; do
     --uniform-bucket-level-access \
     --public-access-prevention
 done
+
+# Prod holds regulated customer records: keep overwritten/deleted versions.
+# (Applied to the live prod bucket 2026-11-12; dev deliberately left at defaults.)
+gcloud storage buckets update "gs://${DOCS_BUCKET_PROD}" --versioning --soft-delete-duration=30d
+printf '{"rule":[{"action":{"type":"Delete"},"condition":{"isLive":false,"daysSinceNoncurrentTime":90}}]}' > /tmp/lc.json
+gcloud storage buckets update "gs://${DOCS_BUCKET_PROD}" --lifecycle-file=/tmp/lc.json
 ```
+
+With versioning on, an overwrite or delete keeps the previous version as a
+*noncurrent* object for 90 days; soft delete additionally keeps a deleted
+object restorable for 30 days. List and restore with
+`gcloud storage ls -a gs://${DOCS_BUCKET_PROD}/deals/<pk>/` and
+`gcloud storage restore`.
 
 (IAM for the runtime SA is granted in the next step.)
 
@@ -176,6 +195,14 @@ done
 ```
 
 > Tightening later: `secretAccessor` is granted project-wide here for simplicity. For least privilege, grant it per-secret instead.
+
+> **The runtime SA must not hold `roles/editor`.** GCP grants Editor to the
+> Compute default SA automatically when a project is created; it was removed
+> from this project on 2026-11-12 (it could drop every database and empty
+> every bucket). The three explicit grants above are everything the app
+> needs — verified by running the migrate job and a storage read/write/delete
+> probe with Editor gone. On a fresh project, remove it:
+> `gcloud projects remove-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${RUNTIME_SA}" --role=roles/editor`
 
 ## 6. Workload Identity Federation (keyless GitHub → GCP)
 
@@ -301,15 +328,114 @@ redeploy so the migrate job rebuilds the schema, then repeat the bootstrap
 above. Postgres refuses the drop while a connection is open — if the service
 has a warm instance, wait for it to scale to zero and retry. The
 `database-url-${ENV}` secret doesn't change (same user and database name).
-**Never run this on an environment holding real customer data.**
+**Never run this on an environment holding real customer data.** The guard
+line below refuses anything but dev; since 2026-11-12 prod is treated as
+real, so resetting it means deliberately editing the guard, and taking an
+on-demand backup first is mandatory (§9b).
 
 ```bash
+ENV=dev
+[ "$ENV" = "dev" ] || { echo "Refusing to reset '$ENV' — only dev is disposable"; exit 1; }
+gcloud sql backups create --instance "$SQL_INSTANCE" --description "pre-reset ${ENV}"
 gcloud sql databases delete "medifinance_${ENV}" --instance "$SQL_INSTANCE" --quiet
 gcloud sql databases create "medifinance_${ENV}" --instance "$SQL_INSTANCE"
 ```
 
 The environment's documents bucket is separate from the database; empty it too
 if the old uploads should go (`gcloud storage rm -r "gs://${BUCKET}/**"`).
+
+## 9b. Database backups
+
+Three layers, set up 2026-11-12. All three are live; none of them need
+anything from the app.
+
+| Layer | What | Where | Retention |
+|---|---|---|---|
+| Instance backups | Nightly snapshot of the whole instance (all databases) at 02:00 UTC, plus point-in-time recovery from WAL | Cloud SQL → `medifinance-sql` → Backups | 14 snapshots; 7 days of transaction logs |
+| Logical export | `pg_dump` of `medifinance_prod` only, gzipped, at 03:00 UTC | `gs://medifinance-sql-backups/prod/` | 35 days (bucket lifecycle), bucket is versioned with 30-day soft delete |
+| Deletion protection | Instance cannot be deleted until the flag is cleared | instance setting | — |
+| Prod documents bucket | Object versioning + soft delete on `medifinance-medifinance-docs-prod` (§4b) | the bucket itself | noncurrent versions 90 days; soft-deleted objects 30 days |
+
+**Why both snapshot and export.** A Cloud SQL restore replaces the *whole
+instance* — prod, dev and DocuSeal together — and instance backups are
+deleted with the instance. The per-database export can be imported into any
+instance on its own and survives the instance being deleted. Dev is not
+exported: it is rebuilt from the HubSpot import.
+
+**How the export runs.** Cloud Scheduler job `export-prod-db-nightly`
+(europe-west2) POSTs to the Cloud Workflow `export-prod-db`, which calls the
+SQL Admin export API. Both run as the service account
+`sql-backup@medifinance.iam.gserviceaccount.com` (`roles/cloudsql.editor`
+for the export, `roles/workflows.invoker` for the trigger). The Cloud SQL
+instance's own service agent has `storage.objectAdmin` on the bucket. The
+workflow source is `infra/export-prod-db.workflow.yaml`; the deploy command
+is in its header comment.
+
+```bash
+# See what exists
+gcloud sql backups list --instance=medifinance-sql
+gcloud storage ls -l gs://medifinance-sql-backups/prod/
+
+# Export now, outside the schedule
+gcloud workflows run export-prod-db --location=europe-west2
+
+# Check the last few runs
+gcloud workflows executions list export-prod-db --location=europe-west2 --limit=5
+```
+
+**Restoring one database from an export** (the normal case):
+
+```bash
+# 1. Drop and recreate the target DB (see "Resetting an environment's database")
+# 2. Import — the Cloud SQL service agent needs objectViewer on the bucket (it has objectAdmin)
+gcloud sql import sql medifinance-sql gs://medifinance-sql-backups/prod/<file>.sql.gz \
+  --database=medifinance_prod
+```
+
+**Restoring the whole instance from a snapshot or to a point in time** —
+remember this rewinds every database on the instance. Prefer restoring into
+a *clone* and copying the one database you need:
+
+```bash
+gcloud sql instances clone medifinance-sql medifinance-sql-restore \
+  --point-in-time='2026-11-12T08:00:00Z'
+# then `gcloud sql export sql medifinance-sql-restore ... --database=medifinance_prod`
+# and `gcloud sql import sql medifinance-sql ...` as above; delete the clone after.
+```
+
+### Restore rehearsal (2026-11-12)
+
+Both paths were rehearsed with the dev data (≈2.1k deals, 900 contacts,
+1.7k organisations; prod was empty so would have proved nothing). Neither
+touched dev or prod.
+
+**Path A — single database from an export.** Export `medifinance_dev` to
+`gs://medifinance-sql-backups/rehearsal/` (17 s, 774 KB gzipped); create
+`medifinance_restore_test` on the same instance; `gcloud sql import sql …
+--database=medifinance_restore_test --user=medifinance` (18 s). Verified by
+a throwaway Cloud Run job built from the app image with `DATABASE_URL`
+pointed at the copy: `manage.py check` clean, `migrate --check` clean, and
+row counts for all 23 `crm`/`accounts`/`auth` models identical to dev.
+Wall-clock including verification: about 10 minutes. Pass `--user` on the
+import; the dump carries `OWNER TO medifinance` statements.
+
+**Path B — point-in-time clone of the instance.** `gcloud sql instances
+clone medifinance-sql medifinance-sql-restore --point-in-time=<15 min
+earlier>` took **26 minutes** for this 10 GB db-f1-micro (budget for that in
+an incident). The clone had all four databases as of the chosen moment
+(a scratch DB created after that moment was correctly absent). Verified the
+same way, with the job's `--set-cloudsql-instances` pointing at the clone:
+checks clean, all counts identical to dev. The clone inherits
+**deletion protection**, so `patch --no-deletion-protection` before
+`delete`. The rehearsal export of dev was deleted from the bucket
+afterwards — dev holds migrated real customer data.
+
+To verify a restore the same way: build a job from the current image with
+`--set-cloudsql-instances`, the `django-secret-*` secret and a temporary
+`DATABASE_URL` secret, and run `manage.py shell -c` with a snippet that calls
+`check`, `migrate --check` and prints `Model.objects.count()` for every
+model; diff against the same snippet run against the source. Delete the job
+and the temporary secret afterwards.
 
 ## 10. Custom domains (global load balancer)
 

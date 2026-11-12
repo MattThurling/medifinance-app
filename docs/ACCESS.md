@@ -8,7 +8,7 @@ secret itself; it says where each one lives and who can grant it.
 | System | What it's for | How access is granted |
 |---|---|---|
 | **GitHub** `MattThurling/medifinance-app` | Code, CI/CD (GitHub Actions), repo variables listed in DEPLOYMENT.md §7 | Repo admin adds a collaborator. Deploys need no personal cloud credentials: Actions uses Workload Identity Federation (DEPLOYMENT.md §6) |
-| **Google Cloud** project | Cloud Run services (`medifinance-dev/prod`, `docuseal-dev`), Cloud SQL (one instance, `medifinance_dev` / `medifinance_prod` / DocuSeal DBs), Artifact Registry, Secret Manager, GCS document buckets, the global load balancer and certs, billing | Project Owner grants IAM roles. The project id is the `GCP_PROJECT_ID` repo variable |
+| **Google Cloud** project | Cloud Run services (`medifinance-dev/prod`, `docuseal-dev`), Cloud SQL (one instance, `medifinance_dev` / `medifinance_prod` / DocuSeal DBs), Artifact Registry, Secret Manager, GCS document buckets, the database backup bucket `medifinance-sql-backups` and the Scheduler/Workflow that fills it (DEPLOYMENT.md §9b), the global load balancer and certs, billing | Project Owner grants IAM roles. The project id is the `GCP_PROJECT_ID` repo variable |
 | **Domain registrar** for `medifinance.co.uk` | DNS A records for `app`, `app-dev`, `sign` → LB IP `34.54.188.97`; Mailgun DNS records for `send.medifinance.co.uk` | Managed by hand by the owner; registrar login is theirs |
 | **Mailgun** | Prod outbound email from `send.medifinance.co.uk` (EU region) | Account owner invites a user. Sending key is the `mailgun-api-key` secret in Secret Manager |
 | **Mailtrap** | Dev inbox (sandbox SMTP) | Owner's account; credentials in Secret Manager for dev |

@@ -1,0 +1,36 @@
+# Nightly logical export of the prod database to Cloud Storage.
+#
+# Deployed as the Cloud Workflow `export-prod-db` and triggered by the Cloud
+# Scheduler job `export-prod-db-nightly` (see docs/DEPLOYMENT.md § Backups).
+# Each run writes one dated, gzipped pg_dump of medifinance_prod to
+# gs://medifinance-sql-backups/prod/. The bucket's lifecycle rule deletes
+# files after 35 days.
+#
+# Redeploy after editing:
+#   gcloud workflows deploy export-prod-db --location=europe-west2 \
+#     --source=infra/export-prod-db.workflow.yaml \
+#     --service-account=sql-backup@medifinance.iam.gserviceaccount.com
+
+main:
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - instance: "medifinance-sql"
+          - database: "medifinance_prod"
+          - stamp: ${text.replace_all(text.substring(time.format(sys.now()), 0, 16), ":", "")}
+          - uri: ${"gs://medifinance-sql-backups/prod/medifinance_prod-" + stamp + ".sql.gz"}
+    - export:
+        call: googleapis.sqladmin.v1.instances.export
+        args:
+          project: ${project}
+          instance: ${instance}
+          body:
+            exportContext:
+              fileType: SQL
+              databases: [${database}]
+              uri: ${uri}
+              offload: false
+        result: op
+    - done:
+        return: ${uri}

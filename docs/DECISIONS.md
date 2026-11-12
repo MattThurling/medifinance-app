@@ -39,6 +39,35 @@ backup was taken first (ID `1794474799215`, "pre-release 57f1a0b") because 0050
 drops `Deal.commission` and `Deal.document_fee`. The backup covers the whole
 instance, so restoring it would also roll back the dev database.
 
+**Backups turned on 2026-11-12.** Until this date the instance had *no*
+automated backups, no point-in-time recovery and no deletion protection
+(the create command in DEPLOYMENT.md never set them). Now: nightly instance
+snapshots at 02:00 UTC (14 kept), PITR with 7 days of WAL, deletion
+protection, and a nightly `pg_dump` of `medifinance_prod` alone to
+`gs://medifinance-sql-backups/prod/` at 03:00 UTC via Cloud Scheduler →
+Workflow `export-prod-db` (source `infra/export-prod-db.workflow.yaml`,
+35-day retention). The export exists because an instance restore rewinds
+dev and DocuSeal too, and because instance backups die with the instance.
+Same day, the prod documents bucket got object versioning (noncurrent
+versions kept 90 days) and 30-day soft delete; the dev bucket was left at
+defaults. Full runbook in DEPLOYMENT.md §9b. Gotcha: a freshly granted IAM role took
+about a minute to propagate; the first workflow run failed with
+"IAM permission denied" and the retry succeeded. Restore was rehearsed the same
+day on dev data, both from an export (import 18 s) and via a point-in-time
+clone (26 min); write-up in DEPLOYMENT.md §9b. Still to do: consider an
+off-Google copy (encrypted, second provider) for account-loss scenarios.
+
+**Blast-radius trim 2026-11-12.** The Cloud Run runtime SA (Compute default
+SA) had project-wide `roles/editor` from project creation — enough to drop
+databases and empty buckets. Removed; it keeps only `cloudsql.client`,
+`secretmanager.secretAccessor` and bucket-level `storage.objectAdmin` on the
+two documents buckets. Verified on dev afterwards: `migrate-dev` ran, a
+throwaway job wrote/read/deleted an object in the dev bucket and counted
+users over Cloud SQL, and a fresh `medifinance-dev` revision served the
+login page. `deployer` only ever had `cloudsql.client`, so CI cannot touch
+databases. The DB-reset recipe in DEPLOYMENT.md §9 now refuses any `ENV`
+other than `dev` and takes an on-demand backup first.
+
 **gcloud needs `--project=medifinance`** (or `gcloud config set project
 medifinance`) on a machine whose default project is something else; the
 project id is `medifinance`, region `europe-west2`.
