@@ -1,0 +1,26 @@
+{% load icons %}
+{% comment %}
+"What we still need from you" on the customer's deal page. The inline saves
+on that page (details, company, quote, document upload) swap only their own
+card, so they answer with an `HX-Trigger: portal-changed` header and this
+block re-fetches itself to stay in step.
+{% endcomment %}
+<div id="outstanding"
+     class="alert {% if outstanding %}alert-warning items-start{% else %}alert-success{% endif %}"
+     hx-get="{% url 'crm:my_deal_outstanding' deal.pk %}"
+     hx-trigger="portal-changed from:body" hx-swap="outerHTML">
+  {% if outstanding %}
+    {% icon "circle-alert" class="h-5 w-5 shrink-0" %}
+    <div>
+      <h2 class="font-semibold">What we still need from you</h2>
+      <ul class="list-disc list-inside text-sm mt-1 space-y-0.5">
+        {% for item in outstanding %}
+          <li><a href="#{{ item.anchor }}" class="link link-hover">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% else %}
+    {% icon "circle-check" class="h-5 w-5 shrink-0" %}
+    <span>Nothing outstanding — thank you. We'll be in touch if we need anything else.</span>
+  {% endif %}
+</div>

@@ -25,24 +25,7 @@
   </div>
 
   {# ---- What we still need from you ---- #}
-  {% if outstanding %}
-    <div class="alert alert-warning items-start" id="outstanding">
-      {% icon "circle-alert" class="h-5 w-5 shrink-0" %}
-      <div>
-        <h2 class="font-semibold">What we still need from you</h2>
-        <ul class="list-disc list-inside text-sm mt-1 space-y-0.5">
-          {% for item in outstanding %}
-            <li><a href="#{{ item.anchor }}" class="link link-hover">{{ item.label }}</a></li>
-          {% endfor %}
-        </ul>
-      </div>
-    </div>
-  {% else %}
-    <div class="alert alert-success" id="outstanding">
-      {% icon "circle-check" class="h-5 w-5 shrink-0" %}
-      <span>Nothing outstanding — thank you. We'll be in touch if we need anything else.</span>
-    </div>
-  {% endif %}
+  {% include "crm/_my_outstanding.html" %}
 
   {# ---- Your details (customer + co-applicants; inline edit) ---- #}
   <div class="space-y-6" id="people">

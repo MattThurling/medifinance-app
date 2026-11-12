@@ -83,6 +83,12 @@ def _deal_summaries(qs):
     )
 
 
+# HX-Trigger event sent with every successful inline save on the customer's
+# deal page. Those responses swap only their own card; the "What we still need
+# from you" block (crm/_my_outstanding.html) listens for this and re-fetches
+# itself.
+PORTAL_CHANGED = "portal-changed"
+
 # Priority order for label ties — a stage change often creates sibling records
 # in the same instant, so it wins; the stage label itself is derived per row.
 _ACTIVITY_LABELS = [

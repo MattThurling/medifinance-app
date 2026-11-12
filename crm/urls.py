@@ -112,6 +112,7 @@ urlpatterns = [
     path("my/people/<int:pk>/edit/", views.MyPersonEditView.as_view(), name="my_person_edit"),
     path("my/deals/", views.MyDealListView.as_view(), name="my_deals"),
     path("my/deals/<int:pk>/", views.MyDealDetailView.as_view(), name="my_deal_detail"),
+    path("my/deals/<int:pk>/outstanding/", views.MyDealOutstandingView.as_view(), name="my_deal_outstanding"),
     path("my/deals/<int:pk>/quotes/", views.MyDealQuoteSelectView.as_view(), name="my_deal_quote_select"),
     path("my/deals/<int:deal_pk>/sign/<int:sr_pk>/", views.MyDealSignView.as_view(), name="my_deal_sign"),
     # The primary applicant adds / removes people from their company.

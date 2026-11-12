@@ -779,6 +779,51 @@ class ActionBadgeTests(TestCase):
         self.assertContains(response, "Nothing outstanding")
         self.assertNotContains(response, "What we still need from you")
 
+    def test_inline_save_tells_the_checklist_to_refresh(self):
+        """Inline saves swap only their own card, so they announce the change
+        and the checklist block re-fetches itself."""
+        contact = self.deal.customer
+        contact.phone = ""
+        contact.save()
+        contact.refresh_from_db()
+        outstanding_url = reverse("crm:my_deal_outstanding", args=[self.deal.pk])
+
+        page = self.client.get(reverse("crm:my_deal_detail", args=[self.deal.pk]))
+        self.assertContains(page, f'hx-get="{outstanding_url}"')
+        self.assertContains(page, 'hx-trigger="portal-changed from:body"')
+        self.assertContains(self.client.get(outstanding_url, **HTMX), "Your details: phone")
+
+        response = self.client.post(
+            reverse("crm:my_person_edit", args=[contact.pk]),
+            person_form_data(contact, phone="07700 900123", date_of_birth="1980-01-01"),
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["HX-Trigger"], "portal-changed")
+
+        refreshed = self.client.get(outstanding_url, **HTMX)
+        self.assertContains(refreshed, "Nothing outstanding")
+        self.assertNotContains(refreshed, "What we still need from you")
+
+    def test_invalid_inline_save_does_not_refresh_the_checklist(self):
+        contact = self.deal.customer
+        response = self.client.post(
+            reverse("crm:my_person_edit", args=[contact.pk]),
+            person_form_data(contact, date_of_birth="not a date"),
+            **HTMX,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("HX-Trigger", response)
+
+    def test_checklist_partial_is_scoped_to_the_customers_own_deals(self):
+        _, other_deal = make_customer_with_deal()
+        url = reverse("crm:my_deal_outstanding", args=[other_deal.pk])
+        self.assertEqual(self.client.get(url, **HTMX).status_code, 404)
+
+    def test_checklist_partial_without_htmx_redirects_to_the_deal_page(self):
+        response = self.client.get(reverse("crm:my_deal_outstanding", args=[self.deal.pk]))
+        self.assertRedirects(response, reverse("crm:my_deal_detail", args=[self.deal.pk]))
+
     def test_badge_counts_outstanding_items(self):
         make_document(self.deal, name="Bank statements")  # requested
         make_signature_request(self.deal)  # sent

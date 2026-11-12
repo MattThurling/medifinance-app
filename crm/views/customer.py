@@ -44,7 +44,7 @@ from ..forms import (
 )
 from ..models import Contact, Note, Organisation
 from ..portal_checklist import deal_people, outstanding_items
-from .shared import CustomerRequiredMixin
+from .shared import PORTAL_CHANGED, CustomerRequiredMixin
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +182,9 @@ class _EditPartialView(_CustomerCardView):
             if not self.is_htmx(request):
                 messages.success(request, f"{self.section.capitalize()} saved.")
                 return redirect(self.page_url)
-            return self.render_card(request, obj)
+            response = self.render_card(request, obj)
+            response["HX-Trigger"] = PORTAL_CHANGED
+            return response
         if not self.is_htmx(request):
             messages.error(request, f"Couldn't save {self.section} — please try again.")
             return redirect(self.page_url)
@@ -318,6 +320,22 @@ class MyDealDetailView(CustomerRequiredMixin, View):
         )
 
 
+class MyDealOutstandingView(CustomerRequiredMixin, View):
+    """GET …/outstanding/ — the "What we still need from you" block on its
+    own. The deal page re-fetches it after every inline save (see
+    PORTAL_CHANGED) so the list never lags behind the cards."""
+
+    def get(self, request, pk):
+        deal = get_object_or_404(customer_deals(request.user), pk=pk)
+        if request.headers.get("HX-Request") != "true":
+            return redirect("crm:my_deal_detail", pk=deal.pk)
+        return render(
+            request,
+            "crm/_my_outstanding.html",
+            {"deal": deal, "outstanding": outstanding_items(deal, user=request.user)},
+        )
+
+
 class _PrimaryDealView(CustomerRequiredMixin, View):
     """Base for actions only the primary applicant may take on a deal: load
     it through the portal scope (404 when it isn't theirs at all), then 403
@@ -360,13 +378,16 @@ class MyDealQuoteSelectView(_PrimaryDealView):
                     deal=deal,
                 )
         if is_htmx:
-            return render(
+            response = render(
                 request,
                 "crm/_my_quotes_card.html",
                 {"deal": deal, "quotes": deal.customer_quotes, "quote_saved": saved,
                  "can_select_quote": True,
                  "quote_error": None if saved else "Please pick one of the quotes."},
             )
+            if saved:
+                response["HX-Trigger"] = PORTAL_CHANGED
+            return response
         if saved:
             messages.success(request, "Quote selected — thank you.")
         else:

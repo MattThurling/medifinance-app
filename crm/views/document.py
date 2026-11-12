@@ -12,7 +12,7 @@ from accounts.permissions import StaffRequiredMixin
 from ..access import visible_deals
 from ..forms import DocumentRequestForm, DocumentUploadForm
 from ..models import Document, Note
-from .shared import ParentDealMixin, VisibleDealChildMixin
+from .shared import PORTAL_CHANGED, ParentDealMixin, VisibleDealChildMixin
 
 
 def _can_access_document(user, doc: Document) -> bool:
@@ -79,7 +79,9 @@ class DocumentUploadView(LoginRequiredMixin, View):
             if is_htmx:
                 # Portal inline upload: swap the document row in place. No
                 # flash message — it would pop as a stale toast later.
-                return render(request, "crm/_my_document_row.html", {"d": doc})
+                response = render(request, "crm/_my_document_row.html", {"d": doc})
+                response["HX-Trigger"] = PORTAL_CHANGED
+                return response
             messages.success(request, f"“{doc.name}” uploaded.")
         else:
             error = next(iter(form.errors.get("file", [])), "Please choose a file.")
