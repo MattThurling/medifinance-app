@@ -243,7 +243,7 @@ In the repo: **Settings → Secrets and variables → Actions → Variables** (n
 | `MAILGUN_API_URL` | *(optional)* Mailgun API base URL for the region the sending domain lives in. Defaults to the EU region, `https://api.eu.mailgun.net/v3`; set `https://api.mailgun.net/v3` for a US-region domain. |
 | `GS_BUCKET_NAME` | **dev** documents bucket (`$DOCS_BUCKET`) — required for uploaded documents to persist |
 | `GS_BUCKET_NAME_PROD` | **prod** documents bucket (`$DOCS_BUCKET_PROD`). Unset = prod uploads land on the container disk and vanish on restart. |
-| `NOTIFY_EMAILS` | *(optional)* comma-separated staff addresses notified about new API-created deals. Defaults to `mnthurling@gmail.com`. |
+| `NOTIFY_EMAILS` | *(optional)* comma-separated staff addresses notified about new API-created deals, supplier invoices, portal-added applicants and organisations, and deal-owner notifications on deals with no owner. Defaults to `mnthurling@gmail.com`. |
 | `ACCOUNTS_EMAILS` | *(optional)* comma-separated accounts addresses notified when staff request a commission invoice from a deal. Defaults to `mnthurling@gmail.com`. |
 | `TWO_FACTOR_REQUIRED_ROLES` | *(optional)* **dev** — comma-separated roles that must use two-factor authentication (`admin`, `associate`, `customer`, or `all`), e.g. `admin,associate`. Those users are forced to enrol an authenticator app at their next sign-in and asked for a code on every login. Unset = nobody is forced (anyone can still opt in under Account → Security). An unknown role name fails the deploy's startup checks. |
 | `TWO_FACTOR_REQUIRED_ROLES_PROD` | *(optional)* **prod** — same format, gated separately so dev can trial a stricter (or looser) set first. Unset = nobody is forced on prod. |

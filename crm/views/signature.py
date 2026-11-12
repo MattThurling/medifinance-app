@@ -18,7 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from accounts.permissions import StaffRequiredMixin
 
-from .. import docuseal
+from .. import docuseal, notifications
 from ..access import scope_to_visible_deals, visible_deals
 from ..forms import SignatureRequestForm
 from ..models import Contact, SignatureRequest
@@ -86,11 +86,13 @@ class DocuSealWebhookView(View):
         if not submission_id:
             return JsonResponse({"ok": True})
 
+        newly_completed = False
         try:
             with transaction.atomic():
                 sr = (
                     SignatureRequest.objects
                     .select_for_update()
+                    .select_related("deal__owner")
                     .filter(submission_id=submission_id)
                     .first()
                 )
@@ -110,19 +112,28 @@ class DocuSealWebhookView(View):
                         sr.decline_reason = data.get("decline_reason") or ""
                         sr.save(update_fields=["status", "declined_at", "decline_reason", "updated_at"])
                 elif event in ("form.completed", "submission.completed"):
-                    self._handle_completed(sr, data)
+                    newly_completed = self._handle_completed(sr, data)
         except docuseal.DocuSealError as exc:
             logger.error("DocuSeal webhook for submission %s: %s", submission_id, exc)
             return JsonResponse({"error": "docuseal_unreachable"}, status=502)
 
+        if newly_completed:
+            # Outside the transaction: the row lock is released, and a mail
+            # failure can't roll back the completion or ask DocuSeal to retry.
+            notifications.notify_signature_completed(request, sr)
+
         return JsonResponse({"ok": True})
 
     @staticmethod
-    def _handle_completed(sr: SignatureRequest, data: dict) -> None:
+    def _handle_completed(sr: SignatureRequest, data: dict) -> bool:
+        """Store the signed files and mark the request completed. Returns
+        True only on the delivery that flips it to completed, so the deal
+        owner is told once."""
         # Duplicate delivery (or form.completed followed by submission.completed)
         # must be a no-op once the signed file is in.
         if sr.status == SignatureRequest.Status.COMPLETED and sr.signed_file:
-            return
+            return False
+        already_completed = sr.status == SignatureRequest.Status.COMPLETED
 
         # Verify-then-fetch: treat our own API call as the source of truth
         # rather than the webhook body someone POSTed at us.
@@ -132,7 +143,7 @@ class DocuSealWebhookView(View):
                 "DocuSeal sent a completed event for submission %s but the API says %r",
                 sr.submission_id, submission.get("status"),
             )
-            return
+            return False
 
         files = docuseal.get_submission_documents(sr.submission_id)
         if files:
@@ -150,6 +161,7 @@ class DocuSealWebhookView(View):
         sr.signer_ip = submitter.get("ip") or data.get("ip") or None
         sr.signer_user_agent = (submitter.get("ua") or data.get("ua") or "")[:512]
         sr.save()
+        return not already_completed
 
 
 class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):

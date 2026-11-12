@@ -1,0 +1,11 @@
+{% autoescape off %}{{ headline }}
+
+Deal: {{ deal_name }}
+{% for label, value in rows %}{{ label }}: {{ value }}
+{% endfor %}
+View it in the CRM:
+
+{{ deal_url }}
+
+Medifinance
+{% endautoescape %}

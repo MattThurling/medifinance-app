@@ -9,6 +9,7 @@ from django.views.generic import CreateView, DeleteView
 
 from accounts.permissions import StaffRequiredMixin
 
+from .. import notifications
 from ..access import visible_deals
 from ..forms import DocumentRequestForm, DocumentUploadForm
 from ..models import Document, Note
@@ -76,6 +77,9 @@ class DocumentUploadView(LoginRequiredMixin, View):
                     content=f"{request.user.full_name} uploaded “{doc.name}”{detail}.",
                     deal=doc.deal,
                 )
+            notifications.notify_document_uploaded(
+                request, doc, actor=request.user, file_count=len(files),
+            )
             if is_htmx:
                 # Portal inline upload: swap the document row in place. No
                 # flash message — it would pop as a stale toast later.

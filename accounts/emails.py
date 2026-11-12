@@ -141,8 +141,11 @@ def send_supplier_invoice_submitted_email(
     client_org_name: str,
     amount_display: str,
     invoice_number: str,
+    to: list[str] | None = None,
 ) -> None:
-    """Tell the NOTIFY_EMAILS staff list that a supplier uploaded their invoice."""
+    """Tell staff that a supplier uploaded their invoice. ``to`` defaults to
+    the NOTIFY_EMAILS list; the upload view passes the deal owner plus that
+    list (see ``crm.notifications.owner_and_staff_recipients``)."""
     context = {
         "deal_name": deal_name,
         "deal_url": deal_url,
@@ -155,7 +158,36 @@ def send_supplier_invoice_submitted_email(
     text_body = render_to_string("email/supplier_invoice_submitted.txt", context)
     html_body = render_to_string("email/supplier_invoice_submitted.html", context)
 
-    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=settings.NOTIFY_EMAILS))
+    _send_with_retry(_build_message(
+        subject=subject, text_body=text_body, html_body=html_body,
+        to=to if to is not None else settings.NOTIFY_EMAILS,
+    ))
+
+
+def send_deal_owner_notification_email(
+    *,
+    to: list[str],
+    subject: str,
+    headline: str,
+    deal_name: str,
+    deal_url: str,
+    rows: list[tuple[str, str]],
+) -> None:
+    """Tell a deal's owner that something happened on their deal (a quote was
+    selected, a document uploaded, an agreement signed). One generic layout:
+    a headline sentence, the deal name, ``rows`` of (label, value) detail
+    lines, and a link to the deal. Callers go through
+    ``crm.notifications.notify_deal_owner``, which picks the recipients."""
+    context = {
+        "headline": headline,
+        "deal_name": deal_name,
+        "deal_url": deal_url,
+        "rows": [(label, value) for label, value in rows if value],
+    }
+    text_body = render_to_string("email/deal_owner_notification.txt", context)
+    html_body = render_to_string("email/deal_owner_notification.html", context)
+
+    _send_with_retry(_build_message(subject=subject, text_body=text_body, html_body=html_body, to=to))
 
 
 def send_applicant_added_email(

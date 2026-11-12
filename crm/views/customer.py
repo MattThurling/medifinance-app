@@ -35,7 +35,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 
-from .. import applicants, docuseal
+from .. import applicants, docuseal, notifications
 from ..access import PRIMARY, deal_role, may_sign, portal_deals
 from ..forms import (
     CustomerApplicantForm,
@@ -443,6 +443,7 @@ class MyDealQuoteSelectView(_PrimaryDealView):
                     content=f"{request.user.full_name} selected a quote: {detail}.",
                     deal=deal,
                 )
+                notifications.notify_quote_selected(request, deal, quote, actor=request.user)
         if is_htmx:
             response = render(
                 request,

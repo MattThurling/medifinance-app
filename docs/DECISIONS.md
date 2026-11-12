@@ -304,6 +304,25 @@ merge tool (the swap covers only the customer-created-duplicate case).
 - Local: Mailpit on localhost (no auth; `EMAIL_HOST_USER` empty skips SMTP AUTH, `EMAIL_HOST_PASSWORD` non-empty only to select the SMTP backend).
 - With no credentials at all the console backend logs the email.
 
+### Deal-owner notifications (2026-11-12)
+
+`crm/notifications.py` emails a deal's owner when something happens on their deal:
+
+| Event | Trigger | Recipients |
+|---|---|---|
+| E-signature signed | DocuSeal webhook, on the delivery that flips the request to Completed (duplicate deliveries send nothing) | owner |
+| Quote / Terms selected | portal `MyDealQuoteSelectView` and staff `QuoteSelectView`, only when the selection actually changes | owner |
+| Document uploaded | `DocumentUploadView` (customer or staff) | owner |
+| Supplier invoice uploaded | `SubmitParticipationInvoiceView` | owner **and** `NOTIFY_EMAILS` (the staff list already got this email; the owner was added), de-duplicated |
+
+Rules, all in `owner_recipients`:
+
+- The owner is **not** emailed about their own action (selecting a quote or uploading a document on their own deal). A colleague doing it on their deal does notify them.
+- A deal with no owner, or an inactive one, falls back to `NOTIFY_EMAILS` so it is never silent. Partner-API deals start unowned, so until someone takes ownership their notifications go to that list.
+- Sends are synchronous and best-effort: a failure is logged (`crm.notifications`) and never breaks the upload / selection / webhook. The webhook sends after its row-locking transaction, so a slow mailserver can't hold the lock or make DocuSeal retry.
+- There is no per-user opt-out and no batching: several documents uploaded one after another are several emails. On dev the Mailtrap sandbox throttles back-to-back sends, so a burst can make each request wait on the retry in `accounts.emails._send_with_retry`.
+- The first three share one template (`templates/email/deal_owner_notification.*`); a new owner notification is one small function in `crm/notifications.py`.
+
 ---
 
 ## Open items (2026-11-04)

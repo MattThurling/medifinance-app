@@ -153,7 +153,7 @@ class SupplierInvoiceSubmitTests(TestCase):
         latest = Stage.objects.filter(deal=self.deal).order_by("-occurred_at", "-pk").first()
         self.assertEqual(latest.name, Stage.Name.SUPPLIER_INVOICE_RECEIVED)
 
-    def test_valid_post_notifies_staff(self):
+    def test_valid_post_notifies_owner_and_staff(self):
         link = self._issue_link()
         self.client.post(
             self._url(link.token),
@@ -164,7 +164,8 @@ class SupplierInvoiceSubmitTests(TestCase):
         )
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
-        self.assertEqual(message.to, ["staff@medi-finance.co.uk"])
+        # The deal owner first, then the NOTIFY_EMAILS staff list.
+        self.assertEqual(message.to, [self.staff.email, "staff@medi-finance.co.uk"])
         self.assertIn("Client Co", message.subject)
         self.assertIn("Acme Supplies", message.body)
         self.assertIn("INV-007", message.body)

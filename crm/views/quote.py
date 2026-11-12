@@ -7,6 +7,7 @@ from django.views.generic import CreateView, DeleteView, UpdateView
 
 from accounts.permissions import StaffRequiredMixin
 
+from .. import notifications
 from ..access import scope_to_visible_deals, visible_deals
 from ..forms import QuoteForm, TermsForm
 from ..lender_status import emit_status_stage, notify_client_of_approval
@@ -123,9 +124,18 @@ class QuoteSelectView(StaffRequiredMixin, View):
 
     def post(self, request, pk):
         quote = get_object_or_404(
-            scope_to_visible_deals(Quote.objects.select_related("deal"), request.user), pk=pk
+            scope_to_visible_deals(
+                Quote.objects.select_related("deal__owner", "rate__organisation", "lender"),
+                request.user,
+            ),
+            pk=pk,
         )
+        changed = quote.deal.selected_quote_id != quote.pk
         Deal.objects.filter(pk=quote.deal_id).update(selected_quote=quote)
+        if changed:
+            # No-op for the owner's own click; tells them when a colleague
+            # picks on their deal.
+            notifications.notify_quote_selected(request, quote.deal, quote, actor=request.user)
         return redirect(quote.deal.get_absolute_url())
 
 

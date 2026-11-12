@@ -12,6 +12,7 @@ from accounts.permissions import StaffRequiredMixin
 from ..access import scope_to_visible_deals
 from ..forms import ParticipationForm, SupplierInvoiceForm
 from ..models import Participation, ParticipationInvoiceLink, Stage
+from ..notifications import owner_and_staff_recipients
 from .shared import ParentDealMixin, VisibleDealChildMixin
 
 
@@ -232,6 +233,7 @@ class SubmitParticipationInvoiceView(View):
                     client_org_name=deal.organisation.name if deal.organisation else "",
                     amount_display=f"£{participation.amount:,.2f}",
                     invoice_number=participation.invoice_number or "",
+                    to=owner_and_staff_recipients(deal),
                 )
             except Exception:
                 logger.exception("Supplier-invoice notification email failed for participation %s", participation.pk)
