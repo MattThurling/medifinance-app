@@ -20,15 +20,19 @@ primary applicant (``Deal.customer``) or as a co-applicant with a login.
 ``deal_role`` says which of the two they are on a given deal — the primary
 edits everyone's details and the company, chooses the quote and manages
 applicants; a co-applicant edits only themselves and signs only requests
-addressed to them (``may_sign``).
+addressed to them (``may_sign``). Deals created before
+``settings.MIGRATION_DATE`` (the HubSpot cut-over) are left out of the portal
+altogether — see ``migration_cutoff``.
 
 Kept out of ``crm.views`` so ``crm.api``, ``crm.stats``, ``crm.forms`` and
 ``accounts.views`` can import it without pulling in the whole views package.
 """
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from accounts.models import Role
 
@@ -53,10 +57,29 @@ def _owned_by_team(user) -> Q:
     return Q(owner=user)
 
 
+def migration_cutoff():
+    """``settings.MIGRATION_DATE`` as an aware datetime, or ``None`` when it
+    isn't set. Deals created before it predate the move from HubSpot and are
+    hidden from the customer portal. A value with no UTC offset is read in the
+    site's time zone."""
+    cutoff = settings.MIGRATION_DATE
+    if cutoff is not None and timezone.is_naive(cutoff):
+        cutoff = timezone.make_aware(cutoff)
+    return cutoff
+
+
+def hidden_from_portal(deal) -> bool:
+    """Whether ``deal`` predates the HubSpot migration, so no customer can
+    see it in the portal (staff use this to avoid sending a dead link)."""
+    cutoff = migration_cutoff()
+    return cutoff is not None and deal.created_at < cutoff
+
+
 def portal_deals(user):
     """Deals a customer sees in the portal: those where their contact is the
-    primary applicant (``Deal.customer``) or a co-applicant. Anyone else gets
-    none.
+    primary applicant (``Deal.customer``) or a co-applicant, and which were
+    created on or after the HubSpot migration (``migration_cutoff``). Anyone
+    else gets none.
 
     The co-applicant term is a ``pk__in`` subquery over the through table, so
     the result has no join on Deal and needs no ``distinct()`` — a customer
@@ -68,7 +91,11 @@ def portal_deals(user):
     co_applicant_deal_ids = (
         Deal.co_applicants.through.objects.filter(contact__user=user).values("deal_id")
     )
-    return Deal.objects.filter(Q(customer__user=user) | Q(pk__in=co_applicant_deal_ids))
+    deals = Deal.objects.filter(Q(customer__user=user) | Q(pk__in=co_applicant_deal_ids))
+    cutoff = migration_cutoff()
+    if cutoff is not None:
+        deals = deals.filter(created_at__gte=cutoff)
+    return deals
 
 
 PRIMARY = "primary"
@@ -106,8 +133,8 @@ def visible_deals(user):
     * admin      -> every deal, including unowned ones (owner is NULL)
     * associate  -> deals owned by anyone in their organisation, or just
                     their own when they have no organisation
-    * customer   -> deals they are on, as primary or co-applicant
-                    (see ``portal_deals``)
+    * customer   -> deals they are on, as primary or co-applicant, created
+                    since the HubSpot migration (see ``portal_deals``)
     * anonymous / anything else -> none
     """
     if not user.is_authenticated:

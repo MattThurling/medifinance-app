@@ -3,9 +3,11 @@ Django settings for the Medifinance CRM.
 """
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -234,6 +236,22 @@ LOGGING = {
 
 # HubSpot — used to build deep-links from records to their HubSpot equivalents.
 HUBSPOT_PORTAL_ID = os.getenv("HUBSPOT_PORTAL_ID", "3378161")
+
+
+# Date of the final migration from HubSpot. The customer portal hides every
+# deal created before it (see ``crm.access.portal_deals``); staff still see
+# them. ISO format: a date ("2027-01-15" = midnight at the start of that day,
+# Europe/London) or a full date-time ("2027-01-15T18:30"). Unset = nothing is
+# hidden. A value that doesn't parse stops the app from starting, rather than
+# quietly showing customers their old deals.
+_migration_date = os.getenv("MIGRATION_DATE", "").strip()
+try:
+    MIGRATION_DATE = datetime.fromisoformat(_migration_date) if _migration_date else None
+except ValueError as exc:
+    raise ImproperlyConfigured(
+        f"MIGRATION_DATE={_migration_date!r} is not an ISO date or date-time "
+        "(expected e.g. 2027-01-15 or 2027-01-15T18:30)."
+    ) from exc
 
 
 # Xero — credentials for the developer app (one app per environment). Without

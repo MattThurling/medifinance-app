@@ -191,6 +191,16 @@ jobs:
           fi
           ENVVARS="${ENVVARS}|TWO_FACTOR_ISSUER=${TFA_ISSUER}"
 
+          # HubSpot cut-over: the customer portal hides deals created before
+          # it (ISO date or date-time, UK time). Gated per env like 2FA: dev
+          # reads MIGRATION_DATE, prod reads MIGRATION_DATE_PROD. Unset =
+          # nothing is hidden.
+          MIGRATION_DATE="${{ vars.MIGRATION_DATE }}"
+          if [ "$SUFFIX" = "prod" ]; then
+            MIGRATION_DATE="${{ vars.MIGRATION_DATE_PROD }}"
+          fi
+          ENVVARS="${ENVVARS}|MIGRATION_DATE=${MIGRATION_DATE}"
+
           gcloud run deploy "${{ steps.target.outputs.service }}" \
             --image "$IMAGE" \
             --region "$REGION" \

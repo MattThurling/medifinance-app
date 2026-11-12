@@ -5,7 +5,7 @@ from django.views import View
 
 from accounts.permissions import StaffRequiredMixin
 
-from ..access import get_visible_deal_or_404, visible_contacts
+from ..access import get_visible_deal_or_404, hidden_from_portal, visible_contacts
 
 
 class _PortalLinkMixin(StaffRequiredMixin):
@@ -32,6 +32,14 @@ class _PortalLinkMixin(StaffRequiredMixin):
             NoCustomerEmailError,
             issue_portal_link_for_deal,
         )
+        if hidden_from_portal(deal):
+            # The link would land the customer on a 404.
+            messages.error(
+                request,
+                "Can't issue a link: this deal was created before the HubSpot "
+                "migration, so it isn't shown in the customer portal.",
+            )
+            return None, None
         try:
             link, dup_warning = issue_portal_link_for_deal(
                 deal, contact=contact, created_by=request.user,

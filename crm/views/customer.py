@@ -44,7 +44,7 @@ from ..forms import (
     CustomerInfoForm,
     QuoteSelectionForm,
 )
-from ..models import Contact, Note, Organisation
+from ..models import Contact, Deal, Note, Organisation
 from .. import org_review
 from ..portal_checklist import deal_people, outstanding_items
 from .shared import PORTAL_CHANGED, CustomerRequiredMixin
@@ -89,16 +89,20 @@ def _notify_team_of_organisation_review(request, organisation, *, kind, field_la
         logger.exception("Organisation review notification failed for organisation %s", organisation.pk)
 
 
+def _primary_portal_deals(user):
+    """The portal-visible deals on which ``user`` is the primary applicant."""
+    return portal_deals(user).filter(customer__user=user)
+
+
 def customer_organisations(user):
     """Orgs a customer may see/edit: those on deals where they are the
     primary applicant. Co-applicants never edit the company — and their own
     organisation memberships don't count, since adding someone to a deal
-    also adds them to its organisation."""
-    return (
-        Organisation.objects.filter(deals__customer__user=user)
-        .distinct()
-        .order_by("name")
-    )
+    also adds them to its organisation. Only deals the portal shows count
+    (``portal_deals`` drops those from before the HubSpot migration)."""
+    return Organisation.objects.filter(
+        pk__in=_primary_portal_deals(user).values("organisation_id")
+    ).order_by("name")
 
 
 def customer_people(user):
@@ -106,14 +110,13 @@ def customer_people(user):
     deals where they are the primary applicant. A co-applicant therefore
     gets only themselves. Never other contacts of their organisations.
     Tolerates a user with no linked contact (dup-email edge) — they just see
-    less."""
-    return (
-        Contact.objects.filter(
-            Q(user=user) | Q(co_applicant_deals__customer__user=user)
-        )
-        .distinct()
-        .order_by("last_name", "first_name")
-    )
+    less. As with organisations, only deals the portal shows count."""
+    co_applicant_ids = Deal.co_applicants.through.objects.filter(
+        deal__in=_primary_portal_deals(user)
+    ).values("contact_id")
+    return Contact.objects.filter(
+        Q(user=user) | Q(pk__in=co_applicant_ids)
+    ).order_by("last_name", "first_name")
 
 
 def customer_deals(user):

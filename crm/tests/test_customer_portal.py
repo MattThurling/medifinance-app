@@ -4,12 +4,15 @@ The HTMX contract under test: card partial → edit partial → save returns the
 card partial (or errors in place); every save that changed something logs one
 customer_update Note; everything is scoped to the logged-in customer."""
 
+from datetime import datetime, timedelta
+
 from django.core.exceptions import PermissionDenied  # noqa: F401 (documentation)
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from django.conf import settings
 from django.core import mail
+from django.utils import timezone
 
 from accounts.models import MagicLink
 from crm.models import Contact, Deal, DealCoApplicant, Note
@@ -315,6 +318,84 @@ class IsolationTests(TestCase):
         self.assertEqual(note.author, co.user)
         self.assertEqual(note.contact, co)
         self.assertIn(co.user.full_name, note.content)
+
+
+CUTOFF = datetime(2026, 6, 1)  # naive: read as Europe/London
+
+
+@override_settings(MIGRATION_DATE=CUTOFF)
+class MigrationDateTests(TestCase):
+    """Deals created before MIGRATION_DATE (the HubSpot cut-over) don't exist
+    as far as the portal is concerned; staff are unaffected."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer, cls.old_deal = make_customer_with_deal()
+        cls.new_deal = make_deal(
+            customer=cls.old_deal.customer, organisation=cls.old_deal.organisation,
+        )
+        cls.old_co_applicant = make_co_applicant(cls.old_deal)
+        cutoff = timezone.make_aware(CUTOFF)
+        # created_at is auto_now_add, so backdate with an UPDATE.
+        Deal.objects.filter(pk=cls.old_deal.pk).update(created_at=cutoff - timedelta(seconds=1))
+        Deal.objects.filter(pk=cls.new_deal.pk).update(created_at=cutoff)
+        cls.old_deal.refresh_from_db()
+
+    def setUp(self):
+        self.client.force_login(self.customer)
+
+    def test_list_omits_deals_from_before_the_migration(self):
+        response = self.client.get(reverse("crm:my_deals"))
+        self.assertContains(response, self.new_deal.name)
+        self.assertNotContains(response, self.old_deal.name)
+
+    def test_old_deal_pages_404(self):
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.old_deal.pk]))
+        self.assertEqual(response.status_code, 404)
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.new_deal.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_root_ignores_old_deals_when_choosing_a_landing_page(self):
+        self.assertRedirects(
+            self.client.get("/"),
+            reverse("crm:my_deal_detail", args=[self.new_deal.pk]),
+        )
+
+    def test_customer_with_only_old_deals_gets_an_empty_list(self):
+        Deal.objects.filter(pk=self.new_deal.pk).delete()
+        response = self.client.get("/", follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, self.old_deal.name)
+        # ...and nothing reachable only through the old deal stays editable.
+        for url in [
+            reverse("crm:my_company_edit", args=[self.old_deal.organisation_id]),
+            reverse("crm:my_person_edit", args=[self.old_co_applicant.pk]),
+        ]:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url, **HTMX).status_code, 404)
+
+    def test_co_applicant_of_an_old_deal_sees_nothing(self):
+        user = make_customer()
+        make_co_applicant(self.old_deal, user=user)
+        self.client.force_login(user)
+        response = self.client.get(reverse("crm:my_deal_detail", args=[self.old_deal.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_staff_still_see_old_deals_but_cannot_send_a_portal_link(self):
+        self.client.force_login(self.old_deal.owner)
+        response = self.client.get(self.old_deal.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(
+            reverse("crm:deal_issue_portal_link", args=[self.old_deal.pk]), follow=True,
+        )
+        self.assertContains(response, "before the HubSpot migration")
+        self.assertFalse(MagicLink.objects.exists())
+
+    @override_settings(MIGRATION_DATE=None)
+    def test_unset_hides_nothing(self):
+        response = self.client.get(reverse("crm:my_deals"))
+        self.assertContains(response, self.old_deal.name)
+        self.assertContains(response, self.new_deal.name)
 
 
 class InlineEditTests(TestCase):

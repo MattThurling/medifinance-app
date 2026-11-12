@@ -23,6 +23,7 @@ developer's machine.
 | Email | Mailtrap sandbox over SMTP | Mailgun HTTP API from `send.medifinance.co.uk`, From `info@medifinance.co.uk`, EU region |
 | DocuSeal | On (`sign.medifinance.co.uk` → `docuseal-dev`) | Off (`DOCUSEAL_ENABLED_PROD` unset; no prod DocuSeal instance yet) |
 | Forced 2FA | Per `TWO_FACTOR_REQUIRED_ROLES` repo var | Nobody forced (owner's choice) |
+| Portal cut-over (`MIGRATION_DATE`) | `2026-11-01` (`MIGRATION_DATE` repo var, set 2026-11-12) | `2026-12-01` (`MIGRATION_DATE_PROD`, set 2026-11-12; planned final HubSpot migration) |
 | Xero | Connected via the app | Not connected |
 | Partner API keys | ACME demo key (real, non-sandbox) | None issued |
 
@@ -142,6 +143,32 @@ Decisions and state:
 - Still open: 5 active users carry `@tobeconfirmed.email` placeholders in `user_mapping_decisions.csv` pending real addresses from the client; 2 org-merge warnings for cluster 33 are skipped actions worth an eyeball.
 
 ---
+
+### The portal hides deals from before the migration (2026-11-12)
+
+`MIGRATION_DATE` (env var; repo variables `MIGRATION_DATE` for dev and
+`MIGRATION_DATE_PROD` for prod) is the date of the final migration from
+HubSpot. When set, the customer portal behaves as if every deal with
+`created_at` before it does not exist: it is left off the deals list, its
+pages 404, it is ignored when `/` picks a landing page, and its organisation
+and co-applicants are not editable through it. Staff see everything as
+before, but the "send portal link" buttons refuse on such a deal (the link
+would land on a 404). The rule lives in `crm.access.portal_deals` /
+`migration_cutoff`.
+
+- Format: ISO date (`2027-01-15` = 00:00 that day, Europe/London) or
+  date-time (`2027-01-15T18:30`). Unset hides nothing; an unparseable value
+  stops the app from starting.
+- **It depends on how the final migration loads deals.** The
+  `hubspot-migration/build_preview_db.py` build writes HubSpot's own Create
+  Date into `created_at`, so with that route the migration day's date works
+  as-is. The `import_hubspot` management command does **not** carry a create
+  date — `created_at` is the moment the import ran — so with that route the
+  value must be a moment *after the final import finishes* (the next day, or
+  a date-time later the same day), otherwise the imported deals stay visible.
+  Any genuinely new deal created before the cut-off is hidden too.
+- Notification emails and already-issued magic links are not filtered; an
+  old link for a hidden deal lands on a 404.
 
 ## Reporting and stats
 
