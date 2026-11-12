@@ -33,6 +33,16 @@ Site row → `app.medifinance.co.uk`, Organisation "BNP" (pk 1) + 21 rate bands
 via `load_bnp_rates`. Mailgun verified end-to-end with a password-reset send
 the same day. The old `email-host-password` secret was deleted.
 
+**Release 2026-11-12.** `main` fast-forwarded to `develop` (`57f1a0b`) and
+deployed (revision 00006), running migrations 0048–0050. An on-demand Cloud SQL
+backup was taken first (ID `1794474799215`, "pre-release 57f1a0b") because 0050
+drops `Deal.commission` and `Deal.document_fee`. The backup covers the whole
+instance, so restoring it would also roll back the dev database.
+
+**gcloud needs `--project=medifinance`** (or `gcloud config set project
+medifinance`) on a machine whose default project is something else; the
+project id is `medifinance`, region `europe-west2`.
+
 **Rules for prod from here on:** treat it as empty-but-real. Back up before
 destructive ops. **Never run `import_hubspot` on prod** — go-live starts from
 a clean database; dev is the migrated/demo environment.
