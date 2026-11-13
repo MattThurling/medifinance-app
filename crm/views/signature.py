@@ -45,6 +45,22 @@ def organisation_blocks_signing(deal) -> bool:
     return organisation is not None and organisation.is_unverified
 
 
+def _locked_requests():
+    """SignatureRequests with the row locked, for the webhook. Evaluate inside
+    a transaction.
+
+    ``of=("self",)`` is required, not a nicety: ``Deal.owner`` is nullable, so
+    ``select_related("deal__owner")`` is a LEFT OUTER JOIN, and Postgres
+    rejects a bare FOR UPDATE over one ("cannot be applied to the nullable
+    side of an outer join"). SQLite ignores row locks, so the test suite
+    cannot reproduce that — every webhook 500'd on dev instead."""
+    return (
+        SignatureRequest.objects
+        .select_for_update(of=("self",))
+        .select_related("deal__owner")
+    )
+
+
 def _can_access_signature(user, sr: SignatureRequest) -> bool:
     """Anyone who can see the request's deal — admins, the owning associate,
     or any applicant on the deal with a portal login (they are all parties
@@ -89,13 +105,7 @@ class DocuSealWebhookView(View):
         newly_completed = False
         try:
             with transaction.atomic():
-                sr = (
-                    SignatureRequest.objects
-                    .select_for_update()
-                    .select_related("deal__owner")
-                    .filter(submission_id=submission_id)
-                    .first()
-                )
+                sr = _locked_requests().filter(submission_id=submission_id).first()
                 if sr is None:
                     logger.info("DocuSeal webhook %s for unknown submission %s", event, submission_id)
                 elif event in ("form.viewed", "form.started"):

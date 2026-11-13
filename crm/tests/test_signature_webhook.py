@@ -134,3 +134,13 @@ class DocuSealWebhookTests(TestCase):
         self.assertEqual(r.status_code, 502)
         self.sr.refresh_from_db()
         self.assertEqual(self.sr.status, SignatureRequest.Status.SENT)
+
+    # -- locking ------------------------------------------------------------
+
+    def test_row_lock_covers_only_the_signature_request(self):
+        # Deal.owner is nullable, so the webhook's select_related("deal__owner")
+        # is a LEFT OUTER JOIN and Postgres refuses a bare FOR UPDATE over it.
+        # SQLite ignores row locks, so the 500 itself can't be reproduced here;
+        # pin the lock target instead.
+        from crm.views.signature import _locked_requests
+        self.assertEqual(_locked_requests().query.select_for_update_of, ("self",))

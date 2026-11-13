@@ -119,7 +119,8 @@ Gotchas:
 - Infra: `docuseal-{dev,prod}` Cloud Run services, databases on the existing Cloud SQL instance, dedicated GCS bucket via `GCS_CREDENTIALS` SA-key JSON, `sign.medifinance.co.uk` on the existing LB. `--max-instances=1` is required (in-process background jobs). Other deployment gotchas (HOST env, `--no-cpu-throttling` for in-process email jobs, Rails DB-URL form, `{{submitter.link}}` in custom messages) are in DEPLOYMENT.md §11 — read it before touching prod.
 - Django side: `SignatureRequest` is FK'd **directly to `Deal`** (re-keyed 2026-08-20; originally hung off `Document`). The signed PDF lives on `SignatureRequest.signed_file`; the deal page has a dedicated Signatures card. Wrapper `crm/docuseal.py` mirrors `crm/xero.py`. Webhook at `/webhooks/docuseal/` authenticated by the `X-Docuseal-Secret` header. The feature is dark when `DOCUSEAL_URL` is unset.
 - **Prefill field names** (renamed 2026-08-20): templates must use `Client Name` / `Client Address` plus `Customer Email`, `Organisation`, `Deal Name`, `Amount`, `Date`. Templates built before then used "Customer Name" and must be renamed by hand in the DocuSeal UI on each instance.
-- Status: dev live end-to-end since 2026-08-10 (send → sign → signed PDF + audit log in GCS, verified on deal 2109). Outstanding: the webhook in the DocuSeal console was never configured (the test completion was hand-delivered); **prod DocuSeal is not provisioned**.
+- Status: dev live end-to-end since 2026-08-10 (send → sign → signed PDF + audit log in GCS, verified on deal 2109). The dev DocuSeal console webhook is configured and delivering (confirmed from the dev request logs, 2026-11-13). Outstanding: **prod DocuSeal is not provisioned**.
+- **2026-11-13 — the webhook's row lock must be `select_for_update(of=("self",))`.** From 12 to 13 Nov every DocuSeal webhook on dev returned 500 (`FOR UPDATE cannot be applied to the nullable side of an outer join`), so signed requests never left Sent. The owner-notification change had added `select_related("deal__owner")` to the locked query; `Deal.owner` is nullable, so that is a LEFT OUTER JOIN, which Postgres will not lock. The rule for any locked query: lock only the row you mean to (`of=("self",)`) if it also `select_related`s a nullable FK. **The test suite runs on SQLite, which ignores row locks, so neither local runs nor CI can catch this** — `test_row_lock_covers_only_the_signature_request` pins the lock target instead. To diagnose webhook trouble, read the `medifinance-dev` request logs for `/webhooks/docuseal` (status per delivery) before suspecting the DocuSeal console. Self-hosted DocuSeal retries a failed delivery with backoff.
 
 ---
 
@@ -355,7 +356,6 @@ Rules, all in `owner_recipients`:
 ## Open items (2026-11-04)
 
 - Prod DocuSeal instance, then repoint `sign.medifinance.co.uk` and set `DOCUSEAL_ENABLED_PROD`.
-- DocuSeal console webhook on dev was never configured.
 - Pipeline → `Deal.type` mapping in the migration build.
 - Five migrated staff users still have placeholder emails.
 - **HubSpot migration redo:** port "Salesman Commission" and "Doc Fee" onto a quote per deal (see "Commission and fees live on the quote"). Until then migrated deals show no commission and report commission totals are zero.
