@@ -275,6 +275,16 @@ Decisions (agreed with Matt):
   DocuSeal template, so an unchecked customer-typed name must not reach an
   agreement. Emailing an existing pending request is not blocked — its values
   were fixed when it was created.
+- **Nothing goes out for signature while the deal has no owner**
+  (2026-11-13; `signing_block_message` in `crm/views/signature.py`). Create,
+  Send and Re-send are all refused and the deal page hides those buttons, so
+  there is always an owner to be told when it is signed. Partner-API deals
+  start unowned, so someone must take ownership first. Unlike the organisation
+  block this one does cover Send. Voiding, the customer opening a request
+  already in their portal, and the webhook are not blocked; a completion on a
+  deal that has since lost its owner still falls back to `NOTIFY_EMAILS`.
+  `Deal.owner` stays nullable for now — making it required was considered and
+  deferred (the partner API would need a default owner).
 
 Rules worth knowing before changing this:
 

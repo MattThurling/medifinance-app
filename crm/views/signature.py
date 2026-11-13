@@ -45,6 +45,23 @@ def organisation_blocks_signing(deal) -> bool:
     return organisation is not None and organisation.is_unverified
 
 
+NO_OWNER_MESSAGE = (
+    "This deal has no owner. Assign one before sending anything for signature."
+)
+
+
+def signing_block_message(deal) -> str | None:
+    """Why a new signing link may not go out on this deal, or None. A deal
+    needs an owner first, so there is someone to be told when it is signed;
+    then ``organisation_blocks_signing``. Emailing an existing pending request
+    checks the owner only (see ``SignatureRequestSendView``)."""
+    if deal.owner_id is None:
+        return NO_OWNER_MESSAGE
+    if organisation_blocks_signing(deal):
+        return UNVERIFIED_ORGANISATION_MESSAGE
+    return None
+
+
 def _locked_requests():
     """SignatureRequests with the row locked, for the webhook. Evaluate inside
     a transaction.
@@ -196,13 +213,15 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
         messages.error(self.request, "DocuSeal isn't configured on this environment yet.")
         return redirect(self.deal.get_absolute_url())
 
-    def _unverified_organisation(self):
-        """Redirect back to the deal while its organisation is unverified,
-        else None. See ``organisation_blocks_signing``."""
-        if not organisation_blocks_signing(self.deal):
+    def _blocked(self):
+        """Redirect back to the deal while it has no owner or its organisation
+        is unverified, else None. See ``signing_block_message``."""
+        message = signing_block_message(self.deal)
+        if message is None:
             return None
-        messages.error(self.request, UNVERIFIED_ORGANISATION_MESSAGE)
-        return redirect(self.deal.get_absolute_url() + "#organisation-review")
+        messages.error(self.request, message)
+        anchor = "#organisation-review" if message == UNVERIFIED_ORGANISATION_MESSAGE else ""
+        return redirect(self.deal.get_absolute_url() + anchor)
 
     def _signers(self):
         pks = [c.pk for c in (self.deal.customer, *self.deal.co_applicants.all()) if c]
@@ -225,7 +244,7 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
         return SignatureRequestForm(data, initial=initial, templates=templates, signers=self._signers())
 
     def get(self, request, **kwargs):
-        if (resp := self._unverified_organisation()) is not None:
+        if (resp := self._blocked()) is not None:
             return resp
         if (resp := self._unconfigured()) is not None:
             return resp
@@ -235,7 +254,7 @@ class SignatureRequestCreateView(StaffRequiredMixin, ParentDealMixin, View):
         return render(request, self.template_name, {"form": form, "parent_deal": self.deal})
 
     def post(self, request, **kwargs):
-        if (resp := self._unverified_organisation()) is not None:
+        if (resp := self._blocked()) is not None:
             return resp
         if (resp := self._unconfigured()) is not None:
             return resp
@@ -294,6 +313,11 @@ class SignatureRequestSendView(StaffRequiredMixin, View):
         if not sr.is_pending:
             messages.error(request, "That signature request has already been sent.")
             return redirect(sr.deal.get_absolute_url())
+        if sr.deal.owner_id is None:
+            # Owner only: the organisation block doesn't apply to a request
+            # whose values were fixed when it was created.
+            messages.error(request, NO_OWNER_MESSAGE)
+            return redirect(sr.deal.get_absolute_url())
         if not sr.submitter_id:
             messages.error(request, "Can't send: DocuSeal didn't return a signer id for this request.")
             return redirect(sr.deal.get_absolute_url())
@@ -351,10 +375,11 @@ class SignatureRequestResendView(StaffRequiredMixin, View):
         if old.is_pending:
             messages.error(request, "That request hasn't been sent yet — use Send instead.")
             return redirect(deal.get_absolute_url())
-        if organisation_blocks_signing(deal):
+        if (message := signing_block_message(deal)) is not None:
             # A re-send builds a fresh submission from today's values.
-            messages.error(request, UNVERIFIED_ORGANISATION_MESSAGE)
-            return redirect(deal.get_absolute_url() + "#organisation-review")
+            messages.error(request, message)
+            anchor = "#organisation-review" if message == UNVERIFIED_ORGANISATION_MESSAGE else ""
+            return redirect(deal.get_absolute_url() + anchor)
         try:
             if old.is_active:
                 docuseal.archive_submission(old.submission_id)

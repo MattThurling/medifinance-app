@@ -411,7 +411,9 @@ layout (main content left, amount + timeline right).
                 </td>
                 <td>{% if sr.sent_at %}{{ sr.sent_at|date:"j M Y" }}{% else %}<span class="opacity-60">—</span>{% endif %}</td>
                 <td class="text-right whitespace-nowrap">
-                  {% if sr.is_pending %}
+                  {% if not deal.owner_id %}
+                    {# No owner: nothing new goes to the signer (see signing_block_message). #}
+                  {% elif sr.is_pending %}
                     <form method="post" action="{% url 'crm:signature_send' sr.pk %}" class="inline">
                       {% csrf_token %}
                       <button type="submit" class="btn btn-ghost btn-xs btn-square" title="Send to {{ sr.signer_email }} for signature">{% icon "send" class="h-3.5 w-3.5" %}</button>
@@ -441,7 +443,11 @@ layout (main content left, amount + timeline right).
             {% endfor %}
           </tbody>
         </table>
-        {% if deal.organisation.is_unverified %}
+        {% if not deal.owner_id %}
+          <p class="text-xs opacity-70 mt-3">
+            Signature requests are blocked until this deal has an owner.
+          </p>
+        {% elif deal.organisation.is_unverified %}
           <p class="text-xs opacity-70 mt-3">
             New signature requests are blocked until <a href="#organisation-review" class="link">the organisation is verified</a>.
           </p>

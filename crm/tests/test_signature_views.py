@@ -284,3 +284,62 @@ class SignatureVoidResendTests(TestCase):
             self.client.post(reverse("crm:signature_void", args=[self.sr.pk])).status_code, 403)
         self.assertEqual(
             self.client.post(reverse("crm:signature_resend", args=[self.sr.pk])).status_code, 403)
+
+
+@override_settings(DOCUSEAL_URL="http://sign.test", DOCUSEAL_API_TOKEN="tok")
+class NoOwnerBlockTests(TestCase):
+    """No signing link reaches the customer while the deal has no owner (as
+    partner-API deals start): create, send and re-send are all refused."""
+
+    def setUp(self):
+        self.admin = factories.make_admin()  # only admins can see unowned deals
+        self.deal = factories.make_deal()
+        self.deal.owner = None
+        self.deal.save()
+        self.pending = factories.make_signature_request(
+            self.deal, status=SignatureRequest.Status.PENDING)
+        self.sent = factories.make_signature_request(self.deal)
+        self.create_url = reverse("crm:deal_sign", args=[self.deal.pk])
+        self.send_url = reverse("crm:signature_send", args=[self.pending.pk])
+        self.resend_url = reverse("crm:signature_resend", args=[self.sent.pk])
+        self.client.force_login(self.admin)
+
+    @mock.patch("crm.docuseal.create_submission")
+    @mock.patch("crm.docuseal.list_templates", return_value=TEMPLATES)
+    def test_new_request_is_blocked(self, _lt, m_create):
+        for response in (self.client.get(self.create_url), self.client.post(self.create_url, {})):
+            self.assertRedirects(response, self.deal.get_absolute_url(), fetch_redirect_response=False)
+        m_create.assert_not_called()
+        self.assertEqual(SignatureRequest.objects.count(), 2)
+
+    @mock.patch("crm.docuseal.send_submitter_email")
+    def test_send_is_blocked(self, m_send):
+        r = self.client.post(self.send_url, follow=True)
+        self.assertContains(r, "has no owner")
+        m_send.assert_not_called()
+        self.pending.refresh_from_db()
+        self.assertEqual(self.pending.status, SignatureRequest.Status.PENDING)
+
+    @mock.patch("crm.docuseal.archive_submission")
+    @mock.patch("crm.docuseal.create_submission")
+    def test_resend_is_blocked(self, m_create, m_archive):
+        r = self.client.post(self.resend_url, follow=True)
+        self.assertContains(r, "has no owner")
+        m_create.assert_not_called()
+        m_archive.assert_not_called()
+        self.assertEqual(SignatureRequest.objects.count(), 2)
+
+    def test_deal_page_hides_the_buttons_until_an_owner_is_assigned(self):
+        page = self.client.get(self.deal.get_absolute_url())
+        self.assertContains(page, "blocked until this deal has an owner")
+        for url in (self.create_url, self.send_url, self.resend_url):
+            self.assertNotContains(page, url)
+        # Voiding an in-flight request is still allowed.
+        self.assertContains(page, reverse("crm:signature_void", args=[self.sent.pk]))
+
+        self.deal.owner = self.admin
+        self.deal.save()
+        page = self.client.get(self.deal.get_absolute_url())
+        self.assertNotContains(page, "blocked until this deal has an owner")
+        for url in (self.create_url, self.send_url, self.resend_url):
+            self.assertContains(page, url)
